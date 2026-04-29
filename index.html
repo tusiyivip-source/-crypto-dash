@@ -971,18 +971,20 @@ class ChartPanel {
     });
 
     // Right-click on chart to set alert
-    chartContainer.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      const rect = chartContainer.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      // Convert pixel to price using chart's price scale
-      const priceScale = this.chart.priceScale('');
-      const price = priceScale.coordinateToPrice(y);
-      if (price != null && !isNaN(price)) {
-        this._showAlertMenu(e.clientX, e.clientY, price);
-      }
-    });
+    const canvas = chartContainer.querySelector('canvas');
+    if (canvas) {
+      canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const rect = chartContainer.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const priceScale = this.chart.priceScale('');
+        const price = priceScale.coordinateToPrice(y);
+        if (price != null && !isNaN(price)) {
+          this._showAlertMenu(e.clientX, e.clientY, price);
+        }
+      });
+    }
   }
 
   async loadData() {
