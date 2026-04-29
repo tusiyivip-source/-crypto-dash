@@ -274,9 +274,9 @@ const STATE = {
   lastRefresh: 0,
   alerts: [],           // { id, symbol, price, direction, triggered, createdAt }
   alertMenuTarget: null,// current alert menu context { symbol, price }
-  dingtalkWebhook: localStorage.getItem('dingtalk_webhook') || '',
-  dingtalkSecret: localStorage.getItem('dingtalk_secret') || '',
-  dingtalkKeyword: localStorage.getItem('dingtalk_keyword') || '告警',
+  dingtalkWebhook: localStorage.getItem('dingtalk_webhook') || 'https://oapi.dingtalk.com/robot/send?access_token=6ba9f50c9de33c9f907d44ac3232acf47b1a44921368dc86503019e1fd4bbae4',
+  dingtalkSecret: localStorage.getItem('dingtalk_secret') || 'SEC08bf2926c8e3de290f7eb14f07749911074a0ba11f41ec14377ae4adcd2d332b',
+  dingtalkKeyword: localStorage.getItem('dingtalk_keyword') || '牛牛',
 };
 
 // ==================== UTILITIES ====================
@@ -1267,7 +1267,7 @@ const DingTalk = {
     if (STATE.dingtalkSecret) {
       const timestamp = Date.now();
       const sign = await this._generateSign(timestamp, STATE.dingtalkSecret);
-      url += (webhook.includes('?') ? '&' : '?') + `timestamp=${timestamp}&sign=${sign}`;
+      url += (webhook.includes('?') ? '&' : '?') + `timestamp=${timestamp}&sign=${encodeURIComponent(sign)}`;
     }
     const dirText = direction === 'above' ? '突破上方' : direction === 'below' ? '跌破下方' : '触碰';
     const emoji = direction === 'above' ? '📈' : direction === 'below' ? '📉' : '↕️';
