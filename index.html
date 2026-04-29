@@ -276,7 +276,7 @@ const STATE = {
   alerts: [],           // { id, symbol, price, direction, triggered, createdAt }
   alertMenuTarget: null,// current alert menu context { symbol, price }
   dingtalkWebhook: localStorage.getItem('dingtalk_webhook') || 'https://oapi.dingtalk.com/robot/send?access_token=6ba9f50c9de33c9f907d44ac3232acf47b1a44921368dc86503019e1fd4bbae4',
-  dingtalkSecret: localStorage.getItem('dingtalk_secret') || 'SEC08bf2926c8e3de290f7eb14f07749911074a0ba11f41ec14377ae4adcd2d332b',
+  dingtalkSecret: localStorage.getItem('dingtalk_secret') || 'SECb3758b7be7949fc2c0a016c9f8d8648b6ed2107083ad09cc3e1993a51a035331',
   dingtalkKeyword: localStorage.getItem('dingtalk_keyword') || '牛牛',
 };
 
@@ -1279,6 +1279,33 @@ class ChartPanel {
 
 // ==================== DINGTALK NOTIFICATION ====================
 const DingTalk = {
+  // Post via local proxy first, fallback to direct (CORS-permitting)
+  async _post(targetUrl, body) {
+    // Try local proxy
+    try {
+      const resp = await fetch('/proxy/dingtalk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: targetUrl, body }),
+      });
+      if (resp.ok) return await resp.json();
+    } catch (e) {
+      // Proxy not available, try direct
+    }
+    // Fallback: direct call (may fail due to CORS)
+    try {
+      const resp = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+      return await resp.json();
+    } catch (e) {
+      console.error('DingTalk send error:', e);
+      return null;
+    }
+  },
+
   async sendAlert(symbol, price, direction, currentPrice) {
     const webhook = STATE.dingtalkWebhook;
     if (!webhook) return;
@@ -1298,9 +1325,7 @@ const DingTalk = {
         text: `## ${emoji} ${keyword}触发\n\n**币种**: ${symbol}\n\n**告警价**: $${fmtPrice(price)}\n\n**当前价**: $${fmtPrice(currentPrice)}\n\n**方向**: ${dirText}\n\n**时间**: ${new Date().toLocaleString('zh-CN')}`,
       },
     });
-    try {
-      await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
-    } catch (e) { console.error('DingTalk send error:', e); }
+    await this._post(url, body);
   },
 
   async sendTest(webhook, secret, keyword, resultEl) {
@@ -1316,13 +1341,14 @@ const DingTalk = {
       msgtype: 'markdown',
       markdown: { title: `${keyword2} 测试`, text: `## 🧪 ${keyword2}测试\n\n**${keyword2}**: 牛牛盯盘系统连接成功！\n\n时间: ${new Date().toLocaleString('zh-CN')}` },
     });
-    const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
-    const data = await resp.json();
+    const data = await this._post(url, body);
     resultEl.style.display = 'block';
-    if (data.errcode === 0) {
+    if (data && data.errcode === 0) {
       resultEl.style.color = 'var(--green)'; resultEl.textContent = '✓ 测试成功！请查看钉钉群消息';
-    } else {
+    } else if (data) {
       resultEl.style.color = 'var(--red)'; resultEl.textContent = `✗ 失败: ${data.errmsg} (code: ${data.errcode})`;
+    } else {
+      resultEl.style.color = 'var(--red)'; resultEl.textContent = '✗ 连接失败，请确认已启动 server.py 代理';
     }
   },
 
