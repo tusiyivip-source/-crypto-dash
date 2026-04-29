@@ -108,7 +108,7 @@ body {
 .panel-change { font-size: 11px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
 .panel-change.up { color: var(--green); background: rgba(14,203,129,0.1); }
 .panel-change.down { color: var(--red); background: rgba(246,70,93,0.1); }
-.panel-actions { display: flex; gap: 2px; position: relative; }
+.panel-actions { display: flex; gap: 2px; }
 .panel-btn {
   width: 20px; height: 20px; border: none; background: transparent;
   color: var(--text-secondary); cursor: pointer; border-radius: 3px;
@@ -117,29 +117,6 @@ body {
 .panel-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
 .panel-btn.remove:hover { background: var(--red); color: #fff; }
 .panel-btn.alert-btn:hover { background: rgba(240,185,11,0.2); color: var(--yellow); }
-.panel-alert-popup {
-  display: none; position: fixed;
-  background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px;
-  padding: 8px; z-index: 1000; min-width: 180px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-}
-.panel-alert-popup.show { display: block; }
-.panel-alert-popup .alert-price-row {
-  display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
-}
-.panel-alert-popup .alert-price-row input {
-  flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 3px;
-  color: var(--text); padding: 4px 8px; font-size: 12px; width: 100px;
-}
-.panel-alert-popup .alert-price-row span { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
-.panel-alert-popup .alert-dir-row { display: flex; gap: 4px; }
-.panel-alert-popup .alert-dir-row button {
-  flex: 1; border: 1px solid var(--border); background: transparent; color: var(--text);
-  padding: 4px 6px; border-radius: 3px; cursor: pointer; font-size: 11px;
-}
-.panel-alert-popup .alert-dir-row button:hover { background: var(--hover); }
-.panel-alert-popup .alert-dir-row button.above:hover { border-color: var(--green); color: var(--green); }
-.panel-alert-popup .alert-dir-row button.below:hover { border-color: var(--red); color: var(--red); }
-.panel-alert-popup .alert-dir-row button.cross:hover { border-color: var(--yellow); color: var(--yellow); }
 .panel-chart { flex: 1; position: relative; min-height: 180px; }
 .panel-footer {
   display: flex; align-items: center; justify-content: space-between;
@@ -855,16 +832,6 @@ class ChartPanel {
         <div class="panel-actions">
           <button class="panel-btn alert-btn" title="设置价格提醒">🔔</button>
           <button class="panel-btn remove" title="移除">×</button>
-          <div class="panel-alert-popup">
-            <div class="alert-price-row">
-              <span>价格</span><input type="text" class="alert-price-input" value="">
-            </div>
-            <div class="alert-dir-row">
-              <button class="above">突破上方</button>
-              <button class="below">跌破下方</button>
-              <button class="cross">触碰</button>
-            </div>
-          </div>
         </div>
       </div>
       <div class="panel-chart" id="chart-${this.symbol}">
@@ -887,40 +854,20 @@ class ChartPanel {
       this.remove();
     });
 
-    // Alert bell button
+    // Alert bell button - reuse the global alertMenu
     const alertBtn = this.panel.querySelector('.alert-btn');
-    const popup = this.panel.querySelector('.panel-alert-popup');
-    const priceInput = popup.querySelector('.alert-price-input');
-
     alertBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      // Close all other popups first
-      document.querySelectorAll('.panel-alert-popup.show').forEach(p => {
-        if (p !== popup) p.classList.remove('show');
-      });
-      // Pre-fill current price from panel data
-      if (this.pairData) {
-        priceInput.value = this.pairData.lastPrice;
-      }
-      // Position popup relative to the bell button
+      const price = this.pairData ? this.pairData.lastPrice : 0;
+      if (!price) return;
       const btnRect = alertBtn.getBoundingClientRect();
-      popup.style.left = Math.min(btnRect.right - 180, window.innerWidth - 200) + 'px';
-      popup.style.top = (btnRect.bottom + 4) + 'px';
-      popup.classList.toggle('show');
-    });
-
-    // Direction buttons
-    popup.querySelectorAll('.alert-dir-row button').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const dir = btn.classList.contains('above') ? 'above' :
-                    btn.classList.contains('below') ? 'below' : 'cross';
-        const price = parseFloat(priceInput.value);
-        if (isNaN(price) || price <= 0) return;
-        const alert = AlertManager.addAlert(this.symbol, price, dir);
-        this.addPriceLine(alert.id, price);
-        popup.classList.remove('show');
-      });
+      // Set target for alertMenu
+      STATE.alertMenuTarget = { symbol: this.symbol, price };
+      // Show the global alert menu near the button
+      const menu = document.getElementById('alertMenu');
+      menu.style.display = 'block';
+      menu.style.left = Math.min(btnRect.left, window.innerWidth - 210) + 'px';
+      menu.style.top = Math.min(btnRect.bottom + 4, window.innerHeight - 180) + 'px';
     });
 
     // Header click to expand/collapse
@@ -928,13 +875,6 @@ class ChartPanel {
       this.panel.classList.toggle('expanded');
       if (this.chart) {
         setTimeout(() => this.chart.resize(), 300);
-      }
-    });
-
-    // Close popup when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!popup.contains(e.target) && e.target !== alertBtn) {
-        popup.classList.remove('show');
       }
     });
   }
