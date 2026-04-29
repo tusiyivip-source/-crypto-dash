@@ -971,20 +971,19 @@ class ChartPanel {
     });
 
     // Right-click on chart to set alert
-    const canvas = chartContainer.querySelector('canvas');
-    if (canvas) {
-      canvas.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        const rect = chartContainer.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const priceScale = this.chart.priceScale('');
-        const price = priceScale.coordinateToPrice(y);
-        if (price != null && !isNaN(price)) {
-          this._showAlertMenu(e.clientX, e.clientY, price);
-        }
-      });
-    }
+    // Use capture phase on container so we get the event before LightweightCharts canvas intercepts it
+    chartContainer.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = chartContainer.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const priceScale = this.chart.priceScale('');
+      const price = priceScale.coordinateToPrice(y);
+      if (price != null && !isNaN(price)) {
+        this._showAlertMenu(e.clientX, e.clientY, price);
+      }
+    }, true);  // capture phase
   }
 
   async loadData() {
