@@ -826,10 +826,11 @@ class ChartPanel {
         borderColor: 'rgba(255,255,255,0.1)',
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 3,
-        barSpacing: 2.5,
+        rightOffset: 2,
+        barSpacing: 7,
         fixLeftEdge: false,
         lockVisibleTimeRangeOnResize: true,
+        minBarSpacing: 3,
       },
       handleScroll: { vertTouchDrag: false, mouseWheel: true, pressedMouseMove: true },
       handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
@@ -998,9 +999,14 @@ class ChartPanel {
     this.chanResult = ChanTheory.analyze(this.candles, this.lowerTFCandles);
     this.drawChanTheory();
 
-    // Fit content on first load only; subsequent updates preserve zoom
+    // First load: show last ~60 candles with readable spacing (barSpacing=7)
     if (!this._initialFitDone) {
-      this.chart.timeScale().fitContent();
+      const total = this.candles.length;
+      const showCount = Math.min(60, total);
+      const fromTime = this.candles[total - showCount].time;
+      const toTime = this.candles[total - 1].time;
+      const padding = (toTime - fromTime) * 0.05;
+      this.chart.timeScale().setVisibleRange({ from: fromTime - padding, to: toTime + padding });
       this._initialFitDone = true;
     }
   }
