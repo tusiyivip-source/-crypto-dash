@@ -1309,11 +1309,12 @@ const DingTalk = {
     if (secret) {
       const timestamp = Date.now();
       const sign = await this._generateSign(timestamp, secret);
-      url += (webhook.includes('?') ? '&' : '?') + `timestamp=${timestamp}&sign=${sign}`;
+      url += (webhook.includes('?') ? '&' : '?') + `timestamp=${timestamp}&sign=${encodeURIComponent(sign)}`;
     }
+    const keyword2 = keyword || '告警';
     const body = JSON.stringify({
       msgtype: 'markdown',
-      markdown: { title: keyword, text: `## 🧪 ${keyword}测试\n\n**${keyword}**: 牛牛盯盘系统连接成功！\n\n时间: ${new Date().toLocaleString('zh-CN')}` },
+      markdown: { title: `${keyword2} 测试`, text: `## 🧪 ${keyword2}测试\n\n**${keyword2}**: 牛牛盯盘系统连接成功！\n\n时间: ${new Date().toLocaleString('zh-CN')}` },
     });
     const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
     const data = await resp.json();
@@ -1343,6 +1344,12 @@ const AlertManager = {
     STATE.alerts.push(alert);
     this._saveAlerts();
     this._updateUI();
+    // Immediately check if alert should trigger
+    const panel = STATE.chartPanels[symbol];
+    if (panel && panel.candles.length > 0) {
+      const currentPrice = panel.candles[panel.candles.length - 1].close;
+      this.checkAlerts(symbol, currentPrice);
+    }
     return alert;
   },
 
