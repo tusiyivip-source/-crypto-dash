@@ -147,6 +147,18 @@ body {
   padding: 8px 12px; border-radius: 6px; font-size: 12px;
   display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
+#toastContainer {
+  position: fixed; top: 16px; right: 16px; z-index: 3000;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.toast {
+  background: var(--panel-bg); border: 1px solid var(--yellow);
+  padding: 10px 16px; border-radius: 8px; font-size: 13px;
+  animation: slideIn 0.3s ease-out;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6); max-width: 350px;
+}
+.toast.triggered { border-color: var(--red); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 /* MODAL */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2000;
@@ -242,6 +254,7 @@ body {
   <div id="chartGrid"></div>
 </div>
 <div id="tooltip"></div>
+<div id="toastContainer"></div>
 
 <script>
 // ==================== CONFIGURATION ====================
@@ -303,6 +316,15 @@ function fmtVolume(v) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function showToast(msg, isAlert) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast' + (isAlert ? ' triggered' : '');
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 5000);
+}
 
 // ==================== BINANCE API ====================
 const BinanceAPI = {
@@ -1283,25 +1305,32 @@ const DingTalk = {
   async _post(targetUrl, body) {
     // Try local proxy
     try {
+      console.log('[钉钉] 尝试通过代理发送...');
       const resp = await fetch('/proxy/dingtalk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: targetUrl, body }),
       });
-      if (resp.ok) return await resp.json();
+      const data = await resp.json();
+      console.log('[钉钉] 代理响应:', data);
+      if (resp.ok) return data;
     } catch (e) {
-      // Proxy not available, try direct
+      console.warn('[钉钉] 代理不可用，尝试直连:', e.message);
     }
     // Fallback: direct call (may fail due to CORS)
     try {
+      console.log('[钉钉] 尝试直连...');
       const resp = await fetch(targetUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
       });
-      return await resp.json();
+      const data = await resp.json();
+      console.log('[钉钉] 直连响应:', data);
+      return data;
     } catch (e) {
-      console.error('DingTalk send error:', e);
+      console.error('[钉钉] 发送失败:', e.message);
+      showToast('钉钉发送失败: ' + e.message, false);
       return null;
     }
   },
@@ -1368,6 +1397,7 @@ const AlertManager = {
     const id = 'alert_' + (this._idCounter++);
     const alert = { id, symbol, price, direction, triggered: false, createdAt: Date.now() };
     STATE.alerts.push(alert);
+    console.log(`[告警添加] ${symbol} ${direction} @ ${price}`);
     this._saveAlerts();
     this._updateUI();
     // Immediately check if alert should trigger
@@ -1407,6 +1437,9 @@ const AlertManager = {
       if (triggered) {
         alert.triggered = true;
         alert._triggeredAt = currentPrice;
+        const dirText = alert.direction === 'above' ? '突破上方' : alert.direction === 'below' ? '跌破下方' : '触碰';
+        console.log(`[告警触发] ${symbol} ${dirText} 告警价:${alert.price} 当前价:${currentPrice}`);
+        showToast(`${symbol} ${dirText} $${fmtPrice(alert.price)} → $${fmtPrice(currentPrice)}`, true);
         DingTalk.sendAlert(symbol, alert.price, alert.direction, currentPrice);
         // Remove price line from chart
         const panel = STATE.chartPanels[symbol];
