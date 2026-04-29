@@ -173,7 +173,7 @@ body {
 /* ALERT MENU */
 .alert-menu {
   position: fixed; z-index: 2001; background: var(--panel-bg);
-  border: 1px solid var(--border); border-radius: 6px; min-width: 200px;
+  border: 1px solid var(--border); border-radius: 6px; min-width: 220px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.6); overflow: hidden;
 }
 .alert-menu-item {
@@ -182,6 +182,14 @@ body {
 .alert-menu-item:hover { background: var(--hover); }
 .alert-menu-sep { height: 1px; background: var(--border); }
 .alert-cancel { color: var(--text-secondary); }
+.alert-menu-input-row { padding: 8px 14px; }
+.alert-price-inline {
+  width: 100%; padding: 6px 8px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); font-size: 14px; font-family: Consolas, monospace;
+  box-sizing: border-box;
+}
+.alert-price-inline:focus { border-color: var(--yellow); outline: none; }
 /* ALERT LINE LABEL */
 .alert-line-label {
   position: absolute; right: 2px; font-size: 10px; font-weight: 700;
@@ -245,6 +253,9 @@ body {
   </div>
   <!-- Alert context menu -->
   <div id="alertMenu" class="alert-menu" style="display:none">
+    <div class="alert-menu-input-row">
+      <input id="alertMenuPrice" type="number" step="any" placeholder="价格" class="alert-price-inline">
+    </div>
     <div class="alert-menu-item" data-dir="above">📈 价格突破上方时告警</div>
     <div class="alert-menu-item" data-dir="below">📉 价格跌破下方时告警</div>
     <div class="alert-menu-item" data-dir="cross">↕️ 价格触碰时告警</div>
@@ -883,8 +894,9 @@ class ChartPanel {
       const price = this.pairData ? this.pairData.lastPrice : 0;
       if (!price) return;
       const btnRect = alertBtn.getBoundingClientRect();
-      // Set target for alertMenu
-      STATE.alertMenuTarget = { symbol: this.symbol, price };
+      // Set target and pre-fill price input
+      STATE.alertMenuTarget = { symbol: this.symbol };
+      document.getElementById('alertMenuPrice').value = price;
       // Show the global alert menu near the button
       const menu = document.getElementById('alertMenu');
       menu.style.display = 'block';
@@ -1258,7 +1270,8 @@ class ChartPanel {
   }
 
   _showAlertMenu(x, y, price) {
-    STATE.alertMenuTarget = { symbol: this.symbol, price };
+    STATE.alertMenuTarget = { symbol: this.symbol };
+    document.getElementById('alertMenuPrice').value = fmtPrice(price);
     const menu = document.getElementById('alertMenu');
     menu.style.display = 'block';
     menu.style.left = Math.min(x, window.innerWidth - 210) + 'px';
@@ -1628,6 +1641,7 @@ class Dashboard {
 
   setupAlertMenu() {
     const menu = document.getElementById('alertMenu');
+    const priceInput = document.getElementById('alertMenuPrice');
     // Handle alert menu clicks
     menu.querySelectorAll('.alert-menu-item').forEach(item => {
       item.addEventListener('click', () => {
@@ -1635,11 +1649,14 @@ class Dashboard {
         const target = STATE.alertMenuTarget;
         menu.style.display = 'none';
         if (!dir || !target) return;
+        // Read price from input (user may have edited it)
+        const price = parseFloat(priceInput.value);
+        if (isNaN(price) || price <= 0) return;
         // Add alert
-        const alert = AlertManager.addAlert(target.symbol, target.price, dir);
+        const alert = AlertManager.addAlert(target.symbol, price, dir);
         // Draw price line on chart
         const panel = STATE.chartPanels[target.symbol];
-        if (panel) panel.addPriceLine(alert.id, target.price);
+        if (panel) panel.addPriceLine(alert.id, price);
       });
     });
     // Close menu on click outside
