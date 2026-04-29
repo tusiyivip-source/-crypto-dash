@@ -220,10 +220,14 @@ body {
       <input id="dingtalkWebhook" type="text" placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx" style="width:100%;padding:8px;margin:8px 0;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;">
       <label>签名密钥（可选，加签方式）</label>
       <input id="dingtalkSecret" type="text" placeholder="SECxxx..." style="width:100%;padding:8px;margin:8px 0;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;">
+      <label>关键词（必填，匹配机器人安全设置）</label>
+      <input id="dingtalkKeyword" type="text" placeholder="告警" style="width:100%;padding:8px;margin:8px 0;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;">
       <div style="display:flex;gap:8px;margin-top:12px;">
+        <button id="alertConfigTest" class="tf-btn" style="flex:1">🧪 测试发送</button>
         <button id="alertConfigSave" class="tf-btn active" style="flex:1">保存</button>
         <button id="alertConfigClose" class="tf-btn" style="flex:1">取消</button>
       </div>
+      <div id="testResult" style="margin-top:8px;font-size:12px;display:none;"></div>
     </div>
   </div>
   <!-- Alert context menu -->
@@ -272,6 +276,7 @@ const STATE = {
   alertMenuTarget: null,// current alert menu context { symbol, price }
   dingtalkWebhook: localStorage.getItem('dingtalk_webhook') || '',
   dingtalkSecret: localStorage.getItem('dingtalk_secret') || '',
+  dingtalkKeyword: localStorage.getItem('dingtalk_keyword') || '告警',
 };
 
 // ==================== UTILITIES ====================
@@ -1259,25 +1264,46 @@ const DingTalk = {
     const webhook = STATE.dingtalkWebhook;
     if (!webhook) return;
     let url = webhook;
-    // Add signature if secret is configured
     if (STATE.dingtalkSecret) {
       const timestamp = Date.now();
-      const secret = STATE.dingtalkSecret;
-      const sign = await this._generateSign(timestamp, secret);
+      const sign = await this._generateSign(timestamp, STATE.dingtalkSecret);
       url += (webhook.includes('?') ? '&' : '?') + `timestamp=${timestamp}&sign=${sign}`;
     }
     const dirText = direction === 'above' ? '突破上方' : direction === 'below' ? '跌破下方' : '触碰';
     const emoji = direction === 'above' ? '📈' : direction === 'below' ? '📉' : '↕️';
+    const keyword = STATE.dingtalkKeyword || '告警';
     const body = JSON.stringify({
       msgtype: 'markdown',
       markdown: {
-        title: `🚨 ${symbol} 价格告警`,
-        text: `## ${emoji} 价格告警触发\n\n**币种**: ${symbol}\n\n**告警价**: $${fmtPrice(price)}\n\n**当前价**: $${fmtPrice(currentPrice)}\n\n**方向**: ${dirText}\n\n**时间**: ${new Date().toLocaleString('zh-CN')}`,
+        title: `${keyword} ${symbol}`,
+        text: `## ${emoji} ${keyword}触发\n\n**币种**: ${symbol}\n\n**告警价**: $${fmtPrice(price)}\n\n**当前价**: $${fmtPrice(currentPrice)}\n\n**方向**: ${dirText}\n\n**时间**: ${new Date().toLocaleString('zh-CN')}`,
       },
     });
     try {
       await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
     } catch (e) { console.error('DingTalk send error:', e); }
+  },
+
+  async sendTest(webhook, secret, keyword, resultEl) {
+    if (!webhook) { resultEl.style.display='block'; resultEl.style.color='var(--red)'; resultEl.textContent='✗ 请先填写 Webhook URL'; return; }
+    let url = webhook;
+    if (secret) {
+      const timestamp = Date.now();
+      const sign = await this._generateSign(timestamp, secret);
+      url += (webhook.includes('?') ? '&' : '?') + `timestamp=${timestamp}&sign=${sign}`;
+    }
+    const body = JSON.stringify({
+      msgtype: 'markdown',
+      markdown: { title: keyword, text: `## 🧪 ${keyword}测试\n\n**${keyword}**: 盯盘系统连接成功！\n\n时间: ${new Date().toLocaleString('zh-CN')}` },
+    });
+    const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    const data = await resp.json();
+    resultEl.style.display = 'block';
+    if (data.errcode === 0) {
+      resultEl.style.color = 'var(--green)'; resultEl.textContent = '✓ 测试成功！请查看钉钉群消息';
+    } else {
+      resultEl.style.color = 'var(--red)'; resultEl.textContent = `✗ 失败: ${data.errmsg} (code: ${data.errcode})`;
+    }
   },
 
   async _generateSign(timestamp, secret) {
@@ -1541,28 +1567,50 @@ class Dashboard {
     const modal = document.getElementById('alertConfigModal');
     const webhookInput = document.getElementById('dingtalkWebhook');
     const secretInput = document.getElementById('dingtalkSecret');
+    const keywordInput = document.getElementById('dingtalkKeyword');
+    const testBtn = document.getElementById('alertConfigTest');
+    const testResult = document.getElementById('testResult');
     // Load saved values
     webhookInput.value = STATE.dingtalkWebhook;
     secretInput.value = STATE.dingtalkSecret;
+    keywordInput.value = STATE.dingtalkKeyword;
     // Open modal
     document.getElementById('alertConfigBtn').addEventListener('click', () => {
       modal.style.display = 'flex';
       webhookInput.value = STATE.dingtalkWebhook;
       secretInput.value = STATE.dingtalkSecret;
+      keywordInput.value = STATE.dingtalkKeyword;
     });
     // Save
     document.getElementById('alertConfigSave').addEventListener('click', () => {
       STATE.dingtalkWebhook = webhookInput.value.trim();
       STATE.dingtalkSecret = secretInput.value.trim();
+      STATE.dingtalkKeyword = keywordInput.value.trim() || '告警';
       localStorage.setItem('dingtalk_webhook', STATE.dingtalkWebhook);
       localStorage.setItem('dingtalk_secret', STATE.dingtalkSecret);
+      localStorage.setItem('dingtalk_keyword', STATE.dingtalkKeyword);
       modal.style.display = 'none';
+    });
+    // Test
+    testBtn.addEventListener('click', async () => {
+      testBtn.textContent = '⏳ 发送中...';
+      testBtn.disabled = true;
+      testResult.style.display = 'none';
+      try {
+        const kw = keywordInput.value.trim() || '告警';
+        await DingTalk.sendTest(webhookInput.value.trim(), secretInput.value.trim(), kw, testResult);
+      } catch(e) {
+        testResult.style.display = 'block';
+        testResult.style.color = 'var(--red)';
+        testResult.textContent = '✗ 发送失败: ' + e.message;
+      }
+      testBtn.textContent = '🧪 测试发送';
+      testBtn.disabled = false;
     });
     // Close
     document.getElementById('alertConfigClose').addEventListener('click', () => {
       modal.style.display = 'none';
     });
-    // Close on overlay click
     modal.addEventListener('click', (e) => {
       if (e.target === modal) modal.style.display = 'none';
     });
