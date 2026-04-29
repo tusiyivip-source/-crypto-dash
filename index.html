@@ -343,7 +343,7 @@ const BinanceAPI = {
 
   // Rate-limited fetch (max ~15 req/s for safety)
   async _throttledFetch(url) {
-    const req = this._pending.then(() => sleep(80));
+    const req = this._pending.then(() => sleep(50));
     this._pending = req;
     await req;
     const resp = await fetch(url);
@@ -1041,27 +1041,19 @@ class ChartPanel {
   async loadData() {
     if (!this.chart) return;
 
-    const subTF = CONFIG.SUB_TF[STATE.currentTF];
+    // Phase 1: Load main timeframe immediately for fast display
     try {
-      const [candles, lowerCandles] = await Promise.all([
-        BinanceAPI.getKlines(this.symbol, STATE.currentTF, CONFIG.KLINE_LIMIT),
-        BinanceAPI.getKlines(this.symbol, subTF, CONFIG.KLINE_LIMIT),
-      ]);
+      const candles = await BinanceAPI.getKlines(this.symbol, STATE.currentTF, CONFIG.KLINE_LIMIT);
       this.candles = candles;
-      this.lowerTFCandles = lowerCandles;
 
-      // Validate data
       const validation = Indicators.validateData(candles);
       this.dataValid = validation.valid;
       this.dataIssue = validation.reason || '';
+      if (!this.dataValid) this.panel.classList.add('warning');
+      else this.panel.classList.remove('warning');
 
-      if (!this.dataValid) {
-        this.panel.classList.add('warning');
-      } else {
-        this.panel.classList.remove('warning');
-      }
-
-      this.updateChart();
+      // Render chart without Chan (sub-TF not loaded yet)
+      this.updateChart(false);
       this.updateStatus();
     } catch (e) {
       this.dataValid = false;
@@ -1070,12 +1062,28 @@ class ChartPanel {
       this.updateStatus();
     }
 
-    // Remove loading
+    // Remove loading spinner
     const loading = this.panel.querySelector('.loading-overlay');
     if (loading) loading.remove();
+
+    // Phase 2: Load sub-TF in background for Chan analysis
+    this._loadSubTF();
   }
 
-  updateChart() {
+  async _loadSubTF() {
+    const subTF = CONFIG.SUB_TF[STATE.currentTF];
+    try {
+      const lowerCandles = await BinanceAPI.getKlines(this.symbol, subTF, CONFIG.KLINE_LIMIT);
+      this.lowerTFCandles = lowerCandles;
+      // Re-run chart update with Chan analysis now that sub-TF data is available
+      this.updateChart(true);
+      this.updateStatus();
+    } catch (e) {
+      // Sub-TF failure is OK, chart already displayed
+    }
+  }
+
+  updateChart(runChan = true) {
     if (!this.chart || !this.candles.length) return;
 
     // Update candlesticks
@@ -1125,9 +1133,11 @@ class ChartPanel {
     }));
     this.volumeSeries.setData(volumeData);
 
-    // Chan Theory Analysis
-    this.chanResult = ChanTheory.analyze(this.candles, this.lowerTFCandles);
-    this.drawChanTheory();
+    // Chan Theory Analysis (requires sub-TF data)
+    if (runChan && this.lowerTFCandles.length > 0) {
+      this.chanResult = ChanTheory.analyze(this.candles, this.lowerTFCandles);
+      this.drawChanTheory();
+    }
 
     // Redraw alert price lines
     this.redrawAlertLines();
