@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>加密盯盘系统 - Binance Market Watch</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%230b0e11'/><text x='16' y='22' text-anchor='middle' fill='%23f0b90b' font-size='20'>📊</text></svg>">
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 :root {
@@ -186,7 +187,6 @@ const CONFIG = {
   TIMEFRAMES: ['3m', '5m', '15m', '30m', '1h', '2h'],
   SUB_TF: { '3m':'3m', '5m':'3m', '15m':'5m', '30m':'15m', '1h':'30m', '2h':'1h' },
   DEFAULT_TF: '15m',
-  REFRESH_INTERVAL: 60000,
   KLINE_LIMIT: 200,
   MA_PERIODS: [7, 14],
   MACD_FAST: 12,
@@ -207,11 +207,9 @@ const STATE = {
   removedPairs: new Set(),
   wsConnected: false,
   ws: null,
-  refreshTimer: null,
   clockTimer: null,
   wsReconnectTimer: null,
   lastRefresh: 0,
-  klineCache: {}, // { symbol: { interval: [candles] } }
 };
 
 // ==================== UTILITIES ====================
@@ -240,10 +238,20 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ==================== BINANCE API ====================
 const BinanceAPI = {
-  async fetchJSON(url) {
+  _pending: Promise.resolve(),
+
+  // Rate-limited fetch (max ~15 req/s for safety)
+  async _throttledFetch(url) {
+    const req = this._pending.then(() => sleep(80));
+    this._pending = req;
+    await req;
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
     return resp.json();
+  },
+
+  async fetchJSON(url) {
+    return this._throttledFetch(url);
   },
 
   async getTopPairs(limit = 50) {
@@ -385,8 +393,12 @@ const Indicators = {
   validateData(candles) {
     if (!candles || candles.length < 20) return { valid: false, reason: '数据不足' };
     let gaps = 0, nulls = 0, extremes = 0;
+    const expectedGap = candles.length >= 3
+      ? (candles[2].time - candles[1].time)
+      : (candles[1]?.time || 0) - (candles[0]?.time || 60);
     for (let i = 1; i < candles.length; i++) {
-      if (candles[i].time - candles[i-1].time > candles[i-1].time - (candles[i-2]?.time || 0) * 2) gaps++;
+      const gap = candles[i].time - candles[i-1].time;
+      if (gap > expectedGap * 2.5) gaps++;
       if (!candles[i].close || !candles[i].open) nulls++;
       const pctChg = Math.abs(candles[i].close - candles[i-1].close) / candles[i-1].close;
       if (pctChg > 0.5) extremes++;
@@ -404,7 +416,7 @@ const ChanTheory = {
   // === 包含关系处理 (Containment Relationship Processing) ===
   // Merge candles where one engulfs the other - essential for proper Chan Theory
   mergeContainment(candles, direction) {
-    if (candles.length < 3) return candles;
+    if (candles.length < 2) return candles;
     const merged = [candles[0]];
     for (let i = 1; i < candles.length; i++) {
       const prev = merged[merged.length - 1];
@@ -731,7 +743,6 @@ class ChartPanel {
     this.macdSignalSeries = null;
     this.chanStrokeSeries = null;
     this.volumeSeries = null;
-    this.chanMarkers = [];
     this.pairData = null;
     this.candles = [];
     this.lowerTFCandles = [];
@@ -1186,11 +1197,10 @@ class Dashboard {
       STATE.pairs = pairs;
       document.getElementById('pairCount').textContent = `币种: ${pairs.length}/${CONFIG.TOP_COINS}`;
 
-      // Create panels for all pairs
+      // Create panels for all pairs (API throttled internally)
       for (const pair of pairs) {
         if (STATE.removedPairs.has(pair.symbol)) continue;
         await this.addPanel(pair);
-        await sleep(50); // Rate limiting
       }
 
       // Subscribe to WebSocket for real-time updates
@@ -1229,7 +1239,6 @@ class Dashboard {
         if (STATE.removedPairs.has(pair.symbol)) continue;
         if (STATE.chartPanels[pair.symbol]) continue;
         await this.addPanel(pair);
-        await sleep(100);
       }
       document.getElementById('pairCount').textContent =
         `币种: ${Object.keys(STATE.chartPanels).length}/${CONFIG.TOP_COINS}`;
@@ -1253,13 +1262,11 @@ class Dashboard {
     document.getElementById('statData').textContent = '切换周期...';
     document.getElementById('statData').style.color = 'var(--yellow)';
 
-    // Clear kline cache
-    STATE.klineCache = {};
-
-    // Reload all panels
+    // Reload all panels - reset fit flag for new timeframe
     const panels = Object.values(STATE.chartPanels);
+    panels.forEach(p => { p._initialFitDone = false; });
     const promises = panels.map(async (panel, i) => {
-      await sleep(i * 30); // Stagger requests
+      await sleep(i * 30);
       await panel.loadData();
     });
     await Promise.all(promises);
@@ -1351,30 +1358,36 @@ class Dashboard {
   }
 
   autoRemoveProblematic() {
+    let removed = 0;
+    const maxRemove = 3; // Max auto-removals per cycle
     for (const [symbol, panel] of Object.entries(STATE.chartPanels)) {
+      if (removed >= maxRemove) break;
       if (!panel.dataValid && panel.candles.length > 0) {
-        // If data has been invalid for a while, auto-remove
         console.log(`Auto-removing problematic pair: ${symbol} (${panel.dataIssue})`);
         panel.destroy();
         delete STATE.chartPanels[symbol];
         STATE.removedPairs.add(symbol);
+        removed++;
       }
     }
-    this.fillMissingPairs();
+    if (removed > 0) this.fillMissingPairs();
   }
 
-  // Periodic full Chan Theory recalculation (every 2 minutes)
+  // Periodic full Chan Theory recalculation, spread across frames
   startPeriodicChanAnalysis() {
-    setInterval(() => {
-      for (const panel of Object.values(STATE.chartPanels)) {
-        if (panel.candles.length > 0 && panel.chart) {
-          panel.chanResult = ChanTheory.analyze(panel.candles, panel.lowerTFCandles);
-          panel.drawChanTheory();
-          panel.updateStatus();
-        }
+    const runBatch = async () => {
+      const panels = Object.values(STATE.chartPanels).filter(p => p.candles.length > 0 && p.chart);
+      for (let i = 0; i < panels.length; i++) {
+        const panel = panels[i];
+        panel.chanResult = ChanTheory.analyze(panel.candles, panel.lowerTFCandles);
+        panel.drawChanTheory();
+        panel.updateStatus();
+        // Yield every 5 panels to avoid frame drops
+        if (i % 5 === 4) await sleep(0);
       }
       this.updateStats();
-    }, 120000);
+    };
+    setInterval(runBatch, 120000);
   }
 
   updateStats() {
