@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>加密盯盘系统 - Binance Market Watch</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%230b0e11'/><text x='16' y='22' text-anchor='middle' fill='%23f0b90b' font-size='20'>📊</text></svg>">
+<title>牛牛 - 加密盯盘系统</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%230b0e11'/><text x='16' y='22' text-anchor='middle' fill='%23f0b90b' font-size='18'>🐂</text></svg>">
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 :root {
@@ -187,7 +187,7 @@ body {
 <div id="app">
   <header id="header">
     <div class="header-left">
-      <h1>📊 加密盯盘系统</h1>
+      <h1>🐂 牛牛</h1>
       <span id="clock">--</span>
     </div>
     <div class="header-center" id="timeframeSelector">
@@ -1294,7 +1294,7 @@ const DingTalk = {
     }
     const body = JSON.stringify({
       msgtype: 'markdown',
-      markdown: { title: keyword, text: `## 🧪 ${keyword}测试\n\n**${keyword}**: 盯盘系统连接成功！\n\n时间: ${new Date().toLocaleString('zh-CN')}` },
+      markdown: { title: keyword, text: `## 🧪 ${keyword}测试\n\n**${keyword}**: 牛牛盯盘系统连接成功！\n\n时间: ${new Date().toLocaleString('zh-CN')}` },
     });
     const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
     const data = await resp.json();
