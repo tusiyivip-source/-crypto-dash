@@ -59,6 +59,12 @@ body {
 #manualRefreshBtn:hover { border-color: var(--yellow); background: var(--hover); }
 #manualRefreshBtn:active { transform: scale(0.95); }
 #manualRefreshBtn.refreshing { opacity: 0.6; pointer-events: none; }
+#alertConfigBtn {
+  padding: 5px 10px; border: 1px solid var(--border); background: var(--panel-bg);
+  color: var(--text); cursor: pointer; border-radius: 4px; font-size: 14px;
+}
+#alertConfigBtn:hover { border-color: var(--yellow); }
+#alertConfigBtn.has-alerts { border-color: var(--yellow); box-shadow: 0 0 6px rgba(240,185,11,0.3); }
 #pairCount { color: var(--text-secondary); }
 /* STATS BAR */
 #statsBar {
@@ -140,6 +146,34 @@ body {
   padding: 8px 12px; border-radius: 6px; font-size: 12px;
   display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2000;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-box {
+  background: var(--panel-bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 20px; min-width: 380px; max-width: 90vw;
+}
+.modal-box h3 { margin-bottom: 12px; font-size: 16px; }
+.modal-box label { font-size: 12px; color: var(--text-secondary); display: block; margin-top: 8px; }
+/* ALERT MENU */
+.alert-menu {
+  position: fixed; z-index: 2001; background: var(--panel-bg);
+  border: 1px solid var(--border); border-radius: 6px; min-width: 200px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6); overflow: hidden;
+}
+.alert-menu-item {
+  padding: 8px 14px; cursor: pointer; font-size: 13px; transition: background 0.1s;
+}
+.alert-menu-item:hover { background: var(--hover); }
+.alert-menu-sep { height: 1px; background: var(--border); }
+.alert-cancel { color: var(--text-secondary); }
+/* ALERT LINE LABEL */
+.alert-line-label {
+  position: absolute; right: 2px; font-size: 10px; font-weight: 700;
+  padding: 1px 4px; border-radius: 2px; pointer-events: none; z-index: 6;
+}
 /* RESPONSIVE */
 @media (max-width: 768px) {
   #chartGrid { grid-template-columns: 1fr; }
@@ -168,13 +202,37 @@ body {
       <span id="connectionDot" title="WebSocket连接状态"></span>
       <button id="manualRefreshBtn" title="手动刷新">🔄 刷新</button>
       <span id="pairCount">币种: 0/50</span>
+      <button id="alertConfigBtn" title="钉钉告警配置">🔔</button>
     </div>
   </header>
   <div id="statsBar">
     <div class="stat-item"><span class="stat-label">上涨:</span><span class="stat-up" id="statUp">--</span></div>
     <div class="stat-item"><span class="stat-label">下跌:</span><span class="stat-down" id="statDown">--</span></div>
     <div class="stat-item"><span class="stat-label">缠论信号:</span><span style="color:var(--blue)" id="statChan">--</span></div>
+    <div class="stat-item"><span class="stat-label">告警:</span><span style="color:var(--yellow)" id="statAlerts">0</span></div>
     <div class="stat-item"><span class="stat-label">数据状态:</span><span id="statData">初始化中...</span></div>
+  </div>
+  <!-- DingTalk Config Modal -->
+  <div id="alertConfigModal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+      <h3>🔔 钉钉告警配置</h3>
+      <label>Webhook URL</label>
+      <input id="dingtalkWebhook" type="text" placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx" style="width:100%;padding:8px;margin:8px 0;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;">
+      <label>签名密钥（可选，加签方式）</label>
+      <input id="dingtalkSecret" type="text" placeholder="SECxxx..." style="width:100%;padding:8px;margin:8px 0;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;">
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button id="alertConfigSave" class="tf-btn active" style="flex:1">保存</button>
+        <button id="alertConfigClose" class="tf-btn" style="flex:1">取消</button>
+      </div>
+    </div>
+  </div>
+  <!-- Alert context menu -->
+  <div id="alertMenu" class="alert-menu" style="display:none">
+    <div class="alert-menu-item" data-dir="above">📈 价格突破上方时告警</div>
+    <div class="alert-menu-item" data-dir="below">📉 价格跌破下方时告警</div>
+    <div class="alert-menu-item" data-dir="cross">↕️ 价格触碰时告警</div>
+    <div class="alert-menu-sep"></div>
+    <div class="alert-menu-item alert-cancel">✕ 取消</div>
   </div>
   <div id="chartGrid"></div>
 </div>
@@ -210,6 +268,10 @@ const STATE = {
   clockTimer: null,
   wsReconnectTimer: null,
   lastRefresh: 0,
+  alerts: [],           // { id, symbol, price, direction, triggered, createdAt }
+  alertMenuTarget: null,// current alert menu context { symbol, price }
+  dingtalkWebhook: localStorage.getItem('dingtalk_webhook') || '',
+  dingtalkSecret: localStorage.getItem('dingtalk_secret') || '',
 };
 
 // ==================== UTILITIES ====================
@@ -749,6 +811,7 @@ class ChartPanel {
     this.dataValid = true;
     this.dataIssue = '';
     this._initialFitDone = false;
+    this._priceLines = {}; // { alertId: PriceLine }
   }
 
   create() {
@@ -901,6 +964,20 @@ class ChartPanel {
       scaleMargins: { top: 0.85, bottom: 0.0 },
       visible: false,
     });
+
+    // Right-click on chart to set alert
+    chartContainer.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const rect = chartContainer.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      // Convert pixel to price using chart's price scale
+      const priceScale = this.chart.priceScale('');
+      const price = priceScale.coordinateToPrice(y);
+      if (price != null && !isNaN(price)) {
+        this._showAlertMenu(e.clientX, e.clientY, price);
+      }
+    });
   }
 
   async loadData() {
@@ -993,6 +1070,9 @@ class ChartPanel {
     // Chan Theory Analysis
     this.chanResult = ChanTheory.analyze(this.candles, this.lowerTFCandles);
     this.drawChanTheory();
+
+    // Redraw alert price lines
+    this.redrawAlertLines();
 
     // First load: show last ~60 candles with readable spacing (barSpacing=7)
     if (!this._initialFitDone) {
@@ -1101,6 +1181,10 @@ class ChartPanel {
         color: c >= o ? 'rgba(14,203,129,0.2)' : 'rgba(246,70,93,0.2)',
       });
     }
+    // Check alerts against latest close price
+    if (this.candles.length > 0) {
+      AlertManager.checkAlerts(this.symbol, this.candles[this.candles.length - 1].close);
+    }
   }
 
   remove() {
@@ -1126,7 +1210,167 @@ class ChartPanel {
       this.panel.remove();
     }
   }
+
+  _showAlertMenu(x, y, price) {
+    STATE.alertMenuTarget = { symbol: this.symbol, price };
+    const menu = document.getElementById('alertMenu');
+    menu.style.display = 'block';
+    menu.style.left = Math.min(x, window.innerWidth - 210) + 'px';
+    menu.style.top = Math.min(y, window.innerHeight - 180) + 'px';
+  }
+
+  addPriceLine(alertId, price) {
+    if (!this.candleSeries) return;
+    this.removePriceLine(alertId);
+    const line = this.candleSeries.createPriceLine({
+      price: price,
+      color: '#f0b90b',
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: alertId,
+    });
+    this._priceLines[alertId] = line;
+  }
+
+  removePriceLine(alertId) {
+    if (this._priceLines[alertId]) {
+      try { this.candleSeries.removePriceLine(this._priceLines[alertId]); } catch(e) {}
+      delete this._priceLines[alertId];
+    }
+  }
+
+  redrawAlertLines() {
+    // Remove all existing
+    for (const id of Object.keys(this._priceLines)) {
+      this.removePriceLine(id);
+    }
+    // Redraw active alerts for this symbol
+    const alerts = AlertManager.getAlertsForSymbol(this.symbol);
+    for (const alert of alerts) {
+      this.addPriceLine(alert.id, alert.price);
+    }
+  }
 }
+
+// ==================== DINGTALK NOTIFICATION ====================
+const DingTalk = {
+  async sendAlert(symbol, price, direction, currentPrice) {
+    const webhook = STATE.dingtalkWebhook;
+    if (!webhook) return;
+    let url = webhook;
+    // Add signature if secret is configured
+    if (STATE.dingtalkSecret) {
+      const timestamp = Date.now();
+      const secret = STATE.dingtalkSecret;
+      const sign = await this._generateSign(timestamp, secret);
+      url += (webhook.includes('?') ? '&' : '?') + `timestamp=${timestamp}&sign=${sign}`;
+    }
+    const dirText = direction === 'above' ? '突破上方' : direction === 'below' ? '跌破下方' : '触碰';
+    const emoji = direction === 'above' ? '📈' : direction === 'below' ? '📉' : '↕️';
+    const body = JSON.stringify({
+      msgtype: 'markdown',
+      markdown: {
+        title: `🚨 ${symbol} 价格告警`,
+        text: `## ${emoji} 价格告警触发\n\n**币种**: ${symbol}\n\n**告警价**: $${fmtPrice(price)}\n\n**当前价**: $${fmtPrice(currentPrice)}\n\n**方向**: ${dirText}\n\n**时间**: ${new Date().toLocaleString('zh-CN')}`,
+      },
+    });
+    try {
+      await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    } catch (e) { console.error('DingTalk send error:', e); }
+  },
+
+  async _generateSign(timestamp, secret) {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(timestamp + '\n' + secret));
+    return btoa(String.fromCharCode(...new Uint8Array(sig)));
+  },
+};
+
+// ==================== ALERT MANAGER ====================
+const AlertManager = {
+  _idCounter: Date.now(),
+
+  addAlert(symbol, price, direction) {
+    const id = 'alert_' + (this._idCounter++);
+    const alert = { id, symbol, price, direction, triggered: false, createdAt: Date.now() };
+    STATE.alerts.push(alert);
+    this._saveAlerts();
+    this._updateUI();
+    return alert;
+  },
+
+  removeAlert(id) {
+    const panel = STATE.chartPanels[STATE.alerts.find(a => a.id === id)?.symbol];
+    if (panel) panel.removePriceLine(id);
+    STATE.alerts = STATE.alerts.filter(a => a.id !== id);
+    this._saveAlerts();
+    this._updateUI();
+  },
+
+  getAlertsForSymbol(symbol) {
+    return STATE.alerts.filter(a => a.symbol === symbol && !a.triggered);
+  },
+
+  checkAlerts(symbol, currentPrice) {
+    const alerts = STATE.alerts.filter(a => a.symbol === symbol && !a.triggered);
+    for (const alert of alerts) {
+      let triggered = false;
+      if (alert.direction === 'above' && currentPrice >= alert.price) triggered = true;
+      else if (alert.direction === 'below' && currentPrice <= alert.price) triggered = true;
+      else if (alert.direction === 'cross') {
+        // Cross: check if price crossed the level
+        if ((currentPrice >= alert.price && (alert._lastPrice || 0) < alert.price) ||
+            (currentPrice <= alert.price && (alert._lastPrice || Infinity) > alert.price)) {
+          triggered = true;
+        }
+      }
+      if (triggered) {
+        alert.triggered = true;
+        alert._triggeredAt = currentPrice;
+        DingTalk.sendAlert(symbol, alert.price, alert.direction, currentPrice);
+        // Remove price line from chart
+        const panel = STATE.chartPanels[symbol];
+        if (panel) panel.removePriceLine(alert.id);
+      }
+      alert._lastPrice = currentPrice;
+    }
+    // Clean triggered alerts older than 5 minutes
+    const now = Date.now();
+    STATE.alerts = STATE.alerts.filter(a => !a.triggered || (now - a.createdAt) < 300000);
+    this._saveAlerts();
+    this._updateUI();
+  },
+
+  getActiveCount() {
+    return STATE.alerts.filter(a => !a.triggered).length;
+  },
+
+  _saveAlerts() {
+    try {
+      const saveable = STATE.alerts.filter(a => !a.triggered).map(a => ({
+        id: a.id, symbol: a.symbol, price: a.price, direction: a.direction, createdAt: a.createdAt,
+      }));
+      localStorage.setItem('alerts', JSON.stringify(saveable));
+    } catch(e) {}
+  },
+
+  _loadAlerts() {
+    try {
+      const data = JSON.parse(localStorage.getItem('alerts') || '[]');
+      STATE.alerts = data.map(a => ({ ...a, triggered: false }));
+    } catch(e) { STATE.alerts = []; }
+  },
+
+  _updateUI() {
+    const count = this.getActiveCount();
+    const el = document.getElementById('statAlerts');
+    if (el) el.textContent = count;
+    const btn = document.getElementById('alertConfigBtn');
+    if (btn) { btn.classList.toggle('has-alerts', count > 0); btn.textContent = count > 0 ? `🔔${count}` : '🔔'; }
+  },
+};
 
 // ==================== DASHBOARD CONTROLLER ====================
 class Dashboard {
@@ -1139,6 +1383,10 @@ class Dashboard {
     this.setupTimeframeButtons();
     this.setupKeyboardShortcuts();
     this.setupManualRefresh();
+    this.setupAlertMenu();
+    this.setupDingTalkConfig();
+    AlertManager._loadAlerts();
+    AlertManager._updateUI();
     updateConnectionStatus();
     await this.loadPairs();
     this.startPeriodicChanAnalysis();
@@ -1265,6 +1513,59 @@ class Dashboard {
   setupManualRefresh() {
     const btn = document.getElementById('manualRefreshBtn');
     btn.addEventListener('click', () => this.manualRefresh());
+  }
+
+  setupAlertMenu() {
+    const menu = document.getElementById('alertMenu');
+    // Handle alert menu clicks
+    menu.querySelectorAll('.alert-menu-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const dir = item.dataset.dir;
+        const target = STATE.alertMenuTarget;
+        menu.style.display = 'none';
+        if (!dir || !target) return;
+        // Add alert
+        const alert = AlertManager.addAlert(target.symbol, target.price, dir);
+        // Draw price line on chart
+        const panel = STATE.chartPanels[target.symbol];
+        if (panel) panel.addPriceLine(alert.id, target.price);
+      });
+    });
+    // Close menu on click outside
+    document.addEventListener('click', (e) => {
+      if (!menu.contains(e.target)) menu.style.display = 'none';
+    });
+  }
+
+  setupDingTalkConfig() {
+    const modal = document.getElementById('alertConfigModal');
+    const webhookInput = document.getElementById('dingtalkWebhook');
+    const secretInput = document.getElementById('dingtalkSecret');
+    // Load saved values
+    webhookInput.value = STATE.dingtalkWebhook;
+    secretInput.value = STATE.dingtalkSecret;
+    // Open modal
+    document.getElementById('alertConfigBtn').addEventListener('click', () => {
+      modal.style.display = 'flex';
+      webhookInput.value = STATE.dingtalkWebhook;
+      secretInput.value = STATE.dingtalkSecret;
+    });
+    // Save
+    document.getElementById('alertConfigSave').addEventListener('click', () => {
+      STATE.dingtalkWebhook = webhookInput.value.trim();
+      STATE.dingtalkSecret = secretInput.value.trim();
+      localStorage.setItem('dingtalk_webhook', STATE.dingtalkWebhook);
+      localStorage.setItem('dingtalk_secret', STATE.dingtalkSecret);
+      modal.style.display = 'none';
+    });
+    // Close
+    document.getElementById('alertConfigClose').addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+    // Close on overlay click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
   }
 
   async manualRefresh() {
