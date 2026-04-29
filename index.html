@@ -741,7 +741,6 @@ class ChartPanel {
     this.ma14Series = null;
     this.macdHistSeries = null;
     this.macdSignalSeries = null;
-    this.chanStrokeSeries = null;
     this.volumeSeries = null;
     this.pairData = null;
     this.candles = [];
@@ -881,11 +880,7 @@ class ChartPanel {
       priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false,
     });
 
-    // Chan Theory stroke line series (drawn on main price pane)
-    this.chanStrokeSeries = this.chart.addLineSeries({
-      color: 'rgba(240,185,11,0.55)', lineWidth: 2, lineStyle: 2,
-      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-    });
+    // Chan Theory stroke line series removed - only wave markers shown
 
     // Volume histogram (bottom of chart)
     this.volumeSeries = this.chart.addHistogramSeries({
@@ -1018,24 +1013,6 @@ class ChartPanel {
     this.candleSeries.setMarkers([]);
 
     const markers = [];
-
-    // Build stroke line data for chanStrokeSeries (connects fractal points)
-    const strokeLineData = [];
-
-    for (let i = 0; i < this.chanResult.strokes.length; i++) {
-      const s = this.chanResult.strokes[i];
-
-      // Build line data for stroke visualization
-      strokeLineData.push(
-        { time: s.startFractal.time, value: s.startFractal.price },
-        { time: s.endFractal.time, value: s.endFractal.price }
-      );
-    }
-
-    // Draw stroke lines on dedicated series
-    if (this.chanStrokeSeries) {
-      this.chanStrokeSeries.setData(strokeLineData);
-    }
 
     // Mark 5-wave patterns with number labels only
     for (const wave of this.chanResult.waves) {
