@@ -244,6 +244,7 @@ body {
       <button id="manualRefreshBtn" title="手动刷新">🔄 刷新</button>
       <span id="pairCount">币种: 0/100</span>
       <button id="alertConfigBtn" title="钉钉告警配置">🔔</button>
+      <button id="alertHistoryBtn" title="告警历史">📋</button>
     </div>
   </header>
   <div id="statsBar">
@@ -271,6 +272,21 @@ body {
     </div>
   </div>
   <!-- Alert context menu -->
+  <!-- Alert History Modal -->
+  <div id="alertHistoryModal" class="modal-overlay" style="display:none">
+    <div class="modal-box" style="min-width:420px;max-height:80vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="margin:0">📋 告警历史</h3>
+        <button id="alertHistoryClose" class="tf-btn" style="padding:4px 12px">✕ 关闭</button>
+      </div>
+      <div id="alertHistoryList" style="max-height:60vh;overflow-y:auto">
+        <div style="color:var(--text-secondary);text-align:center;padding:20px">暂无记录</div>
+      </div>
+      <div style="margin-top:8px;text-align:right">
+        <button id="alertHistoryClear" class="tf-btn" style="font-size:11px;color:var(--red);border-color:var(--red)">清空历史</button>
+      </div>
+    </div>
+  </div>
   <div id="alertMenu" class="alert-menu" style="display:none">
     <div class="alert-menu-input-row">
       <input id="alertMenuPrice" type="number" step="any" placeholder="价格" class="alert-price-inline">
@@ -314,6 +330,7 @@ const STATE = {
   wsReconnectTimer: null,
   lastRefresh: 0,
   alerts: [],           // { id, symbol, price, direction, memo, triggered, createdAt }
+  alertHistory: [],      // triggered alerts log
   alertMenuTarget: null,// current alert menu context { symbol, price }
   dingtalkWebhook: localStorage.getItem('dingtalk_webhook') || '',
   dingtalkSecret: localStorage.getItem('dingtalk_secret') || '',
@@ -530,6 +547,80 @@ const Indicators = {
 
 
 // ==================== CHART PANEL ====================
+
+// High/Low crosshair primitive — draws dashed lines at candle high & low
+class HighLowCrosshair {
+  constructor() {
+    this._high = null;
+    this._low = null;
+    this._time = null;
+    this._requestUpdate = null;
+  }
+  attached({ requestUpdate }) { this._requestUpdate = requestUpdate; }
+  detached() { this._requestUpdate = null; }
+  update(high, low, time) {
+    this._high = high;
+    this._low = low;
+    this._time = time;
+    if (this._requestUpdate) this._requestUpdate();
+  }
+  clear() {
+    this._high = null;
+    this._low = null;
+    this._time = null;
+    if (this._requestUpdate) this._requestUpdate();
+  }
+  draw(target, params) {
+    if (this._high === null || this._low === null || this._time === null) return;
+    target.useMediaCoordinatesContext((ctx) => {
+      const highCoord = params.logicalToMediaCoordinates({ price: this._high, time: this._time });
+      const lowCoord = params.logicalToMediaCoordinates({ price: this._low, time: this._time });
+      if (!highCoord || !lowCoord) return;
+      const w = params.visibleMediaRect.width;
+      const highY = highCoord.y;
+      const lowY = lowCoord.y;
+
+      // High line (red dashed)
+      ctx.beginPath();
+      ctx.setLineDash([4, 3]);
+      ctx.strokeStyle = '#f6465d';
+      ctx.lineWidth = 1;
+      ctx.moveTo(0, highY);
+      ctx.lineTo(w, highY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const highText = this._high.toFixed(4);
+      ctx.font = 'bold 10px monospace';
+      ctx.textBaseline = 'bottom';
+      const hw = ctx.measureText(highText).width;
+      ctx.fillStyle = '#f6465d';
+      ctx.fillRect(w - hw - 10, highY - 13, hw + 8, 13);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(highText, w - hw - 6, highY - 2);
+
+      // Low line (green dashed)
+      ctx.beginPath();
+      ctx.setLineDash([4, 3]);
+      ctx.strokeStyle = '#0ecb81';
+      ctx.lineWidth = 1;
+      ctx.moveTo(0, lowY);
+      ctx.lineTo(w, lowY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const lowText = this._low.toFixed(4);
+      ctx.font = 'bold 10px monospace';
+      ctx.textBaseline = 'top';
+      const lw = ctx.measureText(lowText).width;
+      ctx.fillStyle = '#0ecb81';
+      ctx.fillRect(w - lw - 10, lowY + 2, lw + 8, 13);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(lowText, w - lw - 6, lowY + 13);
+    });
+  }
+}
+
 class ChartPanel {
   constructor(symbol, container) {
     this.symbol = symbol;
@@ -547,6 +638,7 @@ class ChartPanel {
     this.dataIssue = '';
     this._initialFitDone = false;
     this._priceLines = {}; // { alertId: PriceLine }
+    this._hlCrosshair = null;  // HighLowCrosshair primitive
   }
 
   create() {
@@ -681,9 +773,15 @@ class ChartPanel {
         horzLines: { color: 'rgba(255,255,255,0.04)' },
       },
       crosshair: {
-        mode: LightweightCharts.CrosshairMode.Normal,
-        vertLine: { color: 'rgba(255,255,255,0.3)', style: 2, width: 1, labelVisible: false },
-        horzLine: { color: 'rgba(255,255,255,0.3)', style: 2, width: 1, labelVisible: false },
+        mode: LightweightCharts.CrosshairMode.Magnet,
+        vertLine: { color: 'rgba(255,255,255,0.3)', style: 2, width: 1, labelVisible: true, labelBackgroundColor: '#f0b90b' },
+        horzLine: { color: '#f0b90b', style: 1, width: 2, labelVisible: true, labelBackgroundColor: '#f0b90b', labelTextColor: '#000000' },
+      },
+      rightPriceScale: {
+        borderColor: 'rgba(255,255,255,0.1)',
+        scaleMargins: { top: 0.05, bottom: 0.2 },
+        autoScale: true,
+        visible: true,
       },
       rightPriceScale: {
         borderColor: 'rgba(255,255,255,0.1)',
@@ -700,12 +798,11 @@ class ChartPanel {
         lockVisibleTimeRangeOnResize: true,
         minBarSpacing: 3,
         tickMarkFormatter: (time) => {
-          // 强制显示北京时间 (UTC+8)
-          const d = new Date((time + 8 * 3600) * 1000);
-          const month = d.getUTCMonth() + 1;
-          const day = d.getUTCDate();
-          const h = String(d.getUTCHours()).padStart(2, '0');
-          const m = String(d.getUTCMinutes()).padStart(2, '0');
+          const d = new Date(time * 1000);
+          const month = d.getMonth() + 1;
+          const day = d.getDate();
+          const h = String(d.getHours()).padStart(2, '0');
+          const m = String(d.getMinutes()).padStart(2, '0');
           if (h === '00' && m === '00') {
             return month + '/' + day;
           }
@@ -720,6 +817,7 @@ class ChartPanel {
       if (!param.point || !param.time) {
         const tooltip = document.getElementById('tooltip');
         tooltip.style.display = 'none';
+        if (this._hlCrosshair) this._hlCrosshair.clear();
         return;
       }
       const data = param.seriesData.get(this.candleSeries);
@@ -727,19 +825,20 @@ class ChartPanel {
         const tooltip = document.getElementById('tooltip');
         tooltip.style.display = 'block';
         tooltip.style.left = (param.point.x + 15) + 'px';
-        tooltip.style.top = (param.point.y - 60) + 'px';
-        const bjTime = new Date((param.time + 8 * 3600) * 1000);
-        const ts = bjTime.getUTCFullYear() + '-' +
-          String(bjTime.getUTCMonth() + 1).padStart(2, '0') + '-' +
-          String(bjTime.getUTCDate()).padStart(2, '0') + ' ' +
-          String(bjTime.getUTCHours()).padStart(2, '0') + ':' +
-          String(bjTime.getUTCMinutes()).padStart(2, '0');
+        tooltip.style.top = (param.point.y - 80) + 'px';
+        const d = new Date(param.time * 1000);
+        const ts = d.getFullYear() + '-' +
+          String(d.getMonth() + 1).padStart(2, '0') + '-' +
+          String(d.getDate()).padStart(2, '0') + ' ' +
+          String(d.getHours()).padStart(2, '0') + ':' +
+          String(d.getMinutes()).padStart(2, '0');
         tooltip.innerHTML = `
           <b>${this.symbol}</b><br>
           O: ${fmtPrice(data.open)} H: ${fmtPrice(data.high)}<br>
           L: ${fmtPrice(data.low)} C: ${fmtPrice(data.close)}<br>
           <span style="color:var(--text-secondary);font-size:10px">${ts} BJT</span>
         `;
+        if (this._hlCrosshair) this._hlCrosshair.update(data.high, data.low, param.time);
       }
     });
 
@@ -748,14 +847,20 @@ class ChartPanel {
       upColor: '#0ecb81', downColor: '#f6465d',
       borderUpColor: '#0ecb81', borderDownColor: '#f6465d',
       wickUpColor: '#0ecb81', wickDownColor: '#f6465d',
+      lastValueVisible: true,
+      priceLineVisible: false,
     });
+
+    // High/Low crosshair overlay
+    this._hlCrosshair = new HighLowCrosshair();
+    this.candleSeries.attachPrimitive(this._hlCrosshair);
 
     // MA series
     this.ma7Series = this.chart.addLineSeries({
-      color: '#f0b90b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false,
+      color: '#f0b90b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
     });
     this.ma14Series = this.chart.addLineSeries({
-      color: '#e040fb', lineWidth: 1, priceLineVisible: false, lastValueVisible: false,
+      color: '#e040fb', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
     });
 
     // MACD series (creates 'macd' price scale)
@@ -925,29 +1030,25 @@ class ChartPanel {
 
     const o = parseFloat(kline.o), h = parseFloat(kline.h);
     const l = parseFloat(kline.l), c = parseFloat(kline.c), v = parseFloat(kline.v);
+    const isNewCandle = kTime > lastCandle.time;
 
     if (kTime === lastCandle.time) {
-      // Update current candle
       lastCandle.open = o; lastCandle.high = h;
       lastCandle.low = l; lastCandle.close = c;
       lastCandle.volume = v;
-
       this.candleSeries.update({
         time: lastCandle.time,
         open: lastCandle.open, high: lastCandle.high,
         low: lastCandle.low, close: lastCandle.close,
       });
       this.volumeSeries.update({
-        time: lastCandle.time,
-        value: v,
+        time: lastCandle.time, value: v,
         color: c >= o ? 'rgba(14,203,129,0.2)' : 'rgba(246,70,93,0.2)',
       });
-    } else if (kTime > lastCandle.time) {
-      // New candle
+    } else if (isNewCandle) {
       const newCandle = { time: kTime, open: o, high: h, low: l, close: c, volume: v };
       this.candles.push(newCandle);
       if (this.candles.length > CONFIG.KLINE_LIMIT) this.candles.shift();
-
       this.candleSeries.update({
         time: kTime, open: o, high: h, low: l, close: c,
       });
@@ -956,6 +1057,26 @@ class ChartPanel {
         color: c >= o ? 'rgba(14,203,129,0.2)' : 'rgba(246,70,93,0.2)',
       });
     }
+
+    // 实时更新面板价格
+    const priceEl = this.panel.querySelector('.panel-price');
+    const changeEl = this.panel.querySelector('.panel-change');
+    priceEl.textContent = '$' + fmtPrice(c);
+    if (this.pairData) {
+      const chgPct = (c - this.pairData.lastPrice) / this.pairData.lastPrice * 100 + this.pairData.priceChangePercent;
+      changeEl.textContent = fmtPct(chgPct);
+      changeEl.className = 'panel-change ' + (chgPct >= 0 ? 'up' : 'down');
+    }
+
+    // 更新时间戳（UTC）
+    const dataStatus = this.panel.querySelector('.data-status');
+    if (dataStatus) {
+      const now = new Date();
+      const ts = String(now.getUTCHours()).padStart(2,'0') + ':' + String(now.getUTCMinutes()).padStart(2,'0') + ':' + String(now.getUTCSeconds()).padStart(2,'0');
+      dataStatus.textContent = '✓ 实时 ' + ts + ' UTC';
+      dataStatus.style.color = 'var(--green)';
+    }
+
     // Check alerts against latest close price
     if (this.candles.length > 0) {
       AlertManager.checkAlerts(this.symbol, this.candles[this.candles.length - 1].close);
@@ -1172,6 +1293,8 @@ const AlertManager = {
         console.log(`[告警触发] ${symbol} ${dirText} 告警价:${alert.price} 当前价:${currentPrice}`);
         showToast(`${symbol} ${dirText} $${fmtPrice(alert.price)} → $${fmtPrice(currentPrice)}`, true);
         DingTalk.sendAlert(symbol, alert.price, alert.direction, currentPrice, alert.memo);
+        // Save to history
+        this._addHistory(symbol, alert.price, alert.direction, currentPrice, alert.memo);
         // Remove price line from chart
         const panel = STATE.chartPanels[symbol];
         if (panel) panel.removePriceLine(alert.id);
@@ -1212,6 +1335,47 @@ const AlertManager = {
     const btn = document.getElementById('alertConfigBtn');
     if (btn) { btn.classList.toggle('has-alerts', count > 0); btn.textContent = count > 0 ? `🔔${count}` : '🔔'; }
   },
+
+  _addHistory(symbol, price, direction, triggeredPrice, memo) {
+    const entry = {
+      symbol, price, direction, triggeredPrice, memo,
+      time: Date.now(),
+    };
+    STATE.alertHistory.unshift(entry);
+    if (STATE.alertHistory.length > 200) STATE.alertHistory.length = 200;
+    this._saveHistory();
+  },
+
+  _saveHistory() {
+    try { localStorage.setItem('alert_history', JSON.stringify(STATE.alertHistory)); } catch(e) {}
+  },
+
+  _loadHistory() {
+    try { STATE.alertHistory = JSON.parse(localStorage.getItem('alert_history') || '[]'); } catch(e) { STATE.alertHistory = []; }
+  },
+
+  renderHistory() {
+    const list = document.getElementById('alertHistoryList');
+    if (!list) return;
+    if (STATE.alertHistory.length === 0) {
+      list.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:20px">暂无记录</div>';
+      return;
+    }
+    list.innerHTML = STATE.alertHistory.map(h => {
+      const dirIcon = h.direction === 'above' ? '📈' : h.direction === 'below' ? '📉' : '↕️';
+      const dirText = h.direction === 'above' ? '突破上方' : h.direction === 'below' ? '跌破下方' : '触碰';
+      const d = new Date(h.time);
+      const ts = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' +
+        String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+      return `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px">
+        <span style="color:var(--text-secondary)">${ts}</span>
+        ${dirIcon} <b>${h.symbol}</b> ${dirText}
+        <span style="color:var(--yellow)">$${fmtPrice(h.price)}</span>
+        → <span style="color:${h.direction === 'above' ? 'var(--green)' : 'var(--red)'}">$${fmtPrice(h.triggeredPrice)}</span>
+        ${h.memo ? '<br><span style="color:var(--text-secondary);font-size:11px">📝 ' + h.memo + '</span>' : ''}
+      </div>`;
+    }).join('');
+  },
 };
 
 // ==================== DASHBOARD CONTROLLER ====================
@@ -1227,7 +1391,9 @@ class Dashboard {
     this.setupManualRefresh();
     this.setupAlertMenu();
     this.setupDingTalkConfig();
+    this.setupAlertHistory();
     AlertManager._loadAlerts();
+    AlertManager._loadHistory();
     AlertManager._updateUI();
     updateConnectionStatus();
     await this.loadPairs();
@@ -1432,6 +1598,29 @@ class Dashboard {
     });
     modal.addEventListener('click', (e) => {
       if (e.target === modal) modal.style.display = 'none';
+    });
+  }
+
+  setupAlertHistory() {
+    const modal = document.getElementById('alertHistoryModal');
+    const list = document.getElementById('alertHistoryList');
+    // Open modal
+    document.getElementById('alertHistoryBtn').addEventListener('click', () => {
+      AlertManager.renderHistory();
+      modal.style.display = 'flex';
+    });
+    // Close
+    document.getElementById('alertHistoryClose').addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
+    // Clear history
+    document.getElementById('alertHistoryClear').addEventListener('click', () => {
+      STATE.alertHistory = [];
+      AlertManager._saveHistory();
+      AlertManager.renderHistory();
     });
   }
 
