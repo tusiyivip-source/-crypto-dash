@@ -799,7 +799,7 @@ const ChanTheory = {
   // === Full analysis pipeline ===
   analyze(candles, lowerTFData) {
     if (!candles || candles.length < 20) {
-      return { fractals: { tops: [], bottoms: [] }, strokes: [], waves: [], summary: '数据不足' };
+      return { fractals: { tops: [], bottoms: [] }, strokes: [], waves: [], pivotZones: [], summary: '数据不足' };
     }
 
     const fractals = this.findFractals(candles);
@@ -811,6 +811,7 @@ const ChanTheory = {
     }
 
     const waves = this.findFiveWaves(strokes);
+    const pivotZones = this.findPivotZones(strokes);
 
     let summary = '';
     if (waves.length > 0) {
@@ -827,7 +828,56 @@ const ChanTheory = {
       summary = '暂无信号';
     }
 
-    return { fractals, strokes, waves, summary };
+    return { fractals, strokes, waves, pivotZones, summary };
+  },
+
+  // === Find Central Pivot Zones (中枢) from overlapping strokes ===
+  // A pivot zone (中枢) is formed when 3 consecutive strokes have overlapping price ranges
+  // Upper rail (中枢上轨) = MAX of last 3 stroke lows
+  // Lower rail (中枢下轨) = MIN of last 3 stroke highs
+  findPivotZones(strokes) {
+    const zones = [];
+    const confirmed = strokes; // Use all strokes, confirmed or not
+
+    // Need at least 3 strokes to form a pivot zone
+    if (confirmed.length < 3) return zones;
+
+    // Scan overlapping windows of 3 consecutive strokes
+    for (let i = 0; i <= confirmed.length - 3; i++) {
+      const s1 = confirmed[i];
+      const s2 = confirmed[i + 1];
+      const s3 = confirmed[i + 2];
+
+      // Collect all stroke high and low points
+      const strokeHighs = [];
+      const strokeLows = [];
+      for (const s of [s1, s2, s3]) {
+        // Each stroke has a start and end fractal - take the high/low of the stroke
+        const sh = s.direction === 1 ? s.endFractal.price : s.startFractal.price;
+        const sl = s.direction === 1 ? s.startFractal.price : s.endFractal.price;
+        strokeHighs.push(sh);
+        strokeLows.push(sl);
+      }
+
+      const zoneUpper = Math.min(...strokeHighs); // 中枢上轨 = MIN of 3 stroke highs
+      const zoneLower = Math.max(...strokeLows);  // 中枢下轨 = MAX of 3 stroke lows
+
+      // Pivot zone is valid only if strokes overlap (upper > lower)
+      if (zoneUpper <= zoneLower) continue;
+
+      const zoneMiddle = (zoneUpper + zoneLower) / 2;
+
+      zones.push({
+        startTime: s1.startFractal.time,
+        endTime: s3.endFractal.time,
+        upper: zoneUpper,
+        lower: zoneLower,
+        middle: zoneMiddle,
+        strokes: [s1, s2, s3],
+      });
+    }
+
+    return zones;
   },
 };
 
@@ -851,6 +901,7 @@ class ChartPanel {
     this.dataIssue = '';
     this._initialFitDone = false;
     this._priceLines = {}; // { alertId: PriceLine }
+    this._pivotLines = []; // PriceLine[] for 中枢 zones
   }
 
   create() {
@@ -1160,6 +1211,12 @@ class ChartPanel {
     // Clear previous markers
     this.candleSeries.setMarkers([]);
 
+    // Clear previous pivot zone lines
+    for (const line of this._pivotLines) {
+      try { this.candleSeries.removePriceLine(line); } catch (e) {}
+    }
+    this._pivotLines = [];
+
     const markers = [];
 
     // Mark 5-wave patterns with number labels only
@@ -1179,6 +1236,39 @@ class ChartPanel {
     }
 
     this.candleSeries.setMarkers(markers);
+
+    // Draw pivot zones (中枢) - horizontal dotted lines
+    if (this.chanResult.pivotZones && this.chanResult.pivotZones.length > 0) {
+      // Only show the most recent 2 pivot zones to avoid clutter
+      const recentZones = this.chanResult.pivotZones.slice(-2);
+      for (const zone of recentZones) {
+        const upperLine = this.candleSeries.createPriceLine({
+          price: zone.upper,
+          color: '#ef5350',
+          lineWidth: 1,
+          lineStyle: 2, // dotted
+          axisLabelVisible: true,
+          title: '中枢上',
+        });
+        const midLine = this.candleSeries.createPriceLine({
+          price: zone.middle,
+          color: '#9e9e9e',
+          lineWidth: 1,
+          lineStyle: 2,
+          axisLabelVisible: false,
+          title: '',
+        });
+        const lowerLine = this.candleSeries.createPriceLine({
+          price: zone.lower,
+          color: '#26a69a',
+          lineWidth: 1,
+          lineStyle: 2,
+          axisLabelVisible: true,
+          title: '中枢下',
+        });
+        this._pivotLines.push(upperLine, midLine, lowerLine);
+      }
+    }
   }
 
   updatePrice(price, change) {
@@ -1196,7 +1286,10 @@ class ChartPanel {
     if (this.chanResult) {
       const hasWaves = this.chanResult.waves.length > 0;
       const hasStrokes = this.chanResult.strokes.filter(s => s.confirmed).length > 0;
-      badge.textContent = '缠论: ' + this.chanResult.summary;
+      const zoneCount = this.chanResult.pivotZones ? this.chanResult.pivotZones.length : 0;
+      let extra = '';
+      if (zoneCount > 0) extra = ` ${zoneCount}中枢`;
+      badge.textContent = '缠论: ' + this.chanResult.summary + extra;
       badge.className = 'chan-badge ' + (hasWaves ? 'wave-found' : hasStrokes ? 'stroke' : 'wave-none');
     }
 
