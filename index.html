@@ -873,6 +873,7 @@ class ChartPanel {
     this.candles = [];
     this.lowerTFCandles = [];
     this.chanResult = null;
+    this.subChanResult = null; // sub-TF strokes for overlay
     this.dataValid = true;
     this.dataIssue = '';
     this._initialFitDone = false;
@@ -1077,7 +1078,14 @@ class ChartPanel {
       priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false,
     });
 
-    // Chan Theory stroke line series removed - only wave markers shown
+    // Sub-TF stroke line series (次级别笔)
+    this.subStrokeSeries = this.chart.addLineSeries({
+      color: 'rgba(156,39,176,0.5)',
+      lineWidth: 1,
+      lineStyle: 2, // dashed
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
 
     // Volume histogram (bottom of chart)
     this.volumeSeries = this.chart.addHistogramSeries({
@@ -1152,6 +1160,8 @@ class ChartPanel {
     try {
       const lowerCandles = await BinanceAPI.getKlines(this.symbol, subTF, CONFIG.KLINE_LIMIT);
       this.lowerTFCandles = lowerCandles;
+      // Run Chan analysis on sub-TF independently for stroke overlay
+      this.subChanResult = ChanTheory.analyze(lowerCandles, []);
       // Re-run chart update with Chan analysis now that sub-TF data is available
       this.updateChart(true);
       this.updateStatus();
@@ -1256,6 +1266,19 @@ class ChartPanel {
     }
 
     this.candleSeries.setMarkers(markers);
+
+    // Draw sub-TF strokes (次级别笔) as connected lines
+    if (this.subChanResult && this.subChanResult.strokes.length > 0) {
+      const subPoints = [];
+      const strokes = this.subChanResult.strokes;
+      for (const s of strokes) {
+        subPoints.push({ time: s.startFractal.time, value: s.startFractal.price });
+        subPoints.push({ time: s.endFractal.time, value: s.endFractal.price });
+      }
+      this.subStrokeSeries.setData(subPoints);
+    } else {
+      this.subStrokeSeries.setData([]);
+    }
   }
 
   updatePrice(price, change) {
@@ -1901,6 +1924,9 @@ class Dashboard {
       for (let i = 0; i < panels.length; i++) {
         const panel = panels[i];
         panel.chanResult = ChanTheory.analyze(panel.candles, panel.lowerTFCandles);
+        if (panel.lowerTFCandles.length > 0) {
+          panel.subChanResult = ChanTheory.analyze(panel.lowerTFCandles, []);
+        }
         panel.drawChanTheory();
         panel.updateStatus();
         // Yield every 5 panels to avoid frame drops
