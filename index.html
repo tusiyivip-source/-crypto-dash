@@ -315,8 +315,8 @@ const STATE = {
   lastRefresh: 0,
   alerts: [],           // { id, symbol, price, direction, triggered, createdAt }
   alertMenuTarget: null,// current alert menu context { symbol, price }
-  dingtalkWebhook: localStorage.getItem('dingtalk_webhook') || 'https://oapi.dingtalk.com/robot/send?access_token=6ba9f50c9de33c9f907d44ac3232acf47b1a44921368dc86503019e1fd4bbae4',
-  dingtalkSecret: localStorage.getItem('dingtalk_secret') || 'SECb3758b7be7949fc2c0a016c9f8d8648b6ed2107083ad09cc3e1993a51a035331',
+  dingtalkWebhook: localStorage.getItem('dingtalk_webhook') || '',
+  dingtalkSecret: localStorage.getItem('dingtalk_secret') || '',
   dingtalkKeyword: localStorage.getItem('dingtalk_keyword') || '牛牛',
 };
 
