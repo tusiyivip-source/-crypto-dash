@@ -117,6 +117,32 @@ body {
 .panel-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
 .panel-btn.remove:hover { background: var(--red); color: #fff; }
 .panel-btn.alert-btn:hover { background: rgba(240,185,11,0.2); color: var(--yellow); }
+.panel-btn.alert-btn.active { background: rgba(240,185,11,0.25); color: var(--yellow); }
+/* Inline alert form */
+.panel-alert-inline {
+  display: none; padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: rgba(0,0,0,0.15); gap: 6px; align-items: center; flex-shrink: 0;
+}
+.panel-alert-inline.show { display: flex; }
+.panel-alert-inline input {
+  width: 80px; padding: 3px 6px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 3px; color: var(--text); font-size: 11px; font-family: Consolas, monospace;
+}
+.panel-alert-inline input:focus { border-color: var(--yellow); outline: none; }
+.panel-alert-inline label { font-size: 10px; color: var(--text-secondary); white-space: nowrap; }
+.panel-alert-inline .alert-set-btn {
+  padding: 3px 8px; border: none; border-radius: 3px; cursor: pointer; font-size: 10px;
+  background: var(--yellow); color: #000; font-weight: 600;
+}
+.panel-alert-inline .alert-clear-btn {
+  padding: 3px 8px; border: 1px solid var(--border); border-radius: 3px;
+  cursor: pointer; font-size: 10px; background: transparent; color: var(--text-secondary);
+}
+.panel-alert-inline .alert-quick-btn {
+  padding: 2px 5px; border: 1px solid var(--border); border-radius: 2px;
+  cursor: pointer; font-size: 9px; background: transparent; color: var(--text-secondary);
+}
+.panel-alert-inline .alert-quick-btn:hover { border-color: var(--yellow); color: var(--yellow); }
 .panel-chart { flex: 1; position: relative; min-height: 180px; }
 .panel-footer {
   display: flex; align-items: center; justify-content: space-between;
@@ -867,6 +893,14 @@ class ChartPanel {
           <button class="panel-btn remove" title="移除">×</button>
         </div>
       </div>
+      <div class="panel-alert-inline">
+        <label>上方</label><input class="alert-upper" type="number" step="any" placeholder="突破价">
+        <button class="alert-quick-btn upper-current">现价</button>
+        <label>下方</label><input class="alert-lower" type="number" step="any" placeholder="跌破价">
+        <button class="alert-quick-btn lower-current">现价</button>
+        <button class="alert-set-btn">设置</button>
+        <button class="alert-clear-btn">清除</button>
+      </div>
       <div class="panel-chart" id="chart-${this.symbol}">
         <div class="loading-overlay"><div class="loading-spinner"></div></div>
       </div>
@@ -887,21 +921,64 @@ class ChartPanel {
       this.remove();
     });
 
-    // Alert bell button - reuse the global alertMenu
+    // Alert bell button - toggle inline alert form
     const alertBtn = this.panel.querySelector('.alert-btn');
+    const alertInline = this.panel.querySelector('.panel-alert-inline');
+    const upperInput = alertInline.querySelector('.alert-upper');
+    const lowerInput = alertInline.querySelector('.alert-lower');
+    const curPrice = () => this.pairData ? this.pairData.lastPrice : 0;
+
     alertBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const price = this.pairData ? this.pairData.lastPrice : 0;
-      if (!price) return;
-      const btnRect = alertBtn.getBoundingClientRect();
-      // Set target and pre-fill price input
-      STATE.alertMenuTarget = { symbol: this.symbol };
-      document.getElementById('alertMenuPrice').value = price;
-      // Show the global alert menu near the button
-      const menu = document.getElementById('alertMenu');
-      menu.style.display = 'block';
-      menu.style.left = Math.min(btnRect.left, window.innerWidth - 210) + 'px';
-      menu.style.top = Math.min(btnRect.bottom + 4, window.innerHeight - 180) + 'px';
+      const isOpen = alertInline.classList.toggle('show');
+      if (isOpen) {
+        alertBtn.classList.add('active');
+        const p = curPrice();
+        if (p && !upperInput.value) upperInput.value = p;
+        if (p && !lowerInput.value) lowerInput.value = p;
+      } else {
+        alertBtn.classList.remove('active');
+      }
+    });
+
+    // Quick buttons: fill current price
+    alertInline.querySelector('.upper-current').addEventListener('click', (e) => {
+      e.stopPropagation();
+      upperInput.value = curPrice();
+    });
+    alertInline.querySelector('.lower-current').addEventListener('click', (e) => {
+      e.stopPropagation();
+      lowerInput.value = curPrice();
+    });
+
+    // Set button: create alerts
+    alertInline.querySelector('.alert-set-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const upper = parseFloat(upperInput.value);
+      const lower = parseFloat(lowerInput.value);
+      if (isNaN(upper) && isNaN(lower)) return;
+      // Remove existing alerts for this symbol
+      for (const a of STATE.alerts.filter(a => a.symbol === this.symbol && !a.triggered)) {
+        AlertManager.removeAlert(a.id);
+      }
+      if (!isNaN(upper) && upper > 0) {
+        const a = AlertManager.addAlert(this.symbol, upper, 'above');
+        this.addPriceLine(a.id, upper);
+      }
+      if (!isNaN(lower) && lower > 0) {
+        const a = AlertManager.addAlert(this.symbol, lower, 'below');
+        this.addPriceLine(a.id, lower);
+      }
+    });
+
+    // Clear button: remove all alerts for this symbol
+    alertInline.querySelector('.alert-clear-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      upperInput.value = '';
+      lowerInput.value = '';
+      for (const a of STATE.alerts.filter(a => a.symbol === this.symbol && !a.triggered)) {
+        AlertManager.removeAlert(a.id);
+      }
     });
 
     // Header click to expand/collapse
