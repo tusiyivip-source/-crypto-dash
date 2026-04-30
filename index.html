@@ -313,7 +313,7 @@ const STATE = {
   clockTimer: null,
   wsReconnectTimer: null,
   lastRefresh: 0,
-  alerts: [],           // { id, symbol, price, direction, triggered, createdAt }
+  alerts: [],           // { id, symbol, price, direction, memo, triggered, createdAt }
   alertMenuTarget: null,// current alert menu context { symbol, price }
   dingtalkWebhook: localStorage.getItem('dingtalk_webhook') || '',
   dingtalkSecret: localStorage.getItem('dingtalk_secret') || '',
@@ -568,6 +568,7 @@ class ChartPanel {
         <button class="alert-quick-btn upper-current">现价</button>
         <label>下方</label><input class="alert-lower" type="number" step="any" placeholder="跌破价">
         <button class="alert-quick-btn lower-current">现价</button>
+        <label>备注</label><input class="alert-memo" type="text" placeholder="自定义备注">
         <button class="alert-set-btn">设置</button>
         <button class="alert-clear-btn">清除</button>
       </div>
@@ -595,6 +596,7 @@ class ChartPanel {
     const alertInline = this.panel.querySelector('.panel-alert-inline');
     const upperInput = alertInline.querySelector('.alert-upper');
     const lowerInput = alertInline.querySelector('.alert-lower');
+    const memoInput = alertInline.querySelector('.alert-memo');
     const curPrice = () => this.pairData ? this.pairData.lastPrice : 0;
 
     alertBtn.addEventListener('click', (e) => {
@@ -626,16 +628,17 @@ class ChartPanel {
       const upper = parseFloat(upperInput.value);
       const lower = parseFloat(lowerInput.value);
       if (isNaN(upper) && isNaN(lower)) return;
+      const memo = memoInput.value.trim();
       // Remove existing alerts for this symbol
       for (const a of STATE.alerts.filter(a => a.symbol === this.symbol && !a.triggered)) {
         AlertManager.removeAlert(a.id);
       }
       if (!isNaN(upper) && upper > 0) {
-        const a = AlertManager.addAlert(this.symbol, upper, 'above');
+        const a = AlertManager.addAlert(this.symbol, upper, 'above', memo);
         this.addPriceLine(a.id, upper);
       }
       if (!isNaN(lower) && lower > 0) {
-        const a = AlertManager.addAlert(this.symbol, lower, 'below');
+        const a = AlertManager.addAlert(this.symbol, lower, 'below', memo);
         this.addPriceLine(a.id, lower);
       }
     });
@@ -1062,7 +1065,7 @@ const DingTalk = {
     }
   },
 
-  async sendAlert(symbol, price, direction, currentPrice) {
+  async sendAlert(symbol, price, direction, currentPrice, memo = '') {
     const webhook = STATE.dingtalkWebhook;
     if (!webhook) return;
     let url = webhook;
@@ -1074,11 +1077,12 @@ const DingTalk = {
     const dirText = direction === 'above' ? '突破上方' : direction === 'below' ? '跌破下方' : '触碰';
     const emoji = direction === 'above' ? '📈' : direction === 'below' ? '📉' : '↕️';
     const keyword = STATE.dingtalkKeyword || '告警';
+    const memoLine = memo ? `\n\n**备注**: ${memo}` : '';
     const body = JSON.stringify({
       msgtype: 'markdown',
       markdown: {
         title: `${keyword} ${symbol}`,
-        text: `## ${emoji} ${keyword}触发\n\n**币种**: ${symbol}\n\n**告警价**: $${fmtPrice(price)}\n\n**当前价**: $${fmtPrice(currentPrice)}\n\n**方向**: ${dirText}\n\n**时间**: ${new Date().toLocaleString('zh-CN')}`,
+        text: `## ${emoji} ${keyword}触发\n\n**币种**: ${symbol}\n\n**告警价**: $${fmtPrice(price)}\n\n**当前价**: $${fmtPrice(currentPrice)}\n\n**方向**: ${dirText}${memoLine}\n\n**时间**: ${new Date().toLocaleString('zh-CN')}`,
       },
     });
     await this._post(url, body);
@@ -1120,11 +1124,11 @@ const DingTalk = {
 const AlertManager = {
   _idCounter: Date.now(),
 
-  addAlert(symbol, price, direction) {
+  addAlert(symbol, price, direction, memo = '') {
     const id = 'alert_' + (this._idCounter++);
-    const alert = { id, symbol, price, direction, triggered: false, createdAt: Date.now() };
+    const alert = { id, symbol, price, direction, memo, triggered: false, createdAt: Date.now() };
     STATE.alerts.push(alert);
-    console.log(`[告警添加] ${symbol} ${direction} @ ${price}`);
+    console.log(`[告警添加] ${symbol} ${direction} @ ${price} ${memo ? '备注:' + memo : ''}`);
     this._saveAlerts();
     this._updateUI();
     // Immediately check if alert should trigger
@@ -1167,7 +1171,7 @@ const AlertManager = {
         const dirText = alert.direction === 'above' ? '突破上方' : alert.direction === 'below' ? '跌破下方' : '触碰';
         console.log(`[告警触发] ${symbol} ${dirText} 告警价:${alert.price} 当前价:${currentPrice}`);
         showToast(`${symbol} ${dirText} $${fmtPrice(alert.price)} → $${fmtPrice(currentPrice)}`, true);
-        DingTalk.sendAlert(symbol, alert.price, alert.direction, currentPrice);
+        DingTalk.sendAlert(symbol, alert.price, alert.direction, currentPrice, alert.memo);
         // Remove price line from chart
         const panel = STATE.chartPanels[symbol];
         if (panel) panel.removePriceLine(alert.id);
@@ -1188,7 +1192,7 @@ const AlertManager = {
   _saveAlerts() {
     try {
       const saveable = STATE.alerts.filter(a => !a.triggered).map(a => ({
-        id: a.id, symbol: a.symbol, price: a.price, direction: a.direction, createdAt: a.createdAt,
+        id: a.id, symbol: a.symbol, price: a.price, direction: a.direction, memo: a.memo || '', createdAt: a.createdAt,
       }));
       localStorage.setItem('alerts', JSON.stringify(saveable));
     } catch(e) {}
