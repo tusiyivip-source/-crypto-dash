@@ -1066,13 +1066,24 @@ class ChartPanel {
     // Fibonacci retracement overlay
     this._fibPrimitive = new FibRetracement();
     this.candleSeries.attachPrimitive(this._fibPrimitive);
-    this.chart.subscribeClick((param) => {
-      if (!param.point || !param.time) return;
-      // Get clicked candle data
-      const data = param.seriesData.get(this.candleSeries);
-      const price = (data && data.close != null) ? data.close : null;
-      if (price == null) return;
-      this._handleFibClick(param.time, price);
+    // Fib click handler — DOM event on chart container, converts x→time→candle
+    chartContainer.addEventListener('click', (e) => {
+      if (e.button !== 0) return; // left-click only
+      const fibBtn = this.panel.querySelector('.fib-btn');
+      if (!fibBtn || !fibBtn.classList.contains('active')) return;
+      const rect = chartContainer.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const time = this.chart.timeScale().coordinateToTime(x);
+      if (time == null) return;
+      // Find closest candle
+      let best = null, bestDist = Infinity;
+      for (const c of this.candles) {
+        const dist = Math.abs(c.time - time);
+        if (dist < bestDist) { bestDist = dist; best = c; }
+      }
+      if (best && best.close != null) {
+        this._handleFibClick(best.time, best.close);
+      }
     });
 
     // MA series
