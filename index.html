@@ -1180,11 +1180,11 @@ class ChartPanel {
 
 // ==================== DINGTALK NOTIFICATION ====================
 const DingTalk = {
-  // Post via local proxy first, fallback to direct (CORS-permitting)
+  // Post via: local proxy → public CORS proxy → direct (CORS-permitting)
   async _post(targetUrl, body) {
-    // Try local proxy
+    // 1) Try local proxy (localhost:8080)
     try {
-      console.log('[钉钉] 尝试通过代理发送...');
+      console.log('[钉钉] 尝试通过本地代理发送...');
       const resp = await fetch('/proxy/dingtalk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1194,9 +1194,24 @@ const DingTalk = {
       console.log('[钉钉] 代理响应:', data);
       if (resp.ok) return data;
     } catch (e) {
-      console.warn('[钉钉] 代理不可用，尝试直连:', e.message);
+      console.warn('[钉钉] 本地代理不可用');
     }
-    // Fallback: direct call (may fail due to CORS)
+    // 2) Try public CORS proxy (for GitHub Pages etc.)
+    try {
+      console.log('[钉钉] 尝试通过公共代理发送...');
+      const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
+      const resp = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+      const data = await resp.json();
+      console.log('[钉钉] 公共代理响应:', data);
+      if (resp.ok) return data;
+    } catch (e) {
+      console.warn('[钉钉] 公共代理不可用');
+    }
+    // 3) Fallback: direct call (mostly blocked by CORS)
     try {
       console.log('[钉钉] 尝试直连...');
       const resp = await fetch(targetUrl, {
