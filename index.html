@@ -123,6 +123,8 @@ body {
 .panel-btn.remove:hover { background: var(--red); color: #fff; }
 .panel-btn.alert-btn:hover { background: rgba(240,185,11,0.2); color: var(--yellow); }
 .panel-btn.alert-btn.active { background: rgba(240,185,11,0.25); color: var(--yellow); }
+.panel-btn.fib-btn:hover { background: rgba(14,240,240,0.15); color: #0ef0f0; }
+.panel-btn.fib-btn.active { background: rgba(14,240,240,0.25); color: #0ef0f0; }
 /* Inline alert form */
 .panel-alert-inline {
   display: none; padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -682,6 +684,114 @@ class HighLowCrosshair {
   }
 }
 
+// Fibonacci retracement primitive — draws fib level lines between two anchor points
+const FIB_LEVELS = [
+  { pct: 0, label: '0%', color: '#f0b90b' },
+  { pct: 0.236, label: '23.6%', color: '#0ef0f0' },
+  { pct: 0.5, label: '50%', color: '#eaecef' },
+  { pct: 1.0, label: '100%', color: '#f0b90b' },
+  { pct: 2.0, label: '200%', color: '#f6465d' },
+];
+
+class FibRetracement {
+  constructor() {
+    this._point1 = null; // { time, price }
+    this._point2 = null;
+    this._requestUpdate = null;
+  }
+  attached({ requestUpdate }) { this._requestUpdate = requestUpdate; }
+  detached() { this._requestUpdate = null; }
+  setPoints(p1, p2) {
+    this._point1 = p1 || null;
+    this._point2 = p2 || null;
+    if (this._requestUpdate) this._requestUpdate();
+  }
+  clear() {
+    this._point1 = null;
+    this._point2 = null;
+    if (this._requestUpdate) this._requestUpdate();
+  }
+  draw(target, params) {
+    target.useMediaCoordinatesContext((ctx) => {
+      const w = params.visibleMediaRect.width;
+
+      // Draw anchor point 1 (if set)
+      if (this._point1) {
+        const c1 = params.logicalToMediaCoordinates(this._point1);
+        if (c1) {
+          ctx.beginPath();
+          ctx.arc(c1.x, c1.y, 5, 0, Math.PI * 2);
+          ctx.fillStyle = '#f0b90b';
+          ctx.fill();
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          // Price label
+          const t1 = this._point1.price.toFixed(4);
+          ctx.font = 'bold 10px monospace';
+          const tw = ctx.measureText(t1).width;
+          ctx.fillStyle = '#f0b90b';
+          ctx.fillRect(c1.x - tw/2 - 4, c1.y - 18, tw + 8, 14);
+          ctx.fillStyle = '#000';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(t1, c1.x - tw/2, c1.y - 11);
+        }
+      }
+
+      // Draw fib levels (if both points set)
+      if (!this._point1 || !this._point2) return;
+      const high = Math.max(this._point1.price, this._point2.price);
+      const low = Math.min(this._point1.price, this._point2.price);
+      const range = high - low;
+      if (range <= 0) return;
+
+      // Anchor point 2 dot
+      const c2 = params.logicalToMediaCoordinates(this._point2);
+      if (c2) {
+        ctx.beginPath();
+        ctx.arc(c2.x, c2.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#f0b90b';
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      FIB_LEVELS.forEach(({ pct, label, color }) => {
+        const price = high - pct * range;
+        const coord = params.logicalToMediaCoordinates({ price, time: this._point1.time });
+        if (!coord) return;
+        const y = coord.y;
+
+        // Dashed line
+        ctx.beginPath();
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Label at right edge
+        const text = `${label} ${price.toFixed(4)}`;
+        ctx.font = 'bold 10px monospace';
+        const tw = ctx.measureText(text).width;
+        const lx = w - tw - 16;
+        ctx.fillStyle = 'rgba(11,14,17,0.9)';
+        ctx.fillRect(lx, y - 7, tw + 14, 14);
+        // Left accent bar
+        ctx.fillStyle = color;
+        ctx.fillRect(lx, y - 7, 3, 14);
+        // Text
+        ctx.fillStyle = color;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, lx + 7, y);
+      });
+    });
+  }
+}
+
 class ChartPanel {
   constructor(symbol, container) {
     this.symbol = symbol;
@@ -700,6 +810,8 @@ class ChartPanel {
     this._initialFitDone = false;
     this._priceLines = {}; // { alertId: PriceLine }
     this._hlCrosshair = null;  // HighLowCrosshair primitive
+    this._fibPrimitive = null; // FibRetracement primitive
+    this._fibPoint1 = null;    // first fib anchor
   }
 
   create() {
@@ -713,6 +825,7 @@ class ChartPanel {
         <span class="panel-change">--</span>
         <div class="panel-actions">
           <button class="panel-btn alert-btn" title="设置价格提醒">🔔</button>
+          <button class="panel-btn fib-btn" title="斐波那契回调">📐</button>
           <button class="panel-btn remove" title="移除">×</button>
         </div>
       </div>
@@ -807,12 +920,46 @@ class ChartPanel {
     });
 
     // Header click to expand/collapse
-    this.panel.querySelector('.panel-header').addEventListener('click', () => {
+    this.panel.querySelector('.panel-header').addEventListener('click', (e) => {
+      // Don't collapse when clicking fib/alert/remove buttons
+      if (e.target.closest('.panel-btn')) return;
       this.panel.classList.toggle('expanded');
       if (this.chart) {
         setTimeout(() => this.chart.resize(), 300);
       }
     });
+
+    // Fibonacci retracement button
+    const fibBtn = this.panel.querySelector('.fib-btn');
+    fibBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (fibBtn.classList.contains('active')) {
+        // Exit fib mode
+        fibBtn.classList.remove('active');
+        this._fibPoint1 = null;
+        if (this._fibPrimitive) this._fibPrimitive.clear();
+      } else {
+        // Enter fib mode
+        fibBtn.classList.add('active');
+        this._fibPoint1 = null;
+        if (this._fibPrimitive) this._fibPrimitive.clear();
+        showToast('📐 在K线图上点击两个点: 第一个点=起点, 第二个点=终点', false);
+      }
+    });
+  }
+
+  _handleFibClick(time, price) {
+    const fibBtn = this.panel.querySelector('.fib-btn');
+    if (!fibBtn || !fibBtn.classList.contains('active')) return;
+
+    if (!this._fibPoint1) {
+      this._fibPoint1 = { time, price };
+      this._fibPrimitive.setPoints(this._fibPoint1, null);
+    } else {
+      const p2 = { time, price };
+      this._fibPrimitive.setPoints(this._fibPoint1, p2);
+      this._fibPoint1 = null; // reset for next pair
+    }
   }
 
   initChart() {
@@ -915,6 +1062,16 @@ class ChartPanel {
     // High/Low crosshair overlay
     this._hlCrosshair = new HighLowCrosshair();
     this.candleSeries.attachPrimitive(this._hlCrosshair);
+
+    // Fibonacci retracement overlay
+    this._fibPrimitive = new FibRetracement();
+    this.candleSeries.attachPrimitive(this._fibPrimitive);
+    this.chart.subscribeClick((param) => {
+      if (param.point && param.time) {
+        const price = this.candleSeries.coordinateToPrice(param.point.y);
+        if (price != null) this._handleFibClick(param.time, price);
+      }
+    });
 
     // MA series
     this.ma7Series = this.chart.addLineSeries({
