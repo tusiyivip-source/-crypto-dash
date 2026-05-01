@@ -1,0 +1,22 @@
+{
+  "name": "牛牛盯盘系统",
+  "short_name": "牛牛",
+  "description": "Binance 加密多屏看盘 - 实时K线、MACD/MA指标、价格告警",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0e11",
+  "theme_color": "#0b0e11",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

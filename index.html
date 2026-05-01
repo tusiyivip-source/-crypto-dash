@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b0e11">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="牛牛盯盘">
+<link rel="manifest" href="/manifest.json">
 <title>牛牛 - 加密盯盘系统</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%230b0e11'/><text x='16' y='22' text-anchor='middle' fill='%23f0b90b' font-size='18'>🐂</text></svg>">
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
@@ -215,6 +220,51 @@ body {
   position: absolute; right: 2px; font-size: 10px; font-weight: 700;
   padding: 1px 4px; border-radius: 2px; pointer-events: none; z-index: 6;
 }
+/* ACTIVE ALERTS PANEL */
+#activeAlertsPanel {
+  position: fixed; top: 60px; right: 12px; z-index: 1500;
+  background: var(--panel-bg); border: 1px solid var(--border);
+  border-radius: 8px; width: 260px; max-height: 360px;
+  display: flex; flex-direction: column; box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+#activeAlertsPanel.collapsed .alerts-body { display: none; }
+#activeAlertsPanel.collapsed { max-height: none; }
+.alerts-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px; cursor: pointer; user-select: none;
+  border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600;
+}
+.alerts-header .alerts-count { color: var(--yellow); margin-left: 6px; font-size: 11px; }
+.alerts-header .alerts-toggle { font-size: 12px; color: var(--text-secondary); }
+.alerts-body { overflow-y: auto; flex: 1; }
+.alerts-empty { padding: 16px; text-align: center; color: var(--text-secondary); font-size: 12px; }
+.alerts-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px;
+}
+.alerts-item:hover { background: var(--hover); }
+.alerts-item.clickable { cursor: pointer; }
+.alerts-item.clickable .alerts-symbol { text-decoration: underline; text-underline-offset: 2px; }
+.panel-flash { animation: panelFlash 0.6s ease-out 2; }
+@keyframes panelFlash {
+  0%, 100% { box-shadow: 0 0 0 rgba(240,185,11,0); }
+  50% { box-shadow: 0 0 20px rgba(240,185,11,0.6); }
+}
+.alerts-item .alerts-dir {
+  font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 600;
+  flex-shrink: 0; margin-right: 6px;
+}
+.alerts-dir.above { background: #0ecb81; color: #000; }
+.alerts-dir.below { background: #f6465d; color: #fff; }
+.alerts-dir.cross { background: #f0b90b; color: #000; }
+.alerts-item .alerts-info { flex: 1; min-width: 0; }
+.alerts-item .alerts-symbol { font-weight: 600; }
+.alerts-item .alerts-meta { font-size: 10px; color: var(--text-secondary); }
+.alerts-item .alerts-delete {
+  background: none; border: none; color: var(--text-secondary); cursor: pointer;
+  font-size: 14px; padding: 2px 4px; flex-shrink: 0;
+}
+.alerts-item .alerts-delete:hover { color: var(--red); }
 /* RESPONSIVE */
 @media (max-width: 768px) {
   #chartGrid { grid-template-columns: 1fr; }
@@ -245,6 +295,7 @@ body {
       <span id="pairCount">币种: 0/100</span>
       <button id="alertConfigBtn" title="钉钉告警配置">🔔</button>
       <button id="alertHistoryBtn" title="告警历史">📋</button>
+      <button id="installBtn" title="安装到桌面" style="display:none">📲 安装</button>
     </div>
   </header>
   <div id="statsBar">
@@ -296,6 +347,16 @@ body {
     <div class="alert-menu-item" data-dir="cross">↕️ 价格触碰时告警</div>
     <div class="alert-menu-sep"></div>
     <div class="alert-menu-item alert-cancel">✕ 取消</div>
+  </div>
+  <!-- Active Alerts Panel -->
+  <div id="activeAlertsPanel" style="display:none">
+    <div class="alerts-header" id="alertsHeader">
+      <span>🔔 活跃警报<span class="alerts-count" id="alertsCount">0</span></span>
+      <span class="alerts-toggle">−</span>
+    </div>
+    <div class="alerts-body" id="alertsBody">
+      <div class="alerts-empty">暂无活跃警报</div>
+    </div>
   </div>
   <div id="chartGrid"></div>
 </div>
@@ -1025,40 +1086,9 @@ class ChartPanel {
   updateFromWS(kline) {
     if (!this.candles.length) return;
 
-    const kTime = Math.floor(kline.t / 1000);
-    const lastCandle = this.candles[this.candles.length - 1];
+    const c = parseFloat(kline.c);
 
-    const o = parseFloat(kline.o), h = parseFloat(kline.h);
-    const l = parseFloat(kline.l), c = parseFloat(kline.c), v = parseFloat(kline.v);
-    const isNewCandle = kTime > lastCandle.time;
-
-    if (kTime === lastCandle.time) {
-      lastCandle.open = o; lastCandle.high = h;
-      lastCandle.low = l; lastCandle.close = c;
-      lastCandle.volume = v;
-      this.candleSeries.update({
-        time: lastCandle.time,
-        open: lastCandle.open, high: lastCandle.high,
-        low: lastCandle.low, close: lastCandle.close,
-      });
-      this.volumeSeries.update({
-        time: lastCandle.time, value: v,
-        color: c >= o ? 'rgba(14,203,129,0.2)' : 'rgba(246,70,93,0.2)',
-      });
-    } else if (isNewCandle) {
-      const newCandle = { time: kTime, open: o, high: h, low: l, close: c, volume: v };
-      this.candles.push(newCandle);
-      if (this.candles.length > CONFIG.KLINE_LIMIT) this.candles.shift();
-      this.candleSeries.update({
-        time: kTime, open: o, high: h, low: l, close: c,
-      });
-      this.volumeSeries.update({
-        time: kTime, value: v,
-        color: c >= o ? 'rgba(14,203,129,0.2)' : 'rgba(246,70,93,0.2)',
-      });
-    }
-
-    // 实时更新面板价格
+    // 实时更新面板价格（不刷新图表）
     const priceEl = this.panel.querySelector('.panel-price');
     const changeEl = this.panel.querySelector('.panel-change');
     priceEl.textContent = '$' + fmtPrice(c);
@@ -1077,10 +1107,8 @@ class ChartPanel {
       dataStatus.style.color = 'var(--green)';
     }
 
-    // Check alerts against latest close price
-    if (this.candles.length > 0) {
-      AlertManager.checkAlerts(this.symbol, this.candles[this.candles.length - 1].close);
-    }
+    // Check alerts against current close price
+    AlertManager.checkAlerts(this.symbol, c);
   }
 
   remove() {
@@ -1334,6 +1362,55 @@ const AlertManager = {
     if (el) el.textContent = count;
     const btn = document.getElementById('alertConfigBtn');
     if (btn) { btn.classList.toggle('has-alerts', count > 0); btn.textContent = count > 0 ? `🔔${count}` : '🔔'; }
+    this._renderPanel();
+  },
+
+  _renderPanel() {
+    const panel = document.getElementById('activeAlertsPanel');
+    const body = document.getElementById('alertsBody');
+    const countEl = document.getElementById('alertsCount');
+    if (!panel || !body) return;
+    const active = STATE.alerts.filter(a => !a.triggered);
+    // Show/hide panel
+    panel.style.display = active.length > 0 ? 'flex' : 'none';
+    if (countEl) countEl.textContent = active.length;
+    if (active.length === 0) {
+      body.innerHTML = '<div class="alerts-empty">暂无活跃警报</div>';
+      return;
+    }
+    body.innerHTML = active.map(a => {
+      const dirLabel = a.direction === 'above' ? '↑突破' : a.direction === 'below' ? '↓跌破' : '↕触碰';
+      return `<div class="alerts-item clickable" data-symbol="${a.symbol}">
+        <span class="alerts-dir ${a.direction}">${dirLabel}</span>
+        <span class="alerts-info">
+          <span class="alerts-symbol">${a.symbol}</span>
+          <span class="alerts-meta"> @ ${fmtPrice(a.price)}${a.memo ? ' · ' + a.memo : ''}</span>
+        </span>
+        <button class="alerts-delete" data-id="${a.id}" title="删除">✕</button>
+      </div>`;
+    }).join('');
+    // Bind click to jump to chart
+    body.querySelectorAll('.alerts-item.clickable').forEach(item => {
+      item.addEventListener('click', () => {
+        const sym = item.dataset.symbol;
+        const panel = STATE.chartPanels[sym];
+        if (panel && panel.panel) {
+          // Scroll panel into view
+          panel.panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Flash highlight
+          panel.panel.classList.remove('panel-flash');
+          void panel.panel.offsetWidth; // reflow
+          panel.panel.classList.add('panel-flash');
+        }
+      });
+    });
+    // Bind delete buttons
+    body.querySelectorAll('.alerts-delete').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        AlertManager.removeAlert(btn.dataset.id);
+      });
+    });
   },
 
   _addHistory(symbol, price, direction, triggeredPrice, memo) {
@@ -1616,6 +1693,16 @@ class Dashboard {
     modal.addEventListener('click', (e) => {
       if (e.target === modal) modal.style.display = 'none';
     });
+    // Active alerts panel toggle
+    const alertsHeader = document.getElementById('alertsHeader');
+    const alertsPanel = document.getElementById('activeAlertsPanel');
+    const alertsToggle = alertsPanel.querySelector('.alerts-toggle');
+    if (alertsHeader) {
+      alertsHeader.addEventListener('click', () => {
+        alertsPanel.classList.toggle('collapsed');
+        alertsToggle.textContent = alertsPanel.classList.contains('collapsed') ? '+' : '−';
+      });
+    }
     // Clear history
     document.getElementById('alertHistoryClear').addEventListener('click', () => {
       STATE.alertHistory = [];
@@ -1794,6 +1881,37 @@ window.addEventListener('resize', () => {
       if (panel.chart) panel.chart.resize();
     }
   }, 200);
+});
+
+// Register service worker for PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// PWA install
+let deferredPrompt = null;
+const installBtn = document.getElementById('installBtn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.style.display = '';
+});
+
+installBtn.addEventListener('click', () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then((result) => {
+    if (result.outcome === 'accepted') {
+      installBtn.style.display = 'none';
+      deferredPrompt = null;
+    }
+  });
+});
+
+window.addEventListener('appinstalled', () => {
+  installBtn.style.display = 'none';
+  deferredPrompt = null;
 });
 </script>
 </body>
