@@ -1180,71 +1180,28 @@ class ChartPanel {
 
 // ==================== DINGTALK NOTIFICATION ====================
 const DingTalk = {
-  // Post via: local proxy → public proxies → direct
+  // Post via /proxy/dingtalk (handled by Python server locally, Service Worker on GitHub Pages)
   async _post(targetUrl, body, resultEl) {
-    // 1) Local proxy (localhost:8080)
     try {
-      console.log('[钉钉] 尝试本地代理...');
       const resp = await fetch('/proxy/dingtalk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: targetUrl, body }),
       });
       const data = await resp.json();
-      console.log('[钉钉] 本地代理响应:', data);
       if (resp.ok) return data;
-    } catch (e) {
-      console.warn('[钉钉] 本地代理不可用');
-    }
-
-    // 2) allorigins.win POST proxy
-    try {
-      console.log('[钉钉] 尝试 allorigins 代理...');
-      const resp = await fetch('https://api.allorigins.win/post', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ url: targetUrl, data: body, headers: 'Content-Type: application/json' }).toString(),
-      });
-      const data = await resp.json();
-      console.log('[钉钉] allorigins 响应:', data);
-      if (resp.ok) return JSON.parse(data.contents || '{}');
-    } catch (e) {
-      console.warn('[钉钉] allorigins 不可用');
-    }
-
-    // 3) corsproxy.io
-    try {
-      console.log('[钉钉] 尝试 corsproxy.io...');
-      const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
-      const resp = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-      });
-      const data = await resp.json();
-      console.log('[钉钉] corsproxy.io 响应:', data);
-      if (resp.ok) return data;
-    } catch (e) {
-      console.warn('[钉钉] corsproxy.io 不可用');
-    }
-
-    // 4) Direct (usually blocked by CORS on GitHub Pages)
-    try {
-      console.log('[钉钉] 尝试直连...');
-      const resp = await fetch(targetUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-      });
-      const data = await resp.json();
-      console.log('[钉钉] 直连响应:', data);
-      return data;
-    } catch (e) {
-      console.error('[钉钉] 所有方式均失败:', e.message);
       if (resultEl) {
         resultEl.style.display = 'block';
         resultEl.style.color = 'var(--red)';
-        resultEl.textContent = '✗ 请启动本地 server.py 代理，或确认钉钉 Webhook 地址正确';
+        resultEl.textContent = `✗ ${data.errmsg || data.error || '请求失败'}`;
+      }
+      return null;
+    } catch (e) {
+      console.error('[钉钉] 发送失败:', e.message);
+      if (resultEl) {
+        resultEl.style.display = 'block';
+        resultEl.style.color = 'var(--red)';
+        resultEl.textContent = '✗ 请启动 server.py 或刷新页面重载 Service Worker';
       }
       showToast('钉钉发送失败', false);
       return null;
