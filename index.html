@@ -1180,25 +1180,41 @@ class ChartPanel {
 
 // ==================== DINGTALK NOTIFICATION ====================
 const DingTalk = {
-  // Post via: local proxy → public CORS proxy → direct (CORS-permitting)
-  async _post(targetUrl, body) {
-    // 1) Try local proxy (localhost:8080)
+  // Post via: local proxy → public proxies → direct
+  async _post(targetUrl, body, resultEl) {
+    // 1) Local proxy (localhost:8080)
     try {
-      console.log('[钉钉] 尝试通过本地代理发送...');
+      console.log('[钉钉] 尝试本地代理...');
       const resp = await fetch('/proxy/dingtalk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: targetUrl, body }),
       });
       const data = await resp.json();
-      console.log('[钉钉] 代理响应:', data);
+      console.log('[钉钉] 本地代理响应:', data);
       if (resp.ok) return data;
     } catch (e) {
       console.warn('[钉钉] 本地代理不可用');
     }
-    // 2) Try public CORS proxy (for GitHub Pages etc.)
+
+    // 2) allorigins.win POST proxy
     try {
-      console.log('[钉钉] 尝试通过公共代理发送...');
+      console.log('[钉钉] 尝试 allorigins 代理...');
+      const resp = await fetch('https://api.allorigins.win/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ url: targetUrl, data: body, headers: 'Content-Type: application/json' }).toString(),
+      });
+      const data = await resp.json();
+      console.log('[钉钉] allorigins 响应:', data);
+      if (resp.ok) return JSON.parse(data.contents || '{}');
+    } catch (e) {
+      console.warn('[钉钉] allorigins 不可用');
+    }
+
+    // 3) corsproxy.io
+    try {
+      console.log('[钉钉] 尝试 corsproxy.io...');
       const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
       const resp = await fetch(proxyUrl, {
         method: 'POST',
@@ -1206,12 +1222,13 @@ const DingTalk = {
         body,
       });
       const data = await resp.json();
-      console.log('[钉钉] 公共代理响应:', data);
+      console.log('[钉钉] corsproxy.io 响应:', data);
       if (resp.ok) return data;
     } catch (e) {
-      console.warn('[钉钉] 公共代理不可用');
+      console.warn('[钉钉] corsproxy.io 不可用');
     }
-    // 3) Fallback: direct call (mostly blocked by CORS)
+
+    // 4) Direct (usually blocked by CORS on GitHub Pages)
     try {
       console.log('[钉钉] 尝试直连...');
       const resp = await fetch(targetUrl, {
@@ -1223,8 +1240,13 @@ const DingTalk = {
       console.log('[钉钉] 直连响应:', data);
       return data;
     } catch (e) {
-      console.error('[钉钉] 发送失败:', e.message);
-      showToast('钉钉发送失败: ' + e.message, false);
+      console.error('[钉钉] 所有方式均失败:', e.message);
+      if (resultEl) {
+        resultEl.style.display = 'block';
+        resultEl.style.color = 'var(--red)';
+        resultEl.textContent = '✗ 请启动本地 server.py 代理，或确认钉钉 Webhook 地址正确';
+      }
+      showToast('钉钉发送失败', false);
       return null;
     }
   },
@@ -1265,14 +1287,13 @@ const DingTalk = {
       msgtype: 'markdown',
       markdown: { title: `${keyword2} 测试`, text: `## 🧪 ${keyword2}测试\n\n**${keyword2}**: 牛牛盯盘系统连接成功！\n\n时间: ${new Date().toLocaleString('zh-CN')}` },
     });
-    const data = await this._post(url, body);
+    const data = await this._post(url, body, resultEl);
+    if (!data) return; // _post already shows error
     resultEl.style.display = 'block';
-    if (data && data.errcode === 0) {
+    if (data.errcode === 0) {
       resultEl.style.color = 'var(--green)'; resultEl.textContent = '✓ 测试成功！请查看钉钉群消息';
-    } else if (data) {
-      resultEl.style.color = 'var(--red)'; resultEl.textContent = `✗ 失败: ${data.errmsg} (code: ${data.errcode})`;
     } else {
-      resultEl.style.color = 'var(--red)'; resultEl.textContent = '✗ 连接失败，请确认已启动 server.py 代理';
+      resultEl.style.color = 'var(--red)'; resultEl.textContent = `✗ 失败: ${data.errmsg} (code: ${data.errcode})`;
     }
   },
 
