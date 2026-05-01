@@ -1067,10 +1067,12 @@ class ChartPanel {
     this._fibPrimitive = new FibRetracement();
     this.candleSeries.attachPrimitive(this._fibPrimitive);
     this.chart.subscribeClick((param) => {
-      if (param.point && param.time) {
-        const price = this.candleSeries.coordinateToPrice(param.point.y);
-        if (price != null) this._handleFibClick(param.time, price);
-      }
+      if (!param.point || !param.time) return;
+      // Get clicked candle data
+      const data = param.seriesData.get(this.candleSeries);
+      const price = (data && data.close != null) ? data.close : null;
+      if (price == null) return;
+      this._handleFibClick(param.time, price);
     });
 
     // MA series
