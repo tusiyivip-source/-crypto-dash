@@ -455,7 +455,7 @@ const BinanceAPI = {
     const tickers = await this.fetchJSON(`${CONFIG.BINANCE_REST}/ticker/24hr`);
     return tickers
       .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('BUSD') && !t.symbol.includes('TUSD'))
-      .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
+      .sort((a, b) => parseFloat(b.priceChangePercent) - parseFloat(a.priceChangePercent))
       .slice(0, limit)
       .map(t => ({
         symbol: t.symbol,
