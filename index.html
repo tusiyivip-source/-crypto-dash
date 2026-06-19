@@ -14,15 +14,15 @@
 <style>
 :root {
   --bg: #0b0e11;
-  --panel-bg: #1e2329;
-  --header-bg: #181a20;
+  --panel-bg: #1a1e24;
+  --header-bg: #14171d;
   --text: #eaecef;
   --text-secondary: #848e9c;
   --green: #0ecb81;
   --red: #f6465d;
   --yellow: #f0b90b;
-  --border: #2b3139;
-  --hover: #2a2d35;
+  --border: #2a2f38;
+  --hover: #262b33;
   --blue: #1e80ff;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -33,29 +33,30 @@ body {
   font-size: 13px;
   overflow-x: hidden;
   user-select: none;
+  -webkit-font-smoothing: antialiased;
 }
 #app { display: flex; flex-direction: column; height: 100vh; }
 /* HEADER */
 #header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 16px; background: var(--header-bg);
+  padding: 10px 20px; background: linear-gradient(180deg, #1a1e26 0%, var(--header-bg) 100%);
   border-bottom: 1px solid var(--border); z-index: 100;
-  flex-shrink: 0; flex-wrap: wrap; gap: 8px;
+  flex-shrink: 0; flex-wrap: wrap; gap: 10px;
 }
 .header-left { display: flex; align-items: center; gap: 16px; }
 .header-left h1 { font-size: 18px; color: var(--yellow); white-space: nowrap; }
 #clock { font-size: 20px; font-weight: 700; font-family: 'Consolas', monospace; color: var(--text); min-width: 160px; }
 .header-center { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .tf-btn {
-  padding: 5px 12px; border: 1px solid var(--border); background: var(--panel-bg);
-  color: var(--text-secondary); cursor: pointer; border-radius: 4px;
-  font-size: 12px; transition: all 0.15s;
+  padding: 6px 14px; border: 1px solid var(--border); background: var(--panel-bg);
+  color: var(--text-secondary); cursor: pointer; border-radius: 5px;
+  font-size: 12px; transition: all 0.2s; font-weight: 500;
 }
-.tf-btn:hover { border-color: var(--yellow); color: var(--text); }
-.tf-btn.active { background: var(--yellow); color: #000; border-color: var(--yellow); font-weight: 700; }
+.tf-btn:hover { border-color: var(--yellow); color: var(--text); background: var(--hover); }
+.tf-btn.active { background: var(--yellow); color: #000; border-color: var(--yellow); font-weight: 700; box-shadow: 0 0 10px rgba(240,185,11,0.25); }
 .header-right { display: flex; align-items: center; gap: 16px; font-size: 12px; }
-#connectionDot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
-#connectionDot.disconnected { background: var(--red); }
+#connectionDot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px rgba(14,203,129,0.4); transition: all 0.3s; }
+#connectionDot.disconnected { background: var(--red); box-shadow: 0 0 6px rgba(246,70,93,0.4); }
 #manualRefreshBtn {
   padding: 5px 14px; border: 1px solid var(--border); background: var(--panel-bg);
   color: var(--text); cursor: pointer; border-radius: 4px;
@@ -73,58 +74,62 @@ body {
 #pairCount { color: var(--text-secondary); }
 /* STATS BAR */
 #statsBar {
-  display: flex; align-items: center; gap: 24px;
-  padding: 6px 16px; background: var(--panel-bg);
+  display: flex; align-items: center; gap: 28px;
+  padding: 8px 20px; background: var(--header-bg);
   border-bottom: 1px solid var(--border); font-size: 12px;
   flex-shrink: 0; overflow-x: auto;
 }
-.stat-item { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
-.stat-label { color: var(--text-secondary); }
-.stat-up { color: var(--green); }
-.stat-down { color: var(--red); }
+.stat-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.stat-label { color: var(--text-secondary); font-weight: 500; }
+.stat-up { color: var(--green); font-weight: 600; }
+.stat-down { color: var(--red); font-weight: 600; }
 /* GRID */
 #chartGrid {
   flex: 1; overflow-y: auto; overflow-x: hidden;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(370px, 1fr));
-  gap: 6px; padding: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 8px; padding: 8px;
   align-content: start;
 }
 #chartGrid::-webkit-scrollbar { width: 6px; }
 #chartGrid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+#chartGrid::-webkit-scrollbar-track { background: transparent; }
 /* PANEL */
 .panel {
   background: var(--panel-bg); border: 1px solid var(--border);
-  border-radius: 6px; overflow: hidden; display: flex; flex-direction: column;
-  min-height: 260px; transition: border-color 0.2s;
+  border-radius: 8px; overflow: hidden; display: flex; flex-direction: column;
+  min-height: 270px; transition: border-color 0.2s, box-shadow 0.2s;
 }
-.panel:hover { border-color: #555; }
+.panel:hover { border-color: #555; box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
 .panel.warning { border-color: var(--yellow); }
 .panel.error { border-color: var(--red); }
-.panel.expanded { grid-column: 1 / -1; min-height: 500px; }
+.panel.expanded { grid-column: 1 / -1; min-height: 520px; }
 .panel-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 4px 8px; background: rgba(0,0,0,0.2); cursor: pointer;
-  flex-shrink: 0; gap: 4px;
+  padding: 5px 10px; background: rgba(0,0,0,0.25); cursor: pointer;
+  flex-shrink: 0; gap: 6px;
 }
-.panel-header:hover { background: rgba(255,255,255,0.03); }
-.panel-symbol { font-weight: 700; font-size: 13px; }
+.panel-header:hover { background: rgba(255,255,255,0.04); }
+.panel-symbol { font-weight: 700; font-size: 13px; letter-spacing: 0.3px; }
 .panel-price { font-weight: 600; font-size: 13px; font-family: 'Consolas', monospace; }
-.panel-change { font-size: 11px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
-.panel-change.up { color: var(--green); background: rgba(14,203,129,0.1); }
-.panel-change.down { color: var(--red); background: rgba(246,70,93,0.1); }
+.panel-change { font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+.panel-change.up { color: var(--green); background: rgba(14,203,129,0.12); }
+.panel-change.down { color: var(--red); background: rgba(246,70,93,0.12); }
 .panel-actions { display: flex; gap: 2px; }
 .panel-btn {
-  width: 20px; height: 20px; border: none; background: transparent;
-  color: var(--text-secondary); cursor: pointer; border-radius: 3px;
-  font-size: 12px; display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border: none; background: transparent;
+  color: var(--text-secondary); cursor: pointer; border-radius: 4px;
+  font-size: 13px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
 }
 .panel-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
 .panel-btn.remove:hover { background: var(--red); color: #fff; }
 .panel-btn.alert-btn:hover { background: rgba(240,185,11,0.2); color: var(--yellow); }
-.panel-btn.alert-btn.active { background: rgba(240,185,11,0.25); color: var(--yellow); }
-.panel-btn.fib-btn:hover { background: rgba(14,240,240,0.15); color: #0ef0f0; }
-.panel-btn.fib-btn.active { background: rgba(14,240,240,0.25); color: #0ef0f0; }
+.panel-btn.alert-btn.active { background: rgba(240,185,11,0.3); color: var(--yellow); }
+.panel-btn.fib-btn:hover { background: rgba(14,240,240,0.2); color: #0ef0f0; }
+.panel-btn.fib-btn.active { background: rgba(14,240,240,0.3); color: #0ef0f0; }
+.panel-btn.stroke-btn:hover { background: rgba(255,152,0,0.2); color: #ff9800; }
+.panel-btn.stroke-btn.active { background: rgba(255,152,0,0.3); color: #ff9800; }
 /* Inline alert form */
 .panel-alert-inline {
   display: none; padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -159,12 +164,13 @@ body {
 /* LOADING */
 .loading-overlay {
   position: absolute; inset: 0; display: flex; align-items: center;
-  justify-content: center; background: rgba(11,14,17,0.8); z-index: 10;
+  justify-content: center; background: rgba(11,14,17,0.85); z-index: 10;
+  backdrop-filter: blur(2px);
 }
 .loading-spinner {
-  width: 24px; height: 24px; border: 2px solid var(--border);
+  width: 28px; height: 28px; border: 2px solid var(--border);
   border-top-color: var(--yellow); border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 /* TOOLTIP */
@@ -269,10 +275,18 @@ body {
 .alerts-item .alerts-delete:hover { color: var(--red); }
 /* RESPONSIVE */
 @media (max-width: 768px) {
-  #chartGrid { grid-template-columns: 1fr; }
-  #header { padding: 6px 8px; }
+  #chartGrid { grid-template-columns: 1fr; gap: 6px; padding: 6px; }
+  #header { padding: 8px 12px; }
   .header-center { order: 3; width: 100%; justify-content: center; }
-  .panel { min-height: 220px; }
+  .header-right { gap: 10px; }
+  .panel { min-height: 240px; }
+  #statsBar { padding: 6px 12px; gap: 16px; font-size: 11px; }
+}
+@media (max-width: 480px) {
+  #header { padding: 6px 8px; }
+  .header-left h1 { font-size: 16px; }
+  #clock { font-size: 16px; min-width: 140px; }
+  .tf-btn { padding: 4px 8px; font-size: 11px; }
 }
 </style>
 </head>
@@ -286,10 +300,16 @@ body {
     <div class="header-center" id="timeframeSelector">
       <button class="tf-btn" data-tf="3m">3分钟</button>
       <button class="tf-btn" data-tf="5m">5分钟</button>
+      <button class="tf-btn" data-tf="10m">10分钟</button>
       <button class="tf-btn active" data-tf="15m">15分钟</button>
       <button class="tf-btn" data-tf="30m">30分钟</button>
       <button class="tf-btn" data-tf="1h">1小时</button>
       <button class="tf-btn" data-tf="2h">2小时</button>
+      <button class="tf-btn" data-tf="3h">3小时</button>
+      <button class="tf-btn" data-tf="6h">6小时</button>
+      <button class="tf-btn" data-tf="1d">日线</button>
+      <button class="tf-btn" data-tf="2d">2日</button>
+      <button class="tf-btn" data-tf="3d">3日</button>
     </div>
     <div class="header-right">
       <span id="connectionDot" title="WebSocket连接状态"></span>
@@ -368,17 +388,17 @@ body {
 <script>
 // ==================== CONFIGURATION ====================
 const CONFIG = {
-  TOP_COINS: 200,
-  TIMEFRAMES: ['3m', '5m', '15m', '30m', '1h', '2h'],
+  TOP_COINS: 100,
+  TIMEFRAMES: ['3m', '5m', '10m', '15m', '30m', '1h', '2h', '3h', '6h', '1d', '2d', '3d'],
   DEFAULT_TF: '15m',
-  KLINE_LIMIT: 200,
+  KLINE_LIMIT: 400,
   MA_PERIODS: [7, 14],
   MACD_FAST: 12,
   MACD_SLOW: 26,
   MACD_SIGNAL: 9,
   BINANCE_REST: 'https://fapi.binance.com/fapi/v1',
   BINANCE_WS_BASE: 'wss://fstream.binance.com/ws',
-  MAX_WS_STREAMS: 200,
+  MAX_WS_STREAMS: 100,
 };
 
 // ==================== GLOBAL STATE ====================
@@ -609,6 +629,173 @@ const Indicators = {
 };
 
 
+// ==================== CHAN THEORY (缠论笔) — 手机版公式移植 ====================
+const ChanTheory = {
+  MIN_STROKE_CANDLES: 5,
+
+  // ── 通达信兼容函数 ──
+  _REF(arr, i, n) { return (i - n >= 0) ? arr[i - n] : null; },
+  _HHV(arr, i, n) { let mx = -Infinity; for (let j = Math.max(0, i - n + 1); j <= i; j++) { if (arr[j] > mx) mx = arr[j]; } return mx; },
+  _LLV(arr, i, n) { let mn = Infinity; for (let j = Math.max(0, i - n + 1); j <= i; j++) { if (arr[j] < mn) mn = arr[j]; } return mn; },
+  _BARSLAST(cond) {
+    const res = new Array(cond.length).fill(0);
+    let last = -1;
+    for (let i = 0; i < cond.length; i++) {
+      if (cond[i]) last = i;
+      res[i] = (last >= 0) ? i - last : 9999;
+    }
+    return res;
+  },
+  _BACKSET(cond, n) {
+    const res = new Array(cond.length).fill(0);
+    for (let i = 0; i < cond.length; i++) {
+      if (cond[i]) { for (let j = Math.max(0, i - n + 1); j <= i; j++) res[j] = 1; }
+    }
+    return res;
+  },
+  _IF(condArr, aArr, bArr, i) { return condArr[i] ? aArr[i] : bArr[i]; },
+  _EVERY(cond, i, n) { for (let j = Math.max(0, i - n + 1); j <= i; j++) { if (!cond[j]) return false; } return true; },
+
+  // ── KDJ 指标 ──
+  kdj(highArr, lowArr, closeArr, n, m1, m2) {
+    n = n || 9; m1 = m1 || 3; m2 = m2 || 3;
+    const len = closeArr.length;
+    const rsv = new Array(len).fill(0);
+    const k = new Array(len).fill(50);
+    const d = new Array(len).fill(50);
+    const j = new Array(len).fill(50);
+    for (let i = n - 1; i < len; i++) {
+      const hh = this._HHV(highArr, i, n);
+      const ll = this._LLV(lowArr, i, n);
+      rsv[i] = (hh - ll > 0) ? ((closeArr[i] - ll) / (hh - ll)) * 100 : 50;
+    }
+    for (let i = 1; i < len; i++) {
+      k[i] = (k[i - 1] * (m1 - 1) + rsv[i]) / m1;
+      d[i] = (d[i - 1] * (m2 - 1) + k[i]) / m2;
+      j[i] = 3 * k[i] - 2 * d[i];
+    }
+    return { k, d, j };
+  },
+
+  // ── 核心：手机版分型+笔计算 (简化去冗余过滤链) ──
+  buildStrokes(candles) {
+    const N = candles.length;
+    const MIN_C = this.MIN_STROKE_CANDLES;
+    if (N < 13) return { strokes: [], liveTarget: null };
+
+    const H = candles.map(c => c.high);
+    const L = candles.map(c => c.low);
+    const C = candles.map(c => c.close);
+
+    // ── 阶段1: 分型检测 (手机版 BHH/BLL)
+    //    REF(H,5) = HHV(H,11)  → 5根前的最高价是11根内的最高
+    //    REF(L,5) = LLV(L,11)  → 5根前的最低价是11根内的最低
+    //    实际使用13周期窗口,信号落在 i-5 位置
+    const rawHighs = [];
+    const rawLows = [];
+    for (let i = 12; i < N; i++) {
+      const idx5 = i - 5;
+      const h5 = H[idx5];
+      const l5 = L[idx5];
+      // 检查是否是13周期内的最高/最低
+      const hhv13 = this._HHV(H, i, 13);
+      const llv13 = this._LLV(L, i, 13);
+      if (h5 >= hhv13) rawHighs.push({ index: idx5, price: h5, time: candles[idx5].time, type: 'high' });
+      if (l5 <= llv13) rawLows.push({ index: idx5, price: l5, time: candles[idx5].time, type: 'low' });
+    }
+
+    // ── 阶段2: KDJ 辅助确认 (简化: 仅当无信号时才跳过KDJ) ──
+    const kdj = this.kdj(H, L, C, 9, 3, 3);
+
+    // 过滤: 顶点需要 K > 50 (强势), 底点需要 K < 50 (弱势)
+    // 但如果过滤后没信号,则回退到不过滤
+    const filteredHighs = rawHighs.filter(p => kdj.k[p.index] > 45);
+    const filteredLows = rawLows.filter(p => kdj.k[p.index] < 55);
+
+    const useHighs = filteredHighs.length >= 2 ? filteredHighs : rawHighs;
+    const useLows = filteredLows.length >= 2 ? filteredLows : rawLows;
+
+    console.log(`[笔-分型] BHH:${rawHighs.length}/${filteredHighs.length} BLL:${rawLows.length}/${filteredLows.length} → 使用H:${useHighs.length} L:${useLows.length}`);
+
+    // ── 阶段3: 去重合并+交替连接 ──
+    const all = [...useHighs, ...useLows].sort((a, b) => a.index - b.index);
+
+    // 从第一个极值开始
+    const strokes = [];
+    for (const p of all) {
+      if (strokes.length === 0) {
+        strokes.push(p);
+        continue;
+      }
+      const last = strokes[strokes.length - 1];
+      if (p.index - last.index < MIN_C) continue;   // ≥5根K线
+      if (p.type === last.type) {
+        // 同向:保留更极端的
+        if (p.type === 'high' && p.price > last.price) strokes[strokes.length - 1] = p;
+        if (p.type === 'low' && p.price < last.price) strokes[strokes.length - 1] = p;
+        continue;
+      }
+      // 异向交替
+      if (last.type === 'low' && p.price <= last.price) continue;
+      if (last.type === 'high' && p.price >= last.price) continue;
+      strokes.push(p);
+    }
+
+    // ── 阶段4: 实时未完成笔 ──
+    let liveTarget = null;
+    if (strokes.length >= 1) {
+      const last = strokes[strokes.length - 1];
+      const searchType = last.type === 'high' ? 'low' : 'high';
+      let bestPrice = searchType === 'high' ? -Infinity : Infinity;
+      let bestIdx = -1;
+      for (let i = last.index + MIN_C; i < N; i++) {
+        const v = searchType === 'high' ? H[i] : L[i];
+        if ((searchType === 'high' && v > bestPrice) || (searchType === 'low' && v < bestPrice)) { bestPrice = v; bestIdx = i; }
+      }
+      if (bestIdx >= 0) liveTarget = { index: bestIdx, price: bestPrice, time: candles[bestIdx].time, type: searchType };
+    }
+
+    console.log(`[笔-手机版] ${N}根K线 → ${rawHighs.length}顶/${rawLows.length}底 → ${strokes.length}笔`);
+
+    return { strokes, liveTarget };
+  },
+
+  // Check stroke completeness: each stroke must have >=5 candles between endpoints
+  validateStrokes(strokes) {
+    const issues = [];
+    for (let i = 1; i < strokes.length; i++) {
+      const dist = strokes[i].index - strokes[i - 1].index;
+      if (dist < this.MIN_STROKE_CANDLES) {
+        issues.push({ index: i, reason: `笔${i}仅${dist}根K线(需≥${this.MIN_STROKE_CANDLES})` });
+      }
+    }
+    return { valid: issues.length === 0, issues };
+  },
+
+  // Apply user correction: adjust a stroke endpoint to a new time/price
+  applyCorrection(strokes, correctionIndex, newPoint, candles) {
+    if (correctionIndex < 0 || correctionIndex >= strokes.length) return strokes;
+    const updated = strokes.map((s, i) => {
+      if (i === correctionIndex) {
+        // Find nearest candle to snap to
+        let best = candles[0];
+        let bestDist = Infinity;
+        for (const c of candles) {
+          const d = Math.abs(c.time - newPoint.time);
+          if (d < bestDist) { bestDist = d; best = c; }
+        }
+        const newType = newPoint.type || (correctionIndex % 2 === 0 ? 'high' : 'low');
+        const price = newType === 'high' ? best.high : best.low;
+        return { index: candles.indexOf(best), price, time: best.time, type: newType };
+      }
+      return s;
+    });
+    // Re-sort by index to maintain order
+    updated.sort((a, b) => a.index - b.index);
+    return updated;
+  },
+};
+
 // ==================== CHART PANEL ====================
 
 // High/Low crosshair primitive — draws dashed lines at candle high & low
@@ -617,10 +804,20 @@ class HighLowCrosshair {
     this._high = null;
     this._low = null;
     this._time = null;
+    this._chart = null;
+    this._series = null;
     this._requestUpdate = null;
   }
-  attached({ requestUpdate }) { this._requestUpdate = requestUpdate; }
-  detached() { this._requestUpdate = null; }
+  attached(param) {
+    this._chart = param.chart;
+    this._series = param.series;
+    this._requestUpdate = param.requestUpdate;
+  }
+  detached() {
+    this._chart = null;
+    this._series = null;
+    this._requestUpdate = null;
+  }
   update(high, low, time) {
     this._high = high;
     this._low = low;
@@ -633,54 +830,61 @@ class HighLowCrosshair {
     this._time = null;
     if (this._requestUpdate) this._requestUpdate();
   }
-  draw(target, params) {
+  // v4.1: ISeriesPrimitiveBase
+  paneViews() { return [this]; }
+  // v4.1: ISeriesPrimitivePaneView
+  renderer() { return this; }
+  // v4.1: ISeriesPrimitivePaneRenderer
+  draw(target) {
     if (this._high === null || this._low === null || this._time === null) return;
-    target.useMediaCoordinatesContext((ctx) => {
-      const highCoord = params.logicalToMediaCoordinates({ price: this._high, time: this._time });
-      const lowCoord = params.logicalToMediaCoordinates({ price: this._low, time: this._time });
-      if (!highCoord || !lowCoord) return;
-      const w = params.visibleMediaRect.width;
-      const highY = highCoord.y;
-      const lowY = lowCoord.y;
+    if (!this._chart || !this._series) return;
+    try {
+      target.useMediaCoordinateSpace((scope) => {
+        const ctx = scope.context;
+        const highY = this._series.priceScale().priceToCoordinate(this._high);
+        const lowY = this._series.priceScale().priceToCoordinate(this._low);
+        if (highY === null || lowY === null) return;
+        const w = scope.mediaSize.width;
 
-      // High line (red dashed)
-      ctx.beginPath();
-      ctx.setLineDash([4, 3]);
-      ctx.strokeStyle = '#f6465d';
-      ctx.lineWidth = 1;
-      ctx.moveTo(0, highY);
-      ctx.lineTo(w, highY);
-      ctx.stroke();
-      ctx.setLineDash([]);
+        // High line (red dashed)
+        ctx.beginPath();
+        ctx.setLineDash([4, 3]);
+        ctx.strokeStyle = '#f6465d';
+        ctx.lineWidth = 1;
+        ctx.moveTo(0, highY);
+        ctx.lineTo(w, highY);
+        ctx.stroke();
+        ctx.setLineDash([]);
 
-      const highText = this._high.toFixed(4);
-      ctx.font = 'bold 10px monospace';
-      ctx.textBaseline = 'bottom';
-      const hw = ctx.measureText(highText).width;
-      ctx.fillStyle = '#f6465d';
-      ctx.fillRect(w - hw - 10, highY - 13, hw + 8, 13);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(highText, w - hw - 6, highY - 2);
+        const highText = this._high.toFixed(4);
+        ctx.font = 'bold 10px monospace';
+        ctx.textBaseline = 'bottom';
+        const hw = ctx.measureText(highText).width;
+        ctx.fillStyle = '#f6465d';
+        ctx.fillRect(w - hw - 10, highY - 13, hw + 8, 13);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(highText, w - hw - 6, highY - 2);
 
-      // Low line (green dashed)
-      ctx.beginPath();
-      ctx.setLineDash([4, 3]);
-      ctx.strokeStyle = '#0ecb81';
-      ctx.lineWidth = 1;
-      ctx.moveTo(0, lowY);
-      ctx.lineTo(w, lowY);
-      ctx.stroke();
-      ctx.setLineDash([]);
+        // Low line (green dashed)
+        ctx.beginPath();
+        ctx.setLineDash([4, 3]);
+        ctx.strokeStyle = '#0ecb81';
+        ctx.lineWidth = 1;
+        ctx.moveTo(0, lowY);
+        ctx.lineTo(w, lowY);
+        ctx.stroke();
+        ctx.setLineDash([]);
 
-      const lowText = this._low.toFixed(4);
-      ctx.font = 'bold 10px monospace';
-      ctx.textBaseline = 'top';
-      const lw = ctx.measureText(lowText).width;
-      ctx.fillStyle = '#0ecb81';
-      ctx.fillRect(w - lw - 10, lowY + 2, lw + 8, 13);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(lowText, w - lw - 6, lowY + 13);
-    });
+        const lowText = this._low.toFixed(4);
+        ctx.font = 'bold 10px monospace';
+        ctx.textBaseline = 'top';
+        const lw = ctx.measureText(lowText).width;
+        ctx.fillStyle = '#0ecb81';
+        ctx.fillRect(w - lw - 10, lowY + 2, lw + 8, 13);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(lowText, w - lw - 6, lowY + 13);
+      });
+    } catch(e) { console.warn('[HighLowCrosshair] draw error:', e); }
   }
 }
 
@@ -697,10 +901,20 @@ class FibRetracement {
   constructor() {
     this._point1 = null; // { time, price }
     this._point2 = null;
+    this._chart = null;
+    this._series = null;
     this._requestUpdate = null;
   }
-  attached({ requestUpdate }) { this._requestUpdate = requestUpdate; }
-  detached() { this._requestUpdate = null; }
+  attached(param) {
+    this._chart = param.chart;
+    this._series = param.series;
+    this._requestUpdate = param.requestUpdate;
+  }
+  detached() {
+    this._chart = null;
+    this._series = null;
+    this._requestUpdate = null;
+  }
   setPoints(p1, p2) {
     this._point1 = p1 || null;
     this._point2 = p2 || null;
@@ -711,13 +925,27 @@ class FibRetracement {
     this._point2 = null;
     if (this._requestUpdate) this._requestUpdate();
   }
-  draw(target, params) {
-    target.useMediaCoordinatesContext((ctx) => {
-      const w = params.visibleMediaRect.width;
+  // v4.1: ISeriesPrimitiveBase
+  paneViews() { return [this]; }
+  // v4.1: ISeriesPrimitivePaneView
+  renderer() { return this; }
+  // v4.1: ISeriesPrimitivePaneRenderer
+  draw(target) {
+    if (!this._chart || !this._series) return;
+    try {
+    target.useMediaCoordinateSpace((scope) => {
+      const ctx = scope.context;
+      const w = scope.mediaSize.width;
+      const _toXY = (pt) => {
+        if (!pt) return null;
+        const x = this._chart.timeScale().timeToCoordinate(pt.time);
+        const y = this._series.priceScale().priceToCoordinate(pt.price);
+        return (x != null && y != null) ? { x, y } : null;
+      };
 
       // Draw anchor point 1 (if set)
       if (this._point1) {
-        const c1 = params.logicalToMediaCoordinates(this._point1);
+        const c1 = _toXY(this._point1);
         if (c1) {
           ctx.beginPath();
           ctx.arc(c1.x, c1.y, 5, 0, Math.PI * 2);
@@ -726,7 +954,6 @@ class FibRetracement {
           ctx.strokeStyle = '#000';
           ctx.lineWidth = 1;
           ctx.stroke();
-          // Price label
           const t1 = this._point1.price.toFixed(4);
           ctx.font = 'bold 10px monospace';
           const tw = ctx.measureText(t1).width;
@@ -746,7 +973,7 @@ class FibRetracement {
       if (range <= 0) return;
 
       // Anchor point 2 dot
-      const c2 = params.logicalToMediaCoordinates(this._point2);
+      const c2 = _toXY(this._point2);
       if (c2) {
         ctx.beginPath();
         ctx.arc(c2.x, c2.y, 5, 0, Math.PI * 2);
@@ -759,9 +986,8 @@ class FibRetracement {
 
       FIB_LEVELS.forEach(({ pct, label, color }) => {
         const price = high - pct * range;
-        const coord = params.logicalToMediaCoordinates({ price, time: this._point1.time });
-        if (!coord) return;
-        const y = coord.y;
+        const y = this._series.priceScale().priceToCoordinate(price);
+        if (y === null) return;
 
         // Dashed line
         ctx.beginPath();
@@ -780,15 +1006,222 @@ class FibRetracement {
         const lx = w - tw - 16;
         ctx.fillStyle = 'rgba(11,14,17,0.9)';
         ctx.fillRect(lx, y - 7, tw + 14, 14);
-        // Left accent bar
         ctx.fillStyle = color;
         ctx.fillRect(lx, y - 7, 3, 14);
-        // Text
         ctx.fillStyle = color;
         ctx.textBaseline = 'middle';
         ctx.fillText(text, lx + 7, y);
       });
     });
+    } catch(e) { console.warn('[FibRetracement] draw error:', e); }
+  }
+}
+
+// Stroke (笔) overlay primitive — draws chan theory stroke lines with markers
+class StrokeOverlay {
+  constructor() {
+    this._strokes = [];        // confirmed stroke pivots
+    this._liveTarget = null;   // unconfirmed live stroke
+    this._chart = null;
+    this._series = null;
+    this._requestUpdate = null;
+    this._editMode = false;
+    this._selectedIndex = -1;
+    this._onEditCallback = null;
+    this._hoveredIndex = -1;
+  }
+  attached(param) {
+    this._chart = param.chart;
+    this._series = param.series;
+    this._requestUpdate = param.requestUpdate;
+  }
+  detached() {
+    this._chart = null;
+    this._series = null;
+    this._requestUpdate = null;
+  }
+
+  setData(strokes, liveTarget) {
+    this._strokes = strokes || [];
+    this._liveTarget = liveTarget || null;
+    if (this._requestUpdate) this._requestUpdate();
+  }
+
+  setEditMode(on) {
+    this._editMode = on;
+    this._selectedIndex = -1;
+    this._hoveredIndex = -1;
+    if (this._requestUpdate) this._requestUpdate();
+  }
+
+  setEditCallback(cb) { this._onEditCallback = cb; }
+
+  // Convert logical point to pixel coordinates using chart API
+  _toXY(pt) {
+    if (!this._chart || !this._series || !pt) return null;
+    const x = this._chart.timeScale().timeToCoordinate(pt.time);
+    const y = this._series.priceScale().priceToCoordinate(pt.price);
+    return (x != null && y != null) ? { x, y } : null;
+  }
+
+  // Find nearest stroke point to a pixel coordinate (called from panel events)
+  hitTest(x, y) {
+    if (!this._chart || !this._series) return null;
+    const allPts = this._getAllPoints();
+    let best = null, bestDist = Infinity;
+    for (let i = 0; i < allPts.length; i++) {
+      const pt = allPts[i];
+      const coord = this._toXY(pt);
+      if (!coord) continue;
+      const dx = coord.x - x;
+      const dy = coord.y - y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 15 && dist < bestDist) {
+        bestDist = dist;
+        best = { ...pt, strokeIndex: i, coord };
+      }
+    }
+    return best;
+  }
+
+  _getAllPoints() {
+    const pts = [...this._strokes];
+    if (this._liveTarget) pts.push(this._liveTarget);
+    return pts;
+  }
+
+  clear() {
+    this._strokes = [];
+    this._liveTarget = null;
+    if (this._requestUpdate) this._requestUpdate();
+  }
+
+  // v4.1: ISeriesPrimitiveBase
+  paneViews() { return [this]; }
+  // v4.1: ISeriesPrimitivePaneView
+  renderer() { return this; }
+  // v4.1: ISeriesPrimitivePaneRenderer
+  draw(target) {
+    if (!this._chart || !this._series) return;
+    try {
+    target.useMediaCoordinateSpace((scope) => {
+      const ctx = scope.context;
+      const allPts = this._getAllPoints();
+      if (allPts.length < 2 && !this._liveTarget) return;
+
+      const w = scope.mediaSize.width;
+
+      // Draw confirmed stroke lines (solid)
+      for (let i = 1; i < this._strokes.length; i++) {
+        const p1 = this._strokes[i - 1];
+        const p2 = this._strokes[i];
+        const c1 = this._toXY(p1);
+        const c2 = this._toXY(p2);
+        if (!c1 || !c2) continue;
+
+        const isUp = p2.price > p1.price;
+
+        // Main stroke line
+        ctx.beginPath();
+        ctx.setLineDash([]);
+        ctx.strokeStyle = isUp ? '#0ecb81' : '#f6465d';
+        ctx.lineWidth = 2;
+        ctx.moveTo(c1.x, c1.y);
+        ctx.lineTo(c2.x, c2.y);
+        ctx.stroke();
+
+        // Direction arrow at midpoint
+        const mx = (c1.x + c2.x) / 2;
+        const my = (c2.y + c1.y) / 2 - 10;
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = isUp ? '#0ecb81' : '#f6465d';
+        ctx.fillText(isUp ? '↑' : '↓', mx, my);
+      }
+
+      // Draw live/unconfirmed stroke (dashed)
+      if (this._liveTarget && this._strokes.length > 0) {
+        const lastConfirmed = this._strokes[this._strokes.length - 1];
+        const c1 = this._toXY(lastConfirmed);
+        const c2 = this._toXY(this._liveTarget);
+        if (c1 && c2) {
+          const isUp = this._liveTarget.price > lastConfirmed.price;
+          ctx.beginPath();
+          ctx.setLineDash([8, 4]);
+          ctx.strokeStyle = isUp ? 'rgba(14,203,129,0.5)' : 'rgba(246,70,93,0.5)';
+          ctx.lineWidth = 1.5;
+          ctx.moveTo(c1.x, c1.y);
+          ctx.lineTo(c2.x, c2.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+
+      // Draw pivot markers for confirmed strokes
+      for (let i = 0; i < this._strokes.length; i++) {
+        const pt = this._strokes[i];
+        const c = this._toXY(pt);
+        if (!c) continue;
+
+        const isSelected = this._editMode && i === this._selectedIndex;
+        const isHovered = this._editMode && i === this._hoveredIndex;
+        const size = isSelected ? 8 : isHovered ? 7 : 5;
+        const fillColor = isSelected ? '#f0b90b' : isHovered ? '#ff9800' :
+          (pt.type === 'high' ? '#f6465d' : '#0ecb81');
+
+        // Outer glow
+        if (isSelected) {
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, size + 4, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(240,185,11,0.3)';
+          ctx.fill();
+        }
+
+        // Main dot
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, size, 0, Math.PI * 2);
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = isSelected ? 2 : 1;
+        ctx.stroke();
+
+        // Stroke number label
+        const label = `${i + 1}`;
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        const ly = pt.type === 'high' ? c.y - size - 8 : c.y + size + 14;
+        ctx.fillStyle = pt.type === 'high' ? '#f6465d' : '#0ecb81';
+        ctx.fillText(label, c.x, ly);
+
+        // Price label
+        const priceLabel = pt.price.toFixed(pt.price >= 100 ? 2 : pt.price >= 1 ? 4 : 6);
+        ctx.font = '9px monospace';
+        const tw = ctx.measureText(priceLabel).width;
+        const lx = Math.min(Math.max(c.x - tw / 2, 4), w - tw - 8);
+        const ly2 = pt.type === 'high' ? c.y - size - 18 : c.y + size + 24;
+        ctx.fillStyle = 'rgba(11,14,17,0.85)';
+        ctx.fillRect(lx - 2, ly2 - 9, tw + 4, 11);
+        ctx.fillStyle = '#eaecef';
+        ctx.textAlign = 'start';
+        ctx.fillText(priceLabel, lx, ly2);
+      }
+
+      // Live target marker (hollow)
+      if (this._liveTarget) {
+        const c = this._toXY(this._liveTarget);
+        if (c) {
+          ctx.beginPath();
+          ctx.setLineDash([3, 3]);
+          ctx.arc(c.x, c.y, 5, 0, Math.PI * 2);
+          ctx.strokeStyle = this._liveTarget.type === 'high' ? '#f6465d' : '#0ecb81';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+    });
+    } catch(e) { console.warn('[StrokeOverlay] draw error:', e); }
   }
 }
 
@@ -796,6 +1229,7 @@ class ChartPanel {
   constructor(symbol, container) {
     this.symbol = symbol;
     this.container = container;
+    this._dataLoaded = false;
     this.chart = null;
     this.candleSeries = null;
     this.ma7Series = null;
@@ -812,6 +1246,10 @@ class ChartPanel {
     this._hlCrosshair = null;  // HighLowCrosshair primitive
     this._fibPrimitive = null; // FibRetracement primitive
     this._fibPoint1 = null;    // first fib anchor
+    this._strokeOverlay = null; // StrokeOverlay primitive
+    this._strokeData = { strokes: [], liveTarget: null };
+    this._strokeEditMode = false;
+    this._strokeDragging = null; // { strokeIndex, startCoord }
   }
 
   create() {
@@ -826,6 +1264,7 @@ class ChartPanel {
         <div class="panel-actions">
           <button class="panel-btn alert-btn" title="设置价格提醒">🔔</button>
           <button class="panel-btn fib-btn" title="斐波那契回调">📐</button>
+          <button class="panel-btn stroke-btn" title="缠论笔画线/编辑">✏️</button>
           <button class="panel-btn remove" title="移除">×</button>
         </div>
       </div>
@@ -946,6 +1385,88 @@ class ChartPanel {
         showToast('📐 在K线图上点击两个点: 第一个点=起点, 第二个点=终点', false);
       }
     });
+
+    // Stroke (笔) button - toggle edit mode
+    const strokeBtn = this.panel.querySelector('.stroke-btn');
+    strokeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._toggleStrokeEditMode();
+    });
+  }
+
+  _toggleStrokeEditMode() {
+    const strokeBtn = this.panel.querySelector('.stroke-btn');
+    this._strokeEditMode = !this._strokeEditMode;
+    if (this._strokeEditMode) {
+      strokeBtn.classList.add('active');
+      this._strokeOverlay.setEditMode(true);
+      showToast('✏️ 笔画编辑模式: 点击端点拖动修改位置, 右键删除笔画', false);
+    } else {
+      strokeBtn.classList.remove('active');
+      this._strokeOverlay.setEditMode(false);
+      this._strokeDragging = null;
+    }
+  }
+
+  _handleStrokeEdit(x, y, isRightClick) {
+    if (!this._strokeEditMode || !this._strokeOverlay || !this.chart) return;
+
+    if (isRightClick) {
+      // Right-click: delete nearest stroke
+      const hit = this._strokeOverlay.hitTest(x, y);
+      if (hit && hit.strokeIndex < this._strokeData.strokes.length) {
+        this._deleteStrokePoint(hit.strokeIndex);
+      }
+      return;
+    }
+
+    // Left-click: select or start dragging
+    const hit = this._strokeOverlay.hitTest(x, y);
+
+    if (hit && hit.strokeIndex < this._strokeData.strokes.length) {
+      this._strokeDragging = {
+        strokeIndex: hit.strokeIndex,
+        startX: x,
+        startY: y,
+      };
+      this._strokeOverlay._selectedIndex = hit.strokeIndex;
+      this._strokeOverlay._requestUpdate && this._strokeOverlay._requestUpdate();
+    }
+  }
+
+  _deleteStrokePoint(index) {
+    if (index < 0 || index >= this._strokeData.strokes.length) return;
+    const strokes = [...this._strokeData.strokes];
+    strokes.splice(index, 1);
+    this._strokeData.strokes = strokes;
+    this._strokeOverlay.setData(this._strokeData.strokes, this._strokeData.liveTarget);
+    this._saveStrokeLearning();
+    showToast(`✏️ 已删除笔${index + 1}端点`, false);
+  }
+
+  _saveStrokeLearning() {
+    try {
+      const key = `stroke_learning_${this.symbol}_${STATE.currentTF}`;
+      const data = {
+        symbol: this.symbol,
+        tf: STATE.currentTF,
+        strokes: this._strokeData.strokes.map(s => ({ index: s.index, price: s.price, time: s.time, type: s.type })),
+        updatedAt: Date.now(),
+      };
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (e) {}
+  }
+
+  _loadStrokeLearning() {
+    try {
+      const key = `stroke_learning_${this.symbol}_${STATE.currentTF}`;
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const data = JSON.parse(raw);
+        return data.strokes || null;
+      }
+    } catch (e) {}
+    return null;
   }
 
   _handleFibClick(time, price) {
@@ -991,17 +1512,12 @@ class ChartPanel {
         autoScale: true,
         visible: true,
       },
-      rightPriceScale: {
-        borderColor: 'rgba(255,255,255,0.1)',
-        scaleMargins: { top: 0.05, bottom: 0.2 },
-        autoScale: true,
-      },
       timeScale: {
         borderColor: 'rgba(255,255,255,0.1)',
         timeVisible: true,
         secondsVisible: false,
         rightOffset: 2,
-        barSpacing: 7,
+        barSpacing: 8,
         fixLeftEdge: false,
         lockVisibleTimeRangeOnResize: true,
         minBarSpacing: 3,
@@ -1086,6 +1602,85 @@ class ChartPanel {
       }
     });
 
+    // Stroke (笔) overlay
+    this._strokeOverlay = new StrokeOverlay();
+    this.candleSeries.attachPrimitive(this._strokeOverlay);
+
+    // Stroke edit click handler
+    chartContainer.addEventListener('click', (e) => {
+      if (e.button !== 0) return; // left-click only
+      const strokeBtn = this.panel.querySelector('.stroke-btn');
+      if (!strokeBtn || !strokeBtn.classList.contains('active')) return;
+      if (this._fibPoint1 !== null && document.querySelector('.fib-btn.active')) return; // fib active
+      const rect = chartContainer.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      this._handleStrokeEdit(x, e.clientY - rect.top, false);
+    });
+
+    // Stroke right-click delete
+    chartContainer.addEventListener('contextmenu', (e) => {
+      const strokeBtn = this.panel.querySelector('.stroke-btn');
+      if (!strokeBtn || !strokeBtn.classList.contains('active')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = chartContainer.getBoundingClientRect();
+      this._handleStrokeEdit(e.clientX - rect.left, e.clientY - rect.top, true);
+    });
+
+    // Stroke drag handling
+    let dragCleanup = () => {};
+    chartContainer.addEventListener('mousemove', (e) => {
+      if (!this._strokeEditMode || !this._strokeDragging || !this._strokeOverlay) return;
+      const rect = chartContainer.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const timeScale = this.chart.timeScale();
+      const priceScale = this.chart.priceScale('');
+
+      const newTime = timeScale.coordinateToTime(x);
+      const newPrice = priceScale.coordinateToPrice(y);
+
+      if (newTime != null && newPrice != null && !isNaN(newPrice)) {
+        // Find nearest candle
+        let best = this.candles[0], bestDist = Infinity;
+        for (const c of this.candles) {
+          const d = Math.abs(c.time - newTime);
+          if (d < bestDist) { bestDist = d; best = c; }
+        }
+        const idx = this._strokeDragging.strokeIndex;
+        const corrected = ChanTheory.applyCorrection(
+          this._strokeData.strokes, idx,
+          { time: best.time, price: newPrice, type: this._strokeData.strokes[idx].type },
+          this.candles
+        );
+        this._strokeData.strokes = corrected;
+        this._strokeOverlay._selectedIndex = idx;
+        if (this._strokeOverlay._requestUpdate) this._strokeOverlay._requestUpdate();
+      }
+    });
+
+    chartContainer.addEventListener('mouseup', () => {
+      if (this._strokeDragging) {
+        this._strokeData.strokes = [...this._strokeData.strokes]; // trigger reactivity
+        this._strokeOverlay.setData(this._strokeData.strokes, this._strokeData.liveTarget);
+        this._saveStrokeLearning();
+        this._strokeDragging = null;
+        this._strokeOverlay._selectedIndex = -1;
+        if (this._strokeOverlay._requestUpdate) this._strokeOverlay._requestUpdate();
+        showToast('✏️ 笔画已更新并记录', false);
+      }
+    });
+
+    // Keyboard: Escape to exit stroke edit mode
+    const escHandler = (e) => {
+      if (e.key === 'Escape' && this._strokeEditMode) {
+        this._toggleStrokeEditMode();
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+    this._escHandler = escHandler;
+
     // MA series
     this.ma7Series = this.chart.addLineSeries({
       color: '#f0b90b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
@@ -1166,6 +1761,7 @@ class ChartPanel {
     // Remove loading spinner
     const loading = this.panel.querySelector('.loading-overlay');
     if (loading) loading.remove();
+    this._dataLoaded = true;
   }
 
   updateChart() {
@@ -1218,19 +1814,66 @@ class ChartPanel {
     }));
     this.volumeSeries.setData(volumeData);
 
+    // Calculate Chan Theory strokes (笔)
+    this._updateStrokes();
+
     // Redraw alert price lines
     this.redrawAlertLines();
 
-    // First load: show last ~60 candles with readable spacing (barSpacing=7)
+    // First load: show last ~80 candles for good context
     if (!this._initialFitDone) {
       const total = this.candles.length;
-      const showCount = Math.min(60, total);
+      const showCount = Math.min(80, total);
       const fromTime = this.candles[total - showCount].time;
       const toTime = this.candles[total - 1].time;
       const padding = (toTime - fromTime) * 0.05;
       this.chart.timeScale().setVisibleRange({ from: fromTime - padding, to: toTime + padding });
       this._initialFitDone = true;
     }
+  }
+
+  _updateStrokes() {
+    if (!this._strokeOverlay || !this.candles.length) return;
+
+    let strokes = [], liveTarget = null;
+    let usedLearned = false;
+
+    // Try loading user-learned strokes first, validate freshness
+    const learned = this._loadStrokeLearning();
+    if (learned && learned.length >= 2) {
+      const intervalSec = (this.candles[this.candles.length - 1].time - this.candles[0].time) / this.candles.length;
+      const maxTimeDiff = intervalSec * 2; // allow 2 candles of drift
+      const mapped = [];
+      let allClose = true;
+      for (const ls of learned) {
+        let bestIdx = 0, bestDist = Infinity;
+        for (let i = 0; i < this.candles.length; i++) {
+          const d = Math.abs(this.candles[i].time - ls.time);
+          if (d < bestDist) { bestDist = d; bestIdx = i; }
+        }
+        if (bestDist > maxTimeDiff) { allClose = false; break; }
+        const candle = this.candles[bestIdx];
+        // Preserve user-adjusted price from saved learning data
+        const price = (ls.price != null && !isNaN(ls.price)) ? ls.price
+          : (ls.type === 'high' ? candle.high : candle.low);
+        mapped.push({ ...ls, index: bestIdx, time: candle.time, price });
+      }
+      if (allClose) {
+        strokes = mapped;
+        usedLearned = true;
+      }
+    }
+
+    if (!usedLearned) {
+      // Calculate fresh strokes
+      const result = ChanTheory.buildStrokes(this.candles);
+      strokes = result.strokes;
+      liveTarget = result.liveTarget;
+    }
+
+    this._strokeData.strokes = strokes;
+    this._strokeData.liveTarget = liveTarget;
+    this._strokeOverlay.setData(strokes, liveTarget);
   }
 
   updatePrice(price, change) {
@@ -1296,6 +1939,10 @@ class ChartPanel {
   }
 
   destroy() {
+    if (this._escHandler) {
+      document.removeEventListener('keydown', this._escHandler);
+      this._escHandler = null;
+    }
     if (this.chart) {
       this.chart.remove();
       this.chart = null;
@@ -1654,7 +2301,10 @@ class Dashboard {
 
   setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
-      const tfKeys = { '1': '3m', '2': '5m', '3': '15m', '4': '30m', '5': '1h', '6': '2h' };
+      const tfKeys = {
+        '1': '3m', '2': '5m', '3': '10m', '4': '15m', '5': '30m',
+        '6': '1h', '7': '2h', '8': '3h', '9': '6h', '0': '1d',
+      };
       if (tfKeys[e.key] && !e.ctrlKey && !e.metaKey) {
         const btns = document.querySelectorAll('.tf-btn');
         btns.forEach(b => b.classList.remove('active'));
@@ -1702,8 +2352,34 @@ class Dashboard {
     panel.updatePrice(pair.lastPrice, pair.priceChangePercent);
     STATE.chartPanels[pair.symbol] = panel;
 
-    // Load chart data asynchronously
-    panel.loadData();
+    // Lazy load: only fetch data when panel is near viewport
+    this._observePanel(panel);
+  }
+
+  _observePanel(panel) {
+    if (!this._panelObserver) {
+      this._panelObserver = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const p = entry.target._chartPanel;
+            if (p && !p._dataLoaded) {
+              p._dataLoaded = true;
+              p.loadData();
+            }
+            this._panelObserver.unobserve(entry.target);
+          }
+        }
+      }, { rootMargin: '600px' }); // preload 600px ahead
+    }
+    panel.panel._chartPanel = panel;
+    this._panelObserver.observe(panel.panel);
+    // Fallback: load if not loaded after 3 seconds
+    setTimeout(() => {
+      if (!panel._dataLoaded) {
+        panel._dataLoaded = true;
+        panel.loadData();
+      }
+    }, 3000);
   }
 
   async fillMissingPairs() {
@@ -1727,7 +2403,9 @@ class Dashboard {
 
   connectAllWS() {
     const symbols = Object.keys(STATE.chartPanels);
-    BinanceAPI.connectWebSocket(symbols, STATE.currentTF, (kline) => {
+    // Cap WebSocket streams to avoid overwhelming the connection
+    const capped = symbols.slice(0, CONFIG.MAX_WS_STREAMS);
+    BinanceAPI.connectWebSocket(capped, STATE.currentTF, (kline) => {
       const symbol = kline.s;
       const panel = STATE.chartPanels[symbol];
       if (panel) {
@@ -1740,9 +2418,9 @@ class Dashboard {
     document.getElementById('statData').textContent = '切换周期...';
     document.getElementById('statData').style.color = 'var(--yellow)';
 
-    // Reload all panels - reset fit flag for new timeframe
+    // Force-load all panels for new timeframe
     const panels = Object.values(STATE.chartPanels);
-    panels.forEach(p => { p._initialFitDone = false; });
+    panels.forEach(p => { p._initialFitDone = false; p._dataLoaded = true; });
     const promises = panels.map(async (panel, i) => {
       await sleep(i * 30);
       await panel.loadData();

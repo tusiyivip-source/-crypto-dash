@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>缠论量化交易</title>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+:root {
+  --bg: #0b0e11;
+  --panel-bg: #1e2329;
+  --header-bg: #181a20;
+  --text: #eaecef;
+  --text-secondary: #848e9c;
+  --green: #0ecb81;
+  --red: #f6465d;
+  --yellow: #f0b90b;
+  --border: #2b3139;
+  --hover: #2a2d35;
+  --blue: #1e80ff;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px; overflow: hidden; height: 100vh;
+}
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* HEADER */
+#header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 12px; background: var(--header-bg);
+  border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 8px; flex-wrap: wrap;
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.header-left h1 { font-size: 16px; color: var(--yellow); white-space: nowrap; }
+#symbolInput {
+  width: 120px; padding: 4px 8px; background: var(--bg);
+  border: 1px solid var(--border); color: var(--text); border-radius: 4px;
+  font-size: 13px; font-family: 'Consolas', monospace; text-transform: uppercase;
+}
+#symbolInput:focus { border-color: var(--yellow); outline: none; }
+#symbolSuggest {
+  position: absolute; list-style: none; background: var(--panel-bg);
+  border: 1px solid var(--border); max-height: 200px; overflow-y: auto;
+  z-index: 100; display: none; min-width: 120px;
+}
+#symbolSuggest li { padding: 5px 10px; cursor: pointer; font-family: Consolas, monospace; font-size: 12px; }
+#symbolSuggest li:hover { background: var(--hover); color: var(--yellow); }
+
+.tf-btn {
+  padding: 4px 10px; border: 1px solid var(--border); background: var(--panel-bg);
+  color: var(--text-secondary); cursor: pointer; border-radius: 4px;
+  font-size: 12px; transition: all 0.15s;
+}
+.tf-btn:hover { border-color: var(--yellow); color: var(--text); }
+.tf-btn.active { background: var(--yellow); color: #000; border-color: var(--yellow); font-weight: 700; }
+.header-right { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+#connectionDot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+#connectionDot.disconnected { background: var(--red); }
+
+/* MAIN LAYOUT */
+#main { display: flex; flex: 1; overflow: hidden; }
+
+/* CHART AREA */
+#chartArea { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#chartContainer { flex: 1; position: relative; min-height: 400px; }
+.loading-overlay {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center; background: rgba(11,14,17,0.8); z-index: 10;
+}
+.spinner {
+  width: 28px; height: 28px; border: 2px solid var(--border);
+  border-top-color: var(--yellow); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* SIDE PANEL */
+#sidePanel {
+  width: 340px; background: var(--panel-bg); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;
+}
+.tab-nav { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.tab-btn {
+  flex: 1; padding: 8px 0; text-align: center; cursor: pointer; font-size: 12px;
+  color: var(--text-secondary); border-bottom: 2px solid transparent; transition: all 0.15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--yellow); border-bottom-color: var(--yellow); }
+.tab-content { flex: 1; overflow-y: auto; padding: 8px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* SIGNAL CARDS */
+.signal-card {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 12px; margin-bottom: 8px;
+}
+.signal-card.buy { border-left: 3px solid var(--green); }
+.signal-card.sell { border-left: 3px solid var(--red); }
+.signal-card.neutral { border-left: 3px solid var(--text-secondary); }
+.signal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.signal-type { font-weight: 700; font-size: 14px; }
+.signal-strength { font-size: 11px; color: var(--text-secondary); }
+.signal-strength-bar { height: 4px; border-radius: 2px; margin: 6px 0; background: var(--border); }
+.signal-strength-fill { height: 100%; border-radius: 2px; }
+.signal-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+.signal-none { text-align: center; color: var(--text-secondary); padding: 24px 0; }
+
+/* VERIFICATION */
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+.stat-box {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  padding: 8px; text-align: center;
+}
+.stat-value { font-size: 20px; font-weight: 700; font-family: 'Consolas', monospace; }
+.stat-label { font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
+.stat-value.green { color: var(--green); }
+.stat-value.red { color: var(--red); }
+.stat-value.yellow { color: var(--yellow); }
+.issue-item {
+  background: rgba(246,70,93,0.08); border: 1px solid rgba(246,70,93,0.2);
+  border-radius: 4px; padding: 8px; margin-bottom: 4px; font-size: 11px;
+}
+.issue-type { font-weight: 600; color: var(--red); }
+.issue-msg { color: var(--text-secondary); margin-top: 2px; }
+.verify-pass {
+  background: rgba(14,203,129,0.08); border: 1px solid rgba(14,203,129,0.2);
+  border-radius: 4px; padding: 12px; text-align: center; color: var(--green);
+}
+.stroke-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.stroke-table th { color: var(--text-secondary); text-align: left; padding: 2px 4px; border-bottom: 1px solid var(--border); font-size: 10px; }
+.stroke-table td { padding: 3px 4px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+
+/* STRATEGY */
+.config-row { margin-bottom: 10px; }
+.config-row label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 3px; }
+.config-row input, .config-row select {
+  width: 100%; padding: 5px 8px; background: var(--bg);
+  border: 1px solid var(--border); color: var(--text); border-radius: 4px; font-size: 12px;
+}
+.config-row input:focus, .config-row select:focus { border-color: var(--yellow); outline: none; }
+.config-row input[type="range"] { padding: 0; accent-color: var(--yellow); }
+.config-row input[type="checkbox"] { width: auto; accent-color: var(--yellow); }
+.checkbox-label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.config-actions { display: flex; gap: 6px; margin-top: 12px; }
+.btn {
+  padding: 6px 14px; border: 1px solid var(--border); border-radius: 4px;
+  cursor: pointer; font-size: 12px; transition: all 0.15s; font-weight: 600;
+}
+.btn-primary { background: var(--yellow); color: #000; border-color: var(--yellow); }
+.btn-primary:hover { opacity: 0.85; }
+.btn-secondary { background: transparent; color: var(--text); }
+.btn-secondary:hover { border-color: var(--yellow); }
+
+/* TRADE */
+.trade-section { margin-bottom: 16px; }
+.trade-section h4 { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.trade-row { display: flex; gap: 6px; margin-bottom: 6px; }
+.trade-row input { flex: 1; }
+.btn-buy { background: var(--green); color: #000; border-color: var(--green); flex: 1; padding: 8px; font-size: 14px; }
+.btn-buy:hover { opacity: 0.85; }
+.btn-sell { background: var(--red); color: #fff; border-color: var(--red); flex: 1; padding: 8px; font-size: 14px; }
+.btn-sell:hover { opacity: 0.85; }
+.position-card {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  padding: 8px; margin-bottom: 4px; font-size: 12px;
+}
+.position-card.long { border-left: 3px solid var(--green); }
+.position-card.short { border-left: 3px solid var(--red); }
+.position-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+
+/* TOOLTIP / TOAST */
+#tooltip {
+  position: fixed; pointer-events: none; z-index: 1000;
+  background: var(--panel-bg); border: 1px solid var(--border);
+  padding: 8px 12px; border-radius: 6px; font-size: 12px;
+  display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+#toastContainer {
+  position: fixed; top: 12px; right: 12px; z-index: 3000;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.toast {
+  background: var(--panel-bg); border: 1px solid var(--yellow);
+  padding: 8px 14px; border-radius: 6px; font-size: 12px;
+  animation: slideIn 0.3s ease-out; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  #main { flex-direction: column; }
+  #sidePanel { width: 100%; max-height: 45%; border-left: none; border-top: 1px solid var(--border); }
+  #chartArea { flex: auto; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="header">
+    <div class="header-left">
+      <h1>缠论量化</h1>
+      <div style="position:relative">
+        <input id="symbolInput" type="text" value="BTCUSDT" maxlength="20" autocomplete="off" spellcheck="false">
+        <ul id="symbolSuggest"></ul>
+      </div>
+    </div>
+    <div class="header-center" id="timeframeSelector">
+      <button class="tf-btn" data-tf="1m">1分</button>
+      <button class="tf-btn" data-tf="3m">3分</button>
+      <button class="tf-btn" data-tf="5m">5分</button>
+      <button class="tf-btn active" data-tf="15m">15分</button>
+      <button class="tf-btn" data-tf="30m">30分</button>
+      <button class="tf-btn" data-tf="1h">1时</button>
+      <button class="tf-btn" data-tf="2h">2时</button>
+      <button class="tf-btn" data-tf="4h">4时</button>
+      <button class="tf-btn" data-tf="1d">日线</button>
+    </div>
+    <div class="header-right">
+      <span>高级别:</span>
+      <select id="refTfSelect" style="padding:4px 6px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:12px">
+        <option value="">关闭</option>
+        <option value="1h">1小时</option>
+        <option value="2h">2小时</option>
+        <option value="4h" selected>4小时</option>
+        <option value="1d">日线</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer">
+        <input type="checkbox" id="showRefStrokes" checked> 叠加
+      </label>
+      <span id="connectionDot" title="WebSocket"></span>
+      <span id="dataStatus" style="color:var(--text-secondary);font-size:11px">就绪</span>
+    </div>
+  </header>
+
+  <div id="main">
+    <div id="chartArea">
+      <div id="chartContainer"><div class="loading-overlay"><div class="spinner"></div></div></div>
+    </div>
+    <div id="sidePanel">
+      <div class="tab-nav">
+        <button class="tab-btn active" data-tab="signals">信号</button>
+        <button class="tab-btn" data-tab="verify">验证</button>
+        <button class="tab-btn" data-tab="strategy">策略</button>
+        <button class="tab-btn" data-tab="trade">交易</button>
+      </div>
+      <div class="tab-content">
+        <div class="tab-panel active" id="panel-signals">
+          <div id="signalList"><div class="signal-none">等待数据分析...</div></div>
+        </div>
+        <div class="tab-panel" id="panel-verify">
+          <div id="verifyContent"><div class="signal-none">等待数据加载...</div></div>
+        </div>
+        <div class="tab-panel" id="panel-strategy">
+          <div class="config-row">
+            <label>最小笔K线数: <span id="cfgMinKlinesVal" style="color:var(--yellow)">5</span></label>
+            <input type="range" id="cfgMinKlines" min="3" max="10" value="5" step="1">
+          </div>
+          <div class="config-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="cfgInclusion" checked> 启用包含处理
+            </label>
+          </div>
+          <div class="config-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="cfgMultiTF"> 多级别共振过滤
+            </label>
+          </div>
+          <div class="config-actions">
+            <button class="btn btn-primary" id="cfgApply">应用并重新分析</button>
+            <button class="btn btn-secondary" id="cfgReset">重置默认</button>
+          </div>
+        </div>
+        <div class="tab-panel" id="panel-trade">
+          <div class="trade-section">
+            <h4>API 配置</h4>
+            <div class="config-row"><label>API Key</label><input type="password" id="tradeApiKey" placeholder="Binance API Key"></div>
+            <div class="config-row"><label>Secret Key</label><input type="password" id="tradeApiSecret" placeholder="Binance Secret Key"></div>
+            <button class="btn btn-primary" id="tradeSaveKeys" style="width:100%">保存</button>
+          </div>
+          <div class="trade-section">
+            <h4>下单</h4>
+            <div class="config-row"><label>杠杆倍数</label><input type="number" id="tradeLeverage" value="10" min="1" max="125"></div>
+            <div class="config-row"><label>仓位类型</label><select id="tradeOrderType"><option value="MARKET">市价单</option><option value="LIMIT">限价单</option></select></div>
+            <div class="config-row"><label>数量 (张)</label><input type="number" id="tradeQuantity" step="any" placeholder="如 0.01"></div>
+            <div class="config-row" id="limitPriceRow" style="display:none"><label>限价</label><input type="number" id="tradeLimitPrice" step="any" placeholder="限价"></div>
+            <div class="trade-row">
+              <button class="btn btn-buy" id="tradeBuy">做多</button>
+              <button class="btn btn-sell" id="tradeSell">做空</button>
+            </div>
+          </div>
+          <div class="trade-section">
+            <h4>当前持仓</h4>
+            <div id="positionsList"><div style="color:var(--text-secondary);text-align:center;padding:12px">配置API Key后查看</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="tooltip"></div>
+<div id="toastContainer"></div>
+
+<script>
+(function() {
+'use strict';
+
+// ==================== CONFIG ====================
+var CONFIG = {
+  BINANCE_REST: 'https://fapi.binance.com/fapi/v1',
+  BINANCE_WS: 'wss://fstream.binance.com/ws',
+  DEFAULT_SYMBOL: 'BTCUSDT',
+  DEFAULT_TF: '15m',
+  REFERENCE_TF: '4h',
+  KLINE_LIMIT: 300,
+  MIN_STROKE_KLINES: 5,
+  MA_PERIODS: [7, 14],
+  COMMON_SYMBOLS: [
+    'BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT','DOGEUSDT',
+    'ADAUSDT','AVAXUSDT','LINKUSDT','DOTUSDT','MATICUSDT','UNIUSDT',
+    'ATOMUSDT','LTCUSDT','ETCUSDT','FILUSDT','APTUSDT','ARBUSDT',
+    'OPUSDT','NEARUSDT','INJUSDT','TIAUSDT','SUIUSDT','SEIUSDT',
+    'ORDIUSDT','1000PEPEUSDT','WIFUSDT','BONKUSDT'
+  ]
+};
+
+// ==================== STATE ====================
+var STATE = {
+  symbol: CONFIG.DEFAULT_SYMBOL,
+  currentTF: CONFIG.DEFAULT_TF,
+  referenceTF: CONFIG.REFERENCE_TF,
+  showRefStrokes: true,
+  candles: [],
+  processedKlines: [],
+  fractals: [],
+  strokes: [],
+  refCandles: [],
+  refProcessedKlines: [],
+  refFractals: [],
+  refStrokes: [],
+  signals: [],
+  wsConnected: false,
+  ws: null,
+  wsReconnectTimer: null,
+  lastPrice: 0,
+  apiKey: localStorage.getItem('binance_fapi_key') || '',
+  apiSecret: localStorage.getItem('binance_fapi_secret') || ''
+};
+
+// ==================== UTILS ====================
+function fmtPrice(p) {
+  if (p == null || isNaN(p)) return '--';
+  if (p >= 1000) return p.toFixed(2);
+  if (p >= 1) return p.toFixed(4);
+  if (p >= 0.01) return p.toFixed(6);
+  return p.toFixed(8);
+}
+
+function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+function showToast(msg) {
+  var container = document.getElementById('toastContainer');
+  var toast = document.createElement('div');
+  toast.className = 'toast'; toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(function() { toast.remove(); }, 4000);
+}
+
+// ==================== BINANCE API ====================
+var BinanceAPI = {
+  _pending: Promise.resolve(),
+  _throttledFetch: function(url) {
+    var self = this;
+    var req = self._pending.then(function() { return sleep(50); });
+    self._pending = req;
+    return req.then(function() {
+      return fetch(url).then(function(resp) {
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.json();
+      });
+    });
+  },
+  getKlines: function(symbol, interval, limit) {
+    limit = limit || 300;
+    return this._throttledFetch(
+      CONFIG.BINANCE_REST + '/klines?symbol=' + symbol + '&interval=' + interval + '&limit=' + limit
+    ).then(function(data) {
+      return data.map(function(d) {
+        return {
+          time: Math.floor(d[0] / 1000), open: parseFloat(d[1]),
+          high: parseFloat(d[2]), low: parseFloat(d[3]),
+          close: parseFloat(d[4]), volume: parseFloat(d[5])
+        };
+      });
+    });
+  },
+  connectWebSocket: function(symbol, interval, onMessage) {
+    if (STATE.ws) { try { STATE.ws.close(); } catch(e) {} STATE.ws = null; }
+    if (STATE.wsReconnectTimer) { clearTimeout(STATE.wsReconnectTimer); STATE.wsReconnectTimer = null; }
+
+    var stream = symbol.toLowerCase() + '@kline_' + interval;
+    var url = CONFIG.BINANCE_WS + '/' + stream;
+
+    function connect() {
+      if (STATE.wsReconnectTimer) { clearTimeout(STATE.wsReconnectTimer); STATE.wsReconnectTimer = null; }
+      try {
+        STATE.ws = new WebSocket(url);
+        STATE.ws.onopen = function() { STATE.wsConnected = true; updateConnectionDot(); };
+        STATE.ws.onmessage = function(evt) {
+          try {
+            var msg = JSON.parse(evt.data);
+            var kline = msg.data || msg;
+            if (kline && kline.e === 'kline') onMessage(kline);
+          } catch(e) {}
+        };
+        STATE.ws.onclose = function() {
+          STATE.wsConnected = false; updateConnectionDot();
+          STATE.wsReconnectTimer = setTimeout(connect, 5000);
+        };
+        STATE.ws.onerror = function() {
+          STATE.wsConnected = false; updateConnectionDot();
+        };
+      } catch(e) {
+        STATE.wsConnected = false; updateConnectionDot();
+        STATE.wsReconnectTimer = setTimeout(connect, 5000);
+      }
+    }
+    connect();
+  }
+};
+
+// ==================== CHAN THEORY ENGINE ====================
+var ChanEngine = {
+  /**
+   * Full analysis pipeline.
+   */
+  analyze: function(candles, options) {
+    options = options || {};
+    var minKlines = options.minStrokeKlines || CONFIG.MIN_STROKE_KLINES;
+    var enableInclusion = options.enableInclusion !== false;
+
+    var processedKlines = enableInclusion
+      ? this.processInclusions(candles)
+      : candles.map(function(c, i) { var k = Object.assign({}, c); k.rawIndices = [i]; return k; });
+
+    var fractals = this.identifyFractals(processedKlines);
+    var strokes = this.buildStrokes(fractals, processedKlines, minKlines);
+    var validation = this.validateStrokes(strokes, processedKlines, fractals, minKlines);
+
+    var summary = {
+      rawCount: candles.length,
+      procCount: processedKlines.length,
+      fractalCount: fractals.length,
+      topCount: fractals.filter(function(f) { return f.type === 'top'; }).length,
+      bottomCount: fractals.filter(function(f) { return f.type === 'bottom'; }).length,
+      strokeCount: strokes.length,
+      upStrokeCount: strokes.filter(function(s) { return s.direction === 'up'; }).length,
+      downStrokeCount: strokes.filter(function(s) { return s.direction === 'down'; }).length,
+      validStrokeCount: strokes.length - validation.issues.length
+    };
+
+    console.log('[Chan] 原始K线:' + candles.length + ' → 处理后:' + processedKlines.length +
+      ' 分型:' + fractals.length + ' 笔:' + strokes.length +
+      ' 验证问题:' + validation.issues.length);
+    if (fractals.length > 0) {
+      console.log('[Chan] 前3个分型:', fractals.slice(0, 3).map(function(f) {
+        return f.type + ' @idx' + f.procIndex + ' $' + f.anchorPrice.toFixed(2);
+      }));
+    }
+    if (strokes.length > 0) {
+      console.log('[Chan] 前3笔:', strokes.slice(0, 3).map(function(s) {
+        return s.direction + ' ' + s.procKlineCount + 'K $' + s.startPrice.toFixed(2) + '→$' + s.endPrice.toFixed(2);
+      }));
+    }
+
+    return { processedKlines: processedKlines, fractals: fractals, strokes: strokes, validation: validation, summary: summary };
+  },
+
+  /**
+   * Step 1: K-line inclusion processing.
+   */
+  processInclusions: function(candles) {
+    if (candles.length < 2) {
+      return candles.map(function(c, i) { var k = Object.assign({}, c); k.rawIndices = [i]; return k; });
+    }
+
+    var result = [Object.assign({}, candles[0], { rawIndices: [0] })];
+
+    for (var i = 1; i < candles.length; i++) {
+      var prev = result[result.length - 1];
+      var curr = candles[i];
+
+      if (_hasInclusion(prev, curr)) {
+        var direction = 'up';
+        if (result.length >= 2) {
+          var prevPrev = result[result.length - 2];
+          direction = (prevPrev.high < prev.high) ? 'up' : 'down';
+        } else {
+          for (var j = i + 1; j < candles.length; j++) {
+            if (candles[j].high > prev.high && candles[j].low > prev.low) { direction = 'up'; break; }
+            if (candles[j].high < prev.high && candles[j].low < prev.low) { direction = 'down'; break; }
+          }
+        }
+        if (direction === 'up') {
+          prev.high = Math.max(prev.high, curr.high);
+          prev.low = Math.max(prev.low, curr.low);
+        } else {
+          prev.high = Math.min(prev.high, curr.high);
+          prev.low = Math.min(prev.low, curr.low);
+        }
+        prev.close = curr.close;
+        prev.volume += curr.volume;
+        prev.rawIndices.push(i);
+      } else {
+        result.push(Object.assign({}, curr, { rawIndices: [i] }));
+      }
+    }
+    return result;
+  },
+
+  /**
+   * Step 2: Identify top/bottom fractals.
+   * Top fractal: middle K has highest high AND highest low.
+   * Bottom fractal: middle K has lowest low AND lowest high.
+   * Fractals cannot share K-lines.
+   */
+  identifyFractals: function(processedKlines) {
+    if (processedKlines.length < 3) return [];
+
+    var candidates = [];
+    for (var i = 1; i < processedKlines.length - 1; i++) {
+      var k0 = processedKlines[i - 1];
+      var k1 = processedKlines[i];
+      var k2 = processedKlines[i + 1];
+
+      // Top fractal
+      if (k1.high > k0.high && k1.high > k2.high &&
+          k1.low > k0.low && k1.low > k2.low) {
+        candidates.push({
+          procIndex: i, type: 'top',
+          time: k1.time, high: k1.high, low: k1.low,
+          anchorPrice: k1.high
+        });
+      }
+
+      // Bottom fractal
+      if (k1.low < k0.low && k1.low < k2.low &&
+          k1.high < k0.high && k1.high < k2.high) {
+        candidates.push({
+          procIndex: i, type: 'bottom',
+          time: k1.time, high: k1.high, low: k1.low,
+          anchorPrice: k1.low
+        });
+      }
+    }
+
+    // Ensure fractals don't share K-lines
+    var fractals = [];
+    var usedIndices = {};
+    for (var ci = 0; ci < candidates.length; ci++) {
+      var cand = candidates[ci];
+      var conflict = false;
+      for (var idx = cand.procIndex - 1; idx <= cand.procIndex + 1; idx++) {
+        if (usedIndices[idx]) { conflict = true; break; }
+      }
+      if (!conflict) {
+        fractals.push(cand);
+        for (var idx2 = cand.procIndex - 1; idx2 <= cand.procIndex + 1; idx2++) {
+          usedIndices[idx2] = true;
+        }
+      }
+    }
+    return fractals;
+  },
+
+  /**
+   * Step 3: Build strokes by connecting alternating fractals.
+   */
+  buildStrokes: function(fractals, processedKlines, minKlines) {
+    if (fractals.length < 2) return [];
+    minKlines = minKlines || 5;
+
+    // Step 3a: Merge consecutive same-type fractals
+    var filtered = [fractals[0]];
+    for (var i = 1; i < fractals.length; i++) {
+      var last = filtered[filtered.length - 1];
+      var curr = fractals[i];
+      if (curr.type === last.type) {
+        if (curr.type === 'top' && curr.high > last.high) {
+          filtered[filtered.length - 1] = curr;
+        } else if (curr.type === 'bottom' && curr.low < last.low) {
+          filtered[filtered.length - 1] = curr;
+        }
+      } else {
+        filtered.push(curr);
+      }
+    }
+
+    // Step 3b: Build strokes
+    var strokes = [];
+    var pendingStart = filtered[0];
+
+    for (var i2 = 1; i2 < filtered.length; i2++) {
+      var current = filtered[i2];
+
+      if (current.type === pendingStart.type) {
+        if (current.type === 'top' && current.high > pendingStart.high) pendingStart = current;
+        else if (current.type === 'bottom' && current.low < pendingStart.low) pendingStart = current;
+        continue;
+      }
+
+      var procKlineCount = current.procIndex - pendingStart.procIndex + 1;
+      if (procKlineCount < minKlines) continue;
+
+      // Geometric validation
+      if (!_validateStrokeGeom(pendingStart, current, processedKlines)) continue;
+
+      var direction = (pendingStart.type === 'bottom') ? 'up' : 'down';
+      strokes.push({
+        startFractal: Object.assign({}, pendingStart),
+        endFractal: Object.assign({}, current),
+        procKlineCount: procKlineCount,
+        direction: direction,
+        startPrice: pendingStart.anchorPrice,
+        endPrice: current.anchorPrice,
+        magnitude: Math.abs(current.anchorPrice - pendingStart.anchorPrice),
+        magnitudePct: Math.abs(current.anchorPrice - pendingStart.anchorPrice) / pendingStart.anchorPrice * 100
+      });
+
+      pendingStart = current;
+    }
+    return strokes;
+  },
+
+  /**
+   * Step 4: Validate all strokes.
+   */
+  validateStrokes: function(strokes, processedKlines, fractals, minKlines) {
+    minKlines = minKlines || 5;
+    var issues = [];
+    for (var i = 0; i < strokes.length; i++) {
+      var s = strokes[i];
+      if (s.procKlineCount < minKlines) {
+        issues.push({ type: 'kline_count', strokeIndex: i, message: '笔#' + (i+1) + ': 仅' + s.procKlineCount + '根K线(最少' + minKlines + '根)' });
+      }
+      if (s.startFractal.type === s.endFractal.type) {
+        issues.push({ type: 'alternation', strokeIndex: i, message: '笔#' + (i+1) + ': 分型类型未交替' });
+      }
+      if (!_validateStrokeGeom(s.startFractal, s.endFractal, processedKlines)) {
+        issues.push({ type: 'geometry', strokeIndex: i, message: '笔#' + (i+1) + ': 笔线穿透中间K线' });
+      }
+    }
+    return { passed: issues.length === 0, issues: issues, totalStrokes: strokes.length };
+  }
+};
+
+// Helper: Check if two K-lines have inclusion relationship
+function _hasInclusion(k1, k2) {
+  return (k1.high >= k2.high && k1.low <= k2.low) ||
+         (k2.high >= k1.high && k2.low <= k1.low);
+}
+
+// Helper: Validate stroke geometry
+function _validateStrokeGeom(startFrac, endFrac, processedKlines) {
+  // Standard Chan Theory: no K-line inside the stroke can be more extreme than the endpoints.
+  // Rising (bottom->top): intermediate lows must be >= start low, highs must be <= end high.
+  // Falling (top->bottom): intermediate highs must be <= start high, lows must be >= end low.
+  var startIdx = startFrac.procIndex;
+  var endIdx = endFrac.procIndex;
+
+  for (var idx = startIdx + 1; idx < endIdx; idx++) {
+    var kline = processedKlines[idx];
+
+    if (startFrac.type === 'bottom') {
+      // Rising stroke: no lower low than start, no higher high than end
+      if (kline.low < startFrac.anchorPrice) return false;
+      if (kline.high > endFrac.anchorPrice) return false;
+    } else {
+      // Falling stroke: no higher high than start, no lower low than end
+      if (kline.high > startFrac.anchorPrice) return false;
+      if (kline.low < endFrac.anchorPrice) return false;
+    }
+  }
+  return true;
+}
+
+// ==================== CHAN VISUAL PRIMITIVE ====================
+function ChanVisualPrimitive() {
+  this._fractals = [];
+  this._strokes = [];
+  this._refStrokes = [];
+  this._requestUpdate = null;
+}
+
+ChanVisualPrimitive.prototype.attached = function(req) {
+  this._requestUpdate = (typeof req === 'function') ? req : (req && req.requestUpdate) || null;
+  console.log('[Viz] attached, requestUpdate=' + !!this._requestUpdate);
+};
+
+ChanVisualPrimitive.prototype.detached = function() {
+  this._requestUpdate = null;
+};
+
+ChanVisualPrimitive.prototype.update = function(fractals, strokes) {
+  this._fractals = fractals || [];
+  this._strokes = strokes || [];
+  console.log('[Viz] update: fractals=' + this._fractals.length + ' strokes=' + this._strokes.length);
+  if (this._requestUpdate) this._requestUpdate();
+};
+
+ChanVisualPrimitive.prototype.setRefStrokes = function(strokes) {
+  this._refStrokes = strokes || [];
+  if (this._requestUpdate) this._requestUpdate();
+};
+
+ChanVisualPrimitive.prototype.draw = function(target, params) {
+  var self = this;
+  if (!self._strokes.length && !self._refStrokes.length && !self._fractals.length) return;
+
+  target.useMediaCoordinatesContext(function(ctx) {
+    // ---- Draw stroke lines ----
+    for (var i = 0; i < self._strokes.length; i++) {
+      var stroke = self._strokes[i];
+      try {
+        var sc = params.logicalToMediaCoordinates({ time: stroke.startFractal.time, price: stroke.startPrice });
+        var ec = params.logicalToMediaCoordinates({ time: stroke.endFractal.time, price: stroke.endPrice });
+        if (!sc || !ec) { console.log('[Viz] coord null for stroke ' + i + ': sc=' + !!sc + ' ec=' + !!ec); continue; }
+
+        ctx.beginPath();
+        ctx.strokeStyle = stroke.direction === 'up' ? '#0ecb81' : '#f6465d';
+        ctx.lineWidth = 3;
+        ctx.moveTo(sc.x, sc.y);
+        ctx.lineTo(ec.x, ec.y);
+        ctx.stroke();
+
+        // K-count label at midpoint
+        var mx = (sc.x + ec.x) / 2;
+        var my = (sc.y + ec.y) / 2;
+        var label = stroke.procKlineCount + 'K';
+        ctx.font = 'bold 12px monospace';
+        var tw = ctx.measureText(label).width;
+        var ly = stroke.direction === 'up' ? my - 14 : my + 4;
+        ctx.fillStyle = 'rgba(11,14,17,0.85)';
+        ctx.fillRect(mx - tw/2 - 4, ly - 1, tw + 8, 16);
+        ctx.fillStyle = stroke.direction === 'up' ? '#0ecb81' : '#f6465d';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, mx, ly + 7);
+      } catch(e) { console.error('[Viz] stroke ' + i + ' error:', e); }
+    }
+
+    // ---- Draw ref strokes (dashed) ----
+    for (var ri = 0; ri < self._refStrokes.length; ri++) {
+      var rs = self._refStrokes[ri];
+      try {
+        var rsc = params.logicalToMediaCoordinates({ time: rs.startFractal.time, price: rs.startPrice });
+        var rec = params.logicalToMediaCoordinates({ time: rs.endFractal.time, price: rs.endPrice });
+        if (!rsc || !rec) continue;
+        ctx.beginPath();
+        ctx.setLineDash([8, 5]);
+        ctx.strokeStyle = 'rgba(240,185,11,0.55)';
+        ctx.lineWidth = 2.5;
+        ctx.moveTo(rsc.x, rsc.y);
+        ctx.lineTo(rec.x, rec.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } catch(e) {}
+    }
+
+    // ---- Draw fractal triangles ----
+    for (var fi = 0; fi < self._fractals.length; fi++) {
+      var f = self._fractals[fi];
+      try {
+        var coord = params.logicalToMediaCoordinates({ time: f.time, price: f.anchorPrice });
+        if (!coord) continue;
+        var x = coord.x, y = coord.y;
+        var fcolor = f.type === 'top' ? '#f6465d' : '#0ecb81';
+        var size = 6;
+        var offset = f.type === 'top' ? -1 : 1;
+        var tipY = y + offset * (size + 6);
+
+        ctx.beginPath();
+        ctx.moveTo(x, tipY);
+        ctx.lineTo(x - size, y + offset * 6);
+        ctx.lineTo(x + size, y + offset * 6);
+        ctx.closePath();
+        ctx.fillStyle = fcolor;
+        ctx.fill();
+      } catch(e) {}
+    }
+  });
+};
+
+// ==================== CHART CONTROLLER ====================
+function ChartController(containerId) {
+  this.container = document.getElementById(containerId);
+  this.chart = null;
+  this.candleSeries = null;
+  this.ma7Series = null;
+  this.ma14Series = null;
+  this.chanPrimitive = null;
+  this._strokeLines = [];
+  this._initialFitDone = false;
+  this._wsUpdateTimer = null;
+}
+
+ChartController.prototype.initChart = function() {
+  var self = this;
+
+  this.chart = LightweightCharts.createChart(this.container, {
+    layout: {
+      background: { color: 'transparent' },
+      textColor: '#848e9c'
+    },
+    grid: {
+      vertLines: { color: 'rgba(255,255,255,0.04)' },
+      horzLines: { color: 'rgba(255,255,255,0.04)' }
+    },
+    crosshair: {
+      mode: 1,
+      vertLine: { color: 'rgba(255,255,255,0.3)', style: 2, width: 1, labelVisible: true, labelBackgroundColor: '#f0b90b' },
+      horzLine: { color: '#f0b90b', style: 1, width: 2, labelVisible: true, labelBackgroundColor: '#f0b90b', labelTextColor: '#000000' }
+    },
+    rightPriceScale: {
+      borderColor: 'rgba(255,255,255,0.1)',
+      scaleMargins: { top: 0.05, bottom: 0.15 },
+      autoScale: true
+    },
+    timeScale: {
+      borderColor: 'rgba(255,255,255,0.1)',
+      timeVisible: true,
+      secondsVisible: false,
+      rightOffset: 3,
+      barSpacing: 7,
+      fixLeftEdge: false,
+      lockVisibleTimeRangeOnResize: true,
+      minBarSpacing: 3,
+      tickMarkFormatter: function(time) {
+        var d = new Date(time * 1000);
+        var h = String(d.getHours()).padStart(2, '0');
+        var m = String(d.getMinutes()).padStart(2, '0');
+        if (h === '00' && m === '00') return (d.getMonth() + 1) + '/' + d.getDate();
+        return h + ':' + m;
+      }
+    },
+    handleScroll: { vertTouchDrag: false, mouseWheel: true, pressedMouseMove: true },
+    handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
+  });
+
+  this.chart.subscribeCrosshairMove(function(param) {
+    var tooltip = document.getElementById('tooltip');
+    if (!param.point || !param.time || !param.seriesData.get(self.candleSeries)) {
+      tooltip.style.display = 'none'; return;
+    }
+    var data = param.seriesData.get(self.candleSeries);
+    tooltip.style.display = 'block';
+    tooltip.style.left = Math.min(param.point.x + 15, window.innerWidth - 200) + 'px';
+    tooltip.style.top = Math.max(param.point.y - 80, 10) + 'px';
+    var d = new Date(param.time * 1000);
+    var ts = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' +
+      String(d.getDate()).padStart(2,'0') + ' ' +
+      String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    tooltip.innerHTML = '<b>' + STATE.symbol + '</b><br>O:' + fmtPrice(data.open) +
+      ' H:' + fmtPrice(data.high) + '<br>L:' + fmtPrice(data.low) +
+      ' C:' + fmtPrice(data.close) + '<br><span style="color:var(--text-secondary);font-size:10px">' + ts + '</span>';
+  });
+
+  // Candlestick series
+  this.candleSeries = this.chart.addCandlestickSeries({
+    upColor: '#0ecb81', downColor: '#f6465d',
+    borderUpColor: '#0ecb81', borderDownColor: '#f6465d',
+    wickUpColor: '#0ecb81', wickDownColor: '#f6465d',
+    lastValueVisible: true, priceLineVisible: false
+  });
+
+  // Chan visual primitive for triangle markers and K-count labels
+  this.chanPrimitive = new ChanVisualPrimitive();
+  this.candleSeries.attachPrimitive(this.chanPrimitive);
+  console.log('[Chart] primitive attached');
+
+  // MA series
+  this.ma7Series = this.chart.addLineSeries({
+    color: '#f0b90b', lineWidth: 1, priceLineVisible: false,
+    lastValueVisible: false, crosshairMarkerVisible: false
+  });
+  this.ma14Series = this.chart.addLineSeries({
+    color: '#e040fb', lineWidth: 1, priceLineVisible: false,
+    lastValueVisible: false, crosshairMarkerVisible: false
+  });
+};
+
+ChartController.prototype.loadData = function(symbol, timeframe) {
+  var self = this;
+  if (!self.chart) return Promise.resolve();
+
+  return BinanceAPI.getKlines(symbol, timeframe, CONFIG.KLINE_LIMIT).then(function(candles) {
+    console.log('[loadData] Got ' + candles.length + ' candles, first time=' + candles[0].time + ' last time=' + candles[candles.length-1].time);
+    STATE.candles = candles;
+    STATE.lastPrice = candles.length > 0 ? candles[candles.length - 1].close : 0;
+
+    var minKlines = parseInt(document.getElementById('cfgMinKlines').value || CONFIG.MIN_STROKE_KLINES);
+    var enableInclusion = document.getElementById('cfgInclusion').checked;
+    console.log('[loadData] Running ChanEngine.analyze, minKlines=' + minKlines + ' inclusion=' + enableInclusion);
+    var result;
+    try {
+      result = ChanEngine.analyze(candles, { minStrokeKlines: minKlines, enableInclusion: enableInclusion });
+    } catch(e) {
+      console.error('[loadData] ChanEngine.analyze threw:', e);
+      return;
+    }
+
+    console.log('[loadData] Result: strokes=' + result.strokes.length + ' fractals=' + result.fractals.length + ' procK=' + result.processedKlines.length);
+    if (result.strokes.length > 0) {
+      console.log('[loadData] First stroke:', JSON.stringify(result.strokes[0]));
+    }
+
+    STATE.processedKlines = result.processedKlines;
+    STATE.fractals = result.fractals;
+    STATE.strokes = result.strokes;
+
+    self.updateChart(result);
+    renderVerification(result);
+    renderSignals(result);
+    updateStatus(result.summary);
+
+    // Remove loading spinner
+    var loading = self.container.querySelector('.loading-overlay');
+    if (loading) loading.remove();
+  }).catch(function(e) {
+    console.error('[Chart] loadData error:', e);
+    document.getElementById('dataStatus').textContent = '✗ 加载失败';
+    document.getElementById('dataStatus').style.color = 'var(--red)';
+  });
+};
+
+ChartController.prototype.updateChart = function(chanResult) {
+  if (!this.chart || !STATE.candles.length) return;
+  var self = this;
+
+  if (chanResult) {
+    STATE.processedKlines = chanResult.processedKlines;
+    STATE.fractals = chanResult.fractals;
+    STATE.strokes = chanResult.strokes;
+  }
+
+  // Set primitive data BEFORE candleSeries.setData so draw() has data on first render
+  if (this.chanPrimitive) {
+    this.chanPrimitive._fractals = STATE.fractals;
+    this.chanPrimitive._strokes = STATE.strokes;
+    if (STATE.showRefStrokes && STATE.refStrokes.length > 0) {
+      this.chanPrimitive._refStrokes = STATE.refStrokes;
+    } else {
+      this.chanPrimitive._refStrokes = [];
+    }
+    console.log('[updateChart] Primitive data set: strokes=' + this.chanPrimitive._strokes.length + ' fractals=' + this.chanPrimitive._fractals.length);
+  }
+
+  // Remove old stroke line series
+  console.log('[updateChart] Removing ' + this._strokeLines.length + ' old stroke lines');
+  for (var si = 0; si < this._strokeLines.length; si++) {
+    try { this.chart.removeSeries(this._strokeLines[si]); } catch(e) {}
+  }
+  this._strokeLines = [];
+
+  // Candle data (triggers render — primitive.draw() called with data set above)
+  var candleData = STATE.candles.map(function(c) {
+    return { time: c.time, open: c.open, high: c.high, low: c.low, close: c.close };
+  });
+  this.candleSeries.setData(candleData);
+
+  // MA lines
+  var ma7 = _calcSMA(STATE.candles, CONFIG.MA_PERIODS[0]);
+  var ma14 = _calcSMA(STATE.candles, CONFIG.MA_PERIODS[1]);
+  var ma7Data = [], ma14Data = [];
+  for (var i = 0; i < STATE.candles.length; i++) {
+    if (ma7[i] != null) ma7Data.push({ time: STATE.candles[i].time, value: ma7[i] });
+    if (ma14[i] != null) ma14Data.push({ time: STATE.candles[i].time, value: ma14[i] });
+  }
+  this.ma7Series.setData(ma7Data);
+  this.ma14Series.setData(ma14Data);
+
+  // ---- Draw strokes using line series ----
+  var strokes = STATE.strokes;
+  console.log('[updateChart] Drawing ' + strokes.length + ' strokes, refStrokes=' + STATE.refStrokes.length + ' showRef=' + STATE.showRefStrokes);
+
+  // TEST: Draw a line across the entire chart to verify line series works
+  try {
+    var testLine = this.chart.addLineSeries({
+      color: '#ff00ff', lineWidth: 4,
+      priceLineVisible: false, lastValueVisible: false,
+      crosshairMarkerVisible: false
+    });
+    testLine.setData([
+      { time: STATE.candles[0].time, value: STATE.candles[0].close },
+      { time: STATE.candles[STATE.candles.length-1].time, value: STATE.candles[STATE.candles.length-1].close }
+    ]);
+    this._strokeLines.push(testLine);
+    console.log('[updateChart] Test magenta line added: time ' + STATE.candles[0].time + '->' + STATE.candles[STATE.candles.length-1].time + ' price ' + STATE.candles[0].close + '->' + STATE.candles[STATE.candles.length-1].close);
+  } catch(e) { console.error('[updateChart] Test line failed:', e); }
+
+  for (var i2 = 0; i2 < strokes.length; i2++) {
+    var stroke = strokes[i2];
+    var color = stroke.direction === 'up' ? '#0ecb81' : '#f6465d';
+    var lineSeries = this.chart.addLineSeries({
+      color: color, lineWidth: 2.5,
+      priceLineVisible: false, lastValueVisible: false,
+      crosshairMarkerVisible: false
+    });
+    var lineData = [
+      { time: stroke.startFractal.time, value: stroke.startPrice },
+      { time: stroke.endFractal.time, value: stroke.endPrice }
+    ];
+    console.log('[updateChart] Stroke ' + i2 + ': ' + stroke.direction + ' ' + stroke.procKlineCount + 'K, time ' + stroke.startFractal.time + '->' + stroke.endFractal.time + ' price ' + stroke.startPrice + '->' + stroke.endPrice);
+    lineSeries.setData(lineData);
+    this._strokeLines.push(lineSeries);
+  }
+
+  // ---- Draw reference strokes as dashed yellow lines ----
+  if (STATE.showRefStrokes && STATE.refStrokes.length > 0) {
+    for (var ri = 0; ri < STATE.refStrokes.length; ri++) {
+      var rs = STATE.refStrokes[ri];
+      var refLine = this.chart.addLineSeries({
+        color: 'rgba(240,185,11,0.45)', lineWidth: 2, lineStyle: 2,
+        priceLineVisible: false, lastValueVisible: false,
+        crosshairMarkerVisible: false
+      });
+      refLine.setData([
+        { time: rs.startFractal.time, value: rs.startPrice },
+        { time: rs.endFractal.time, value: rs.endPrice }
+      ]);
+      this._strokeLines.push(refLine);
+    }
+  }
+
+  // ---- Fractal markers via built-in API ----
+  var fractals = STATE.fractals;
+  var markers = [];
+  for (var fi = 0; fi < fractals.length; fi++) {
+    var f = fractals[fi];
+    if (f.type === 'top') {
+      markers.push({
+        time: f.time, position: 'aboveBar', color: '#f6465d', shape: 'arrowDown',
+        text: '顶', size: 2
+      });
+    } else {
+      markers.push({
+        time: f.time, position: 'belowBar', color: '#0ecb81', shape: 'arrowUp',
+        text: '底', size: 2
+      });
+    }
+  }
+  this.candleSeries.setMarkers(markers);
+
+  // Trigger primitive redraw to reflect latest data
+  if (this.chanPrimitive && this.chanPrimitive._requestUpdate) {
+    this.chanPrimitive._requestUpdate();
+  }
+  console.log('[updateChart] Done. strokes=' + STATE.strokes.length + ' strokeLines=' + this._strokeLines.length + ' markers=' + markers.length);
+
+  // Initial visible range
+  if (!this._initialFitDone) {
+    var total = STATE.candles.length;
+    var showCount = Math.min(80, total);
+    var fromTime = STATE.candles[total - showCount].time;
+    var toTime = STATE.candles[total - 1].time;
+    var padding = (toTime - fromTime) * 0.05;
+    this.chart.timeScale().setVisibleRange({ from: fromTime - padding, to: toTime + padding });
+    this._initialFitDone = true;
+    console.log('[Chart] visible range set: ' + showCount + ' candles');
+  }
+};
+
+ChartController.prototype.updateFromWS = function(kline) {
+  var self = this;
+  if (!self.chart || !STATE.candles.length) return;
+
+  var c = parseFloat(kline.c);
+  STATE.lastPrice = c;
+
+  var kTime = Math.floor(kline.t / 1000);
+  var lastCandle = STATE.candles[STATE.candles.length - 1];
+  if (lastCandle && lastCandle.time === kTime) {
+    lastCandle.open = parseFloat(kline.o);
+    lastCandle.high = parseFloat(kline.h);
+    lastCandle.low = parseFloat(kline.l);
+    lastCandle.close = c;
+    lastCandle.volume = parseFloat(kline.v);
+  } else {
+    STATE.candles.push({
+      time: kTime, open: parseFloat(kline.o),
+      high: parseFloat(kline.h), low: parseFloat(kline.l),
+      close: c, volume: parseFloat(kline.v)
+    });
+    if (STATE.candles.length > CONFIG.KLINE_LIMIT) STATE.candles.shift();
+  }
+
+  // Debounced re-analysis (every 3 seconds)
+  if (!self._wsUpdateTimer) {
+    self._wsUpdateTimer = setTimeout(function() {
+      self._wsUpdateTimer = null;
+      var minKlines = parseInt(document.getElementById('cfgMinKlines').value || CONFIG.MIN_STROKE_KLINES);
+      var enableInclusion = document.getElementById('cfgInclusion').checked;
+      var result = ChanEngine.analyze(STATE.candles, { minStrokeKlines: minKlines, enableInclusion: enableInclusion });
+      STATE.processedKlines = result.processedKlines;
+      STATE.fractals = result.fractals;
+      STATE.strokes = result.strokes;
+      self.updateChart(result);
+      renderVerification(result);
+      renderSignals(result);
+      updateStatus(result.summary);
+    }, 3000);
+  }
+};
+
+ChartController.prototype.resetFit = function() {
+  this._initialFitDone = false;
+};
+
+function _calcSMA(data, period) {
+  var result = new Array(data.length).fill(null);
+  if (data.length < period) return result;
+  var sum = 0;
+  for (var i = 0; i < period; i++) sum += data[i].close;
+  result[period - 1] = sum / period;
+  for (var i2 = period; i2 < data.length; i2++) {
+    sum += data[i2].close - data[i2 - period].close;
+    result[i2] = sum / period;
+  }
+  return result;
+}
+
+// ==================== SIGNAL ANALYZER ====================
+function analyzeSignals(strokes, fractals, currentPrice, refStrokes) {
+  if (!strokes || strokes.length < 1) {
+    return [{ type: 'neutral', direction: 'neutral', strength: 0,
+      description: '笔数不足，等待更多K线数据生成分型和笔...', time: Date.now() }];
+  }
+
+  var signals = [];
+  var lastStroke = strokes[strokes.length - 1];
+
+  // Type 1 Buy: down stroke ends at bottom fractal, price recovering
+  if (lastStroke.direction === 'down' && lastStroke.endFractal.type === 'bottom') {
+    if (currentPrice > lastStroke.endPrice && lastStroke.magnitudePct > 0.3 && lastStroke.procKlineCount >= 5) {
+      var strength = 50 + Math.min(lastStroke.magnitudePct * 5, 25) + Math.min((lastStroke.procKlineCount - 5) * 3, 15);
+      strength = Math.min(strength, 100);
+
+      var refOk = (refStrokes && refStrokes.length > 0) ? refStrokes[refStrokes.length - 1].direction === 'up' : null;
+      signals.push({
+        type: 'type1_buy', direction: 'buy', strength: strength, price: currentPrice,
+        description: '第一类买点：下跌笔完成于底分型 $' + fmtPrice(lastStroke.endPrice) +
+          '，价格回升至 $' + fmtPrice(currentPrice) +
+          '。笔幅度 ' + lastStroke.magnitudePct.toFixed(2) + '%，' + lastStroke.procKlineCount + 'K。' +
+          (refOk === false ? '⚠️ 高级别不共振' : refOk === true ? '✅ 高级别共振' : ''),
+        time: Date.now()
+      });
+    }
+  }
+
+  // Type 1 Sell: up stroke ends at top fractal, price falling
+  if (lastStroke.direction === 'up' && lastStroke.endFractal.type === 'top') {
+    if (currentPrice < lastStroke.endPrice && lastStroke.magnitudePct > 0.3 && lastStroke.procKlineCount >= 5) {
+      var s2 = 50 + Math.min(lastStroke.magnitudePct * 5, 25) + Math.min((lastStroke.procKlineCount - 5) * 3, 15);
+      s2 = Math.min(s2, 100);
+
+      var refOk2 = (refStrokes && refStrokes.length > 0) ? refStrokes[refStrokes.length - 1].direction === 'down' : null;
+      signals.push({
+        type: 'type1_sell', direction: 'sell', strength: s2, price: currentPrice,
+        description: '第一类卖点：上涨笔完成于顶分型 $' + fmtPrice(lastStroke.endPrice) +
+          '，价格回落至 $' + fmtPrice(currentPrice) +
+          '。笔幅度 ' + lastStroke.magnitudePct.toFixed(2) + '%，' + lastStroke.procKlineCount + 'K。' +
+          (refOk2 === false ? '⚠️ 高级别不共振' : refOk2 === true ? '✅ 高级别共振' : ''),
+        time: Date.now()
+      });
+    }
+  }
+
+  // No signal → show current state
+  if (signals.length === 0) {
+    signals.push({
+      type: 'ongoing', direction: 'neutral', strength: 0, price: currentPrice,
+      description: '当前笔运行中 (' + (lastStroke.direction === 'up' ? '上涨' : '下跌') +
+        ')，起点 $' + fmtPrice(lastStroke.startPrice) +
+        '，' + lastStroke.procKlineCount + 'K。等待笔完成确认买卖点。',
+      time: Date.now()
+    });
+  }
+
+  return signals;
+}
+
+// ==================== UI RENDERERS ====================
+function renderSignals(chanResult) {
+  var container = document.getElementById('signalList');
+  var useMultiTF = document.getElementById('cfgMultiTF').checked;
+  var signals = analyzeSignals(chanResult.strokes, chanResult.fractals, STATE.lastPrice,
+    useMultiTF ? STATE.refStrokes : null);
+  STATE.signals = signals;
+
+  if (!signals || signals.length === 0) {
+    container.innerHTML = '<div class="signal-none">等待数据分析...</div>';
+    return;
+  }
+
+  container.innerHTML = signals.map(function(s) {
+    var barColor = s.direction === 'buy' ? 'var(--green)' : s.direction === 'sell' ? 'var(--red)' : 'var(--text-secondary)';
+    var strColor = s.strength >= 70 ? 'var(--green)' : s.strength >= 40 ? 'var(--yellow)' : 'var(--red)';
+    return '<div class="signal-card ' + s.direction + '">' +
+      '<div class="signal-header">' +
+        '<span class="signal-type" style="color:' + barColor + '">' +
+          (s.direction === 'buy' ? '📈 买入信号' : s.direction === 'sell' ? '📉 卖出信号' : '⏺ 等待中') +
+        '</span>' +
+        '<span class="signal-strength">强度: ' + s.strength + '/100</span>' +
+      '</div>' +
+      '<div class="signal-strength-bar"><div class="signal-strength-fill" style="width:' + s.strength + '%;background:' + strColor + '"></div></div>' +
+      '<div class="signal-desc">' + s.description + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderVerification(chanResult) {
+  var container = document.getElementById('verifyContent');
+  var fractals = chanResult.fractals, strokes = chanResult.strokes;
+  var validation = chanResult.validation, summary = chanResult.summary;
+
+  var issuesHtml = validation.issues.length > 0
+    ? validation.issues.map(function(i) {
+        return '<div class="issue-item"><span class="issue-type">' + i.type + '</span> <span class="issue-msg">' + i.message + '</span></div>';
+      }).join('')
+    : '<div class="verify-pass">✅ 全部验证通过</div>';
+
+  var strokeRows = strokes.length > 0
+    ? strokes.map(function(s, i) {
+        return '<tr>' +
+          '<td style="color:' + (s.direction === 'up' ? 'var(--green)' : 'var(--red)') + '">#' + (i+1) + '</td>' +
+          '<td>' + (s.direction === 'up' ? '↑涨' : '↓跌') + '</td>' +
+          '<td>' + s.procKlineCount + 'K</td>' +
+          '<td>' + s.magnitudePct.toFixed(2) + '%</td>' +
+          '<td>$' + fmtPrice(s.startPrice) + '→$' + fmtPrice(s.endPrice) + '</td>' +
+        '</tr>';
+      }).join('')
+    : '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:8px">暂无笔数据</td></tr>';
+
+  container.innerHTML =
+    '<div class="stat-grid">' +
+      '<div class="stat-box"><div class="stat-value yellow">' + summary.procCount + '</div><div class="stat-label">处理后K线</div></div>' +
+      '<div class="stat-box"><div class="stat-value">' + summary.rawCount + '</div><div class="stat-label">原始K线</div></div>' +
+      '<div class="stat-box"><div class="stat-value green">' + summary.topCount + '</div><div class="stat-label">顶分型</div></div>' +
+      '<div class="stat-box"><div class="stat-value red">' + summary.bottomCount + '</div><div class="stat-label">底分型</div></div>' +
+      '<div class="stat-box"><div class="stat-value green">' + summary.upStrokeCount + '</div><div class="stat-label">上涨笔</div></div>' +
+      '<div class="stat-box"><div class="stat-value red">' + summary.downStrokeCount + '</div><div class="stat-label">下跌笔</div></div>' +
+    '</div>' +
+    '<div style="margin-bottom:10px">' + issuesHtml + '</div>' +
+    '<div style="max-height:200px;overflow-y:auto">' +
+      '<table class="stroke-table">' +
+        '<thead><tr><th>#</th><th>方向</th><th>K线</th><th>幅度</th><th>价格</th></tr></thead>' +
+        '<tbody>' + strokeRows + '</tbody>' +
+      '</table>' +
+    '</div>';
+}
+
+function updateStatus(summary) {
+  var el = document.getElementById('dataStatus');
+  el.textContent = '✓ ' + summary.strokeCount + '笔 | ' + summary.fractalCount + '分型 | 处理K:' + summary.procCount;
+  el.style.color = 'var(--green)';
+}
+
+function updateConnectionDot() {
+  var dot = document.getElementById('connectionDot');
+  if (STATE.wsConnected) { dot.className = ''; }
+  else { dot.className = 'disconnected'; }
+}
+
+// ==================== TRADE EXECUTOR ====================
+var TradeExecutor = {
+  _genSign: function(queryString, secret) {
+    var encoder = new TextEncoder();
+    return crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+      .then(function(key) {
+        return crypto.subtle.sign('HMAC', key, encoder.encode(queryString));
+      })
+      .then(function(sig) {
+        return Array.from(new Uint8Array(sig)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+      });
+  },
+
+  _signedReq: function(endpoint, method, params) {
+    if (!STATE.apiKey || !STATE.apiSecret) return Promise.reject(new Error('请先配置API Key'));
+
+    params.timestamp = Date.now();
+    params.recvWindow = 5000;
+
+    var keys = Object.keys(params).sort();
+    var qs = keys.map(function(k) { return k + '=' + params[k]; }).join('&');
+
+    var self = this;
+    return self._genSign(qs, STATE.apiSecret).then(function(signature) {
+      var url = CONFIG.BINANCE_REST + endpoint + '?' + qs + '&signature=' + signature;
+      return fetch(url, {
+        method: method,
+        headers: { 'X-MBX-APIKEY': STATE.apiKey, 'Content-Type': 'application/json' }
+      }).then(function(resp) {
+        if (!resp.ok) {
+          return resp.json().then(function(err) { throw new Error(err.msg || 'HTTP ' + resp.status); });
+        }
+        return resp.json();
+      });
+    });
+  },
+
+  getPositions: function() {
+    return this._signedReq('/positionRisk', 'GET').then(function(positions) {
+      return positions.filter(function(p) { return parseFloat(p.positionAmt) !== 0; });
+    });
+  },
+
+  setLeverage: function(symbol, leverage) {
+    return this._signedReq('/leverage', 'POST', { symbol: symbol, leverage: leverage });
+  },
+
+  placeOrder: function(symbol, side, type, quantity, price) {
+    var params = { symbol: symbol, side: side, type: type, quantity: quantity };
+    if (type === 'LIMIT' && price) { params.price = price; params.timeInForce = 'GTC'; }
+    return this._signedReq('/order', 'POST', params);
+  }
+};
+
+// ==================== MAIN CONTROLLER ====================
+var chartCtrl = null;
+
+function initApp() {
+  chartCtrl = new ChartController('chartContainer');
+  chartCtrl.initChart();
+  setupSymbolInput();
+  setupTimeframeButtons();
+  setupTabs();
+  setupStrategyPanel();
+  setupTradePanel();
+  setupRefTF();
+
+  // Load data
+  chartCtrl.loadData(STATE.symbol, STATE.currentTF).then(function() {
+    connectWS();
+    loadRefData();
+  });
+}
+
+function setupSymbolInput() {
+  var input = document.getElementById('symbolInput');
+  var suggest = document.getElementById('symbolSuggest');
+
+  input.addEventListener('input', function() {
+    var val = input.value.toUpperCase();
+    var matches = CONFIG.COMMON_SYMBOLS.filter(function(s) { return s.indexOf(val) !== -1; }).slice(0, 8);
+    if (matches.length > 0 && val.length > 0) {
+      suggest.innerHTML = matches.map(function(s) {
+        return '<li data-sym="' + s + '">' + s + '</li>';
+      }).join('');
+      suggest.style.display = 'block';
+    } else {
+      suggest.style.display = 'none';
+    }
+  });
+
+  suggest.addEventListener('click', function(e) {
+    var li = e.target.closest('li');
+    if (!li) return;
+    suggest.style.display = 'none';
+    input.value = li.dataset.sym;
+    switchSymbol(li.dataset.sym);
+  });
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      suggest.style.display = 'none';
+      switchSymbol(input.value.toUpperCase());
+    }
+  });
+
+  input.addEventListener('blur', function() {
+    setTimeout(function() { suggest.style.display = 'none'; }, 200);
+  });
+}
+
+function setupTimeframeButtons() {
+  var buttons = document.querySelectorAll('.tf-btn');
+  buttons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (btn.dataset.tf === STATE.currentTF) return;
+      buttons.forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      STATE.currentTF = btn.dataset.tf;
+      switchTimeframe();
+    });
+  });
+}
+
+function setupTabs() {
+  var buttons = document.querySelectorAll('.tab-btn');
+  var panels = document.querySelectorAll('.tab-panel');
+  buttons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      buttons.forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      panels.forEach(function(p) { p.classList.remove('active'); });
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+}
+
+function setupStrategyPanel() {
+  var slider = document.getElementById('cfgMinKlines');
+  var valEl = document.getElementById('cfgMinKlinesVal');
+  slider.addEventListener('input', function() { valEl.textContent = slider.value; });
+
+  document.getElementById('cfgApply').addEventListener('click', function() {
+    chartCtrl.resetFit();
+    chartCtrl.loadData(STATE.symbol, STATE.currentTF).then(function() {
+      connectWS();
+      showToast('策略参数已应用');
+    });
+  });
+
+  document.getElementById('cfgReset').addEventListener('click', function() {
+    slider.value = 5; valEl.textContent = '5';
+    document.getElementById('cfgInclusion').checked = true;
+    document.getElementById('cfgMultiTF').checked = false;
+  });
+
+  document.getElementById('cfgMultiTF').addEventListener('change', function() {
+    var minKlines = parseInt(slider.value);
+    var enableInclusion = document.getElementById('cfgInclusion').checked;
+    var result = ChanEngine.analyze(STATE.candles, { minStrokeKlines: minKlines, enableInclusion: enableInclusion });
+    renderSignals(result);
+    showToast('多级别共振过滤已' + (document.getElementById('cfgMultiTF').checked ? '启用' : '关闭'));
+  });
+}
+
+function setupTradePanel() {
+  document.getElementById('tradeApiKey').value = STATE.apiKey;
+  document.getElementById('tradeApiSecret').value = STATE.apiSecret;
+
+  document.getElementById('tradeSaveKeys').addEventListener('click', function() {
+    STATE.apiKey = document.getElementById('tradeApiKey').value.trim();
+    STATE.apiSecret = document.getElementById('tradeApiSecret').value.trim();
+    localStorage.setItem('binance_fapi_key', STATE.apiKey);
+    localStorage.setItem('binance_fapi_secret', STATE.apiSecret);
+    showToast('API Key 已保存');
+  });
+
+  document.getElementById('tradeOrderType').addEventListener('change', function(e) {
+    document.getElementById('limitPriceRow').style.display = e.target.value === 'LIMIT' ? 'block' : 'none';
+  });
+
+  function doTrade(side) {
+    var type = document.getElementById('tradeOrderType').value;
+    var qty = parseFloat(document.getElementById('tradeQuantity').value);
+    var leverage = parseInt(document.getElementById('tradeLeverage').value);
+    var limitPrice = type === 'LIMIT' ? parseFloat(document.getElementById('tradeLimitPrice').value) : null;
+
+    if (!qty || qty <= 0) { showToast('请输入有效数量'); return; }
+    if (!STATE.apiKey || !STATE.apiSecret) { showToast('请先配置 API Key'); return; }
+    if (type === 'LIMIT' && (!limitPrice || limitPrice <= 0)) { showToast('请输入有效限价'); return; }
+
+    TradeExecutor.setLeverage(STATE.symbol, leverage).then(function() {
+      return TradeExecutor.placeOrder(STATE.symbol, side, type, qty.toString(), limitPrice ? limitPrice.toString() : undefined);
+    }).then(function(result) {
+      showToast((side === 'BUY' ? '买入' : '卖出') + '订单已提交: ' + (result.orderId || 'OK'));
+      console.log('Order:', result);
+    }).catch(function(e) {
+      showToast('下单失败: ' + e.message);
+      console.error('Order error:', e);
+    });
+  }
+
+  document.getElementById('tradeBuy').addEventListener('click', function() { doTrade('BUY'); });
+  document.getElementById('tradeSell').addEventListener('click', function() { doTrade('SELL'); });
+}
+
+function setupRefTF() {
+  document.getElementById('refTfSelect').value = STATE.referenceTF || '4h';
+
+  document.getElementById('refTfSelect').addEventListener('change', function() {
+    STATE.referenceTF = this.value;
+    if (STATE.referenceTF) {
+      loadRefData().then(function() {
+        chartCtrl.resetFit();
+        return chartCtrl.loadData(STATE.symbol, STATE.currentTF);
+      });
+    } else {
+      STATE.refStrokes = [];
+      if (chartCtrl) chartCtrl.updateChart(null);
+    }
+  });
+
+  document.getElementById('showRefStrokes').addEventListener('change', function(e) {
+    STATE.showRefStrokes = e.target.checked;
+    if (chartCtrl) chartCtrl.updateChart();
+  });
+}
+
+function switchSymbol(sym) {
+  STATE.symbol = sym;
+  document.getElementById('symbolInput').value = sym;
+  chartCtrl.resetFit();
+  chartCtrl.loadData(STATE.symbol, STATE.currentTF).then(function() {
+    connectWS();
+    loadRefData();
+  });
+}
+
+function switchTimeframe() {
+  chartCtrl.resetFit();
+  chartCtrl.loadData(STATE.symbol, STATE.currentTF).then(function() {
+    connectWS();
+  });
+}
+
+function connectWS() {
+  BinanceAPI.connectWebSocket(STATE.symbol, STATE.currentTF, function(kline) {
+    if (chartCtrl) chartCtrl.updateFromWS(kline);
+  });
+}
+
+function loadRefData() {
+  var refTF = STATE.referenceTF;
+  if (!refTF) return Promise.resolve();
+
+  return BinanceAPI.getKlines(STATE.symbol, refTF, CONFIG.KLINE_LIMIT).then(function(refCandles) {
+    STATE.refCandles = refCandles;
+    var result = ChanEngine.analyze(refCandles, { minStrokeKlines: CONFIG.MIN_STROKE_KLINES });
+    STATE.refProcessedKlines = result.processedKlines;
+    STATE.refFractals = result.fractals;
+    STATE.refStrokes = result.strokes;
+
+    if (STATE.showRefStrokes && chartCtrl) {
+      chartCtrl.updateChart(null);
+    }
+  }).catch(function(e) {
+    console.error('[Ref] load error:', e);
+  });
+}
+
+// ==================== BOOTSTRAP ====================
+function waitForLib(retries) {
+  retries = retries || 30;
+  if (typeof LightweightCharts !== 'undefined') {
+    console.log('[Bootstrap] Library loaded, initializing...');
+    initApp();
+    return;
+  }
+  if (retries > 0) {
+    setTimeout(function() { waitForLib(retries - 1); }, 500);
+  } else {
+    document.getElementById('dataStatus').textContent = '✗ 图表库加载超时';
+    document.getElementById('dataStatus').style.color = 'var(--red)';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() { waitForLib(); });
+
+// Handle resize
+var resizeDebounce;
+window.addEventListener('resize', function() {
+  clearTimeout(resizeDebounce);
+  resizeDebounce = setTimeout(function() {
+    if (chartCtrl && chartCtrl.chart) chartCtrl.chart.resize();
+  }, 200);
+});
+
+})();
+</script>
+</body>
+</html>
