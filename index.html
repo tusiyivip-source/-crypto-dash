@@ -314,7 +314,7 @@ body {
     <div class="header-right">
       <span id="connectionDot" title="WebSocket连接状态"></span>
       <button id="manualRefreshBtn" title="手动刷新">🔄 刷新</button>
-      <span id="pairCount">币种: 0/100</span>
+      <span id="pairCount">币种: 0/200</span>
       <button id="alertConfigBtn" title="钉钉告警配置">🔔</button>
       <button id="alertHistoryBtn" title="告警历史">📋</button>
       <button id="installBtn" title="安装到桌面" style="display:none">📲 安装</button>
@@ -388,7 +388,7 @@ body {
 <script>
 // ==================== CONFIGURATION ====================
 const CONFIG = {
-  TOP_COINS: 100,
+  TOP_COINS: 200,
   TIMEFRAMES: ['3m', '5m', '10m', '15m', '30m', '1h', '2h', '3h', '6h', '1d', '2d', '3d'],
   DEFAULT_TF: '15m',
   KLINE_LIMIT: 400,
@@ -398,7 +398,7 @@ const CONFIG = {
   MACD_SIGNAL: 9,
   BINANCE_REST: 'https://fapi.binance.com/fapi/v1',
   BINANCE_WS_BASE: 'wss://fstream.binance.com/ws',
-  MAX_WS_STREAMS: 100,
+  MAX_WS_STREAMS: 200,
 };
 
 // ==================== GLOBAL STATE ====================
