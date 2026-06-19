@@ -81,8 +81,8 @@ body {
 }
 .stat-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
 .stat-label { color: var(--text-secondary); font-weight: 500; }
-.stat-up { color: var(--green); font-weight: 600; }
-.stat-down { color: var(--red); font-weight: 600; }
+.stat-up { color: #f6465d; font-weight: 600; }
+.stat-down { color: #0ecb81; font-weight: 600; }
 /* GRID */
 #chartGrid {
   flex: 1; overflow-y: auto; overflow-x: hidden;
@@ -113,8 +113,8 @@ body {
 .panel-symbol { font-weight: 700; font-size: 13px; letter-spacing: 0.3px; }
 .panel-price { font-weight: 600; font-size: 13px; font-family: 'Consolas', monospace; }
 .panel-change { font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
-.panel-change.up { color: var(--green); background: rgba(14,203,129,0.12); }
-.panel-change.down { color: var(--red); background: rgba(246,70,93,0.12); }
+.panel-change.up { color: #f6465d; background: rgba(246,70,93,0.12); }
+.panel-change.down { color: #0ecb81; background: rgba(14,203,129,0.12); }
 .panel-actions { display: flex; gap: 2px; }
 .panel-btn {
   width: 22px; height: 22px; border: none; background: transparent;
@@ -262,8 +262,8 @@ body {
   font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 600;
   flex-shrink: 0; margin-right: 6px;
 }
-.alerts-dir.above { background: #0ecb81; color: #000; }
-.alerts-dir.below { background: #f6465d; color: #fff; }
+.alerts-dir.above { background: #f6465d; color: #fff; }
+.alerts-dir.below { background: #0ecb81; color: #000; }
 .alerts-dir.cross { background: #f0b90b; color: #000; }
 .alerts-item .alerts-info { flex: 1; min-width: 0; }
 .alerts-item .alerts-symbol { font-weight: 600; }
@@ -1166,7 +1166,7 @@ class StrokeOverlay {
         // Main stroke line
         ctx.beginPath();
         ctx.setLineDash([]);
-        ctx.strokeStyle = isUp ? '#0ecb81' : '#f6465d';
+        ctx.strokeStyle = isUp ? '#f6465d' : '#0ecb81';
         ctx.lineWidth = 2;
         ctx.moveTo(c1.x, c1.y);
         ctx.lineTo(c2.x, c2.y);
@@ -1177,7 +1177,7 @@ class StrokeOverlay {
         const my = (c2.y + c1.y) / 2 - 10;
         ctx.font = 'bold 14px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillStyle = isUp ? '#0ecb81' : '#f6465d';
+        ctx.fillStyle = isUp ? '#f6465d' : '#0ecb81';
         ctx.fillText(isUp ? '↑' : '↓', mx, my);
       }
 
@@ -1190,7 +1190,7 @@ class StrokeOverlay {
           const isUp = this._liveTarget.price > lastConfirmed.price;
           ctx.beginPath();
           ctx.setLineDash([8, 4]);
-          ctx.strokeStyle = isUp ? 'rgba(14,203,129,0.5)' : 'rgba(246,70,93,0.5)';
+          ctx.strokeStyle = isUp ? 'rgba(246,70,93,0.5)' : 'rgba(14,203,129,0.5)';
           ctx.lineWidth = 1.5;
           ctx.moveTo(c1.x, c1.y);
           ctx.lineTo(c2.x, c2.y);
@@ -1610,9 +1610,9 @@ class ChartPanel {
 
     // Candlestick series
     this.candleSeries = this.chart.addCandlestickSeries({
-      upColor: '#0ecb81', downColor: '#f6465d',
-      borderUpColor: '#0ecb81', borderDownColor: '#f6465d',
-      wickUpColor: '#0ecb81', wickDownColor: '#f6465d',
+      upColor: '#f6465d', downColor: '#0ecb81',
+      borderUpColor: '#f6465d', borderDownColor: '#0ecb81',
+      wickUpColor: '#f6465d', wickDownColor: '#0ecb81',
       lastValueVisible: true,
       priceLineVisible: false,
     });
@@ -1733,7 +1733,7 @@ class ChartPanel {
 
     // MACD series (creates 'macd' price scale)
     this.macdHistSeries = this.chart.addHistogramSeries({
-      color: '#0ecb81', priceFormat: { type: 'price', precision: 8 },
+      color: '#f6465d', priceFormat: { type: 'price', precision: 8 },
       priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false,
     });
     this.macdSignalSeries = this.chart.addLineSeries({
@@ -1838,7 +1838,7 @@ class ChartPanel {
         macdHistData.push({
           time: this.candles[i].time,
           value: macd.histogram[i],
-          color: macd.histogram[i] >= 0 ? '#0ecb81' : '#f6465d',
+          color: macd.histogram[i] >= 0 ? '#f6465d' : '#0ecb81',
         });
       }
       if (macd.signalLine[i] != null) {
@@ -1852,7 +1852,7 @@ class ChartPanel {
     const volumeData = this.candles.map(c => ({
       time: c.time,
       value: c.volume,
-      color: c.close >= c.open ? 'rgba(14,203,129,0.2)' : 'rgba(246,70,93,0.2)',
+      color: c.close >= c.open ? 'rgba(246,70,93,0.2)' : 'rgba(14,203,129,0.2)',
     }));
     this.volumeSeries.setData(volumeData);
 
