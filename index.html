@@ -54,6 +54,13 @@ body {
 }
 .tf-btn:hover { border-color: var(--yellow); color: var(--text); background: var(--hover); }
 .tf-btn.active { background: var(--yellow); color: #000; border-color: var(--yellow); font-weight: 700; box-shadow: 0 0 10px rgba(240,185,11,0.25); }
+.sort-btn {
+  padding: 6px 12px; border: 1px solid var(--border); background: var(--panel-bg);
+  color: var(--text-secondary); cursor: pointer; border-radius: 5px;
+  font-size: 12px; transition: all 0.2s; font-weight: 500;
+}
+.sort-btn:hover { border-color: var(--blue); color: var(--text); background: var(--hover); }
+.sort-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 700; box-shadow: 0 0 8px rgba(30,128,255,0.3); }
 .header-right { display: flex; align-items: center; gap: 16px; font-size: 12px; }
 #connectionDot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px rgba(14,203,129,0.4); transition: all 0.3s; }
 #connectionDot.disconnected { background: var(--red); box-shadow: 0 0 6px rgba(246,70,93,0.4); }
@@ -311,6 +318,10 @@ body {
       <button class="tf-btn" data-tf="1d">日线</button>
       <button class="tf-btn" data-tf="2d">2日</button>
       <button class="tf-btn" data-tf="3d">3日</button>
+	      <span style="color:var(--border);margin:0 2px;user-select:none">│</span>
+	      <button class="sort-btn active" data-sort="volume" onclick="dashboard.sortBy('volume')">📊 成交额</button>
+	      <button class="sort-btn" data-sort="gainers" onclick="dashboard.sortBy('gainers')">📈 涨幅</button>
+	      <button class="sort-btn" data-sort="losers" onclick="dashboard.sortBy('losers')">📉 跌幅</button>
     </div>
     <div class="header-right">
       <span id="connectionDot" title="WebSocket连接状态"></span>
@@ -410,6 +421,7 @@ const CONFIG = {
 // ==================== GLOBAL STATE ====================
 const STATE = {
   currentTF: CONFIG.DEFAULT_TF,
+  sortMode: 'volume',  // 'volume' | 'gainers' | 'losers'
   pairs: [],
   chartPanels: {},
   removedPairs: new Set(),
@@ -2316,6 +2328,7 @@ class Dashboard {
   async init() {
     this.startClock();
     this.setupTimeframeButtons();
+    this.setupSortButtons();
     this.setupKeyboardShortcuts();
     this.setupManualRefresh();
     this.setupAlertMenu();
@@ -2339,6 +2352,52 @@ class Dashboard {
         await this.switchTimeframe();
       });
     });
+  }
+
+  setupSortButtons() {
+    // Button clicks handled via inline onclick="dashboard.sortBy(...)"
+  }
+
+  sortBy(mode) {
+    STATE.sortMode = mode;
+    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`.sort-btn[data-sort="${mode}"]`);
+    if (btn) btn.classList.add('active');
+    this.sortPanels();
+  }
+
+  sortPanels() {
+    const panels = Object.values(STATE.chartPanels);
+    if (panels.length < 2) return;
+
+    // Build a lookup from STATE.pairs for fallback
+    const pairMap = {};
+    for (const p of STATE.pairs) pairMap[p.symbol] = p;
+
+    // Sort panels by the selected metric using pairData or STATE.pairs fallback
+    const sorted = [...panels].sort((a, b) => {
+      const da = a.pairData || pairMap[a.symbol];
+      const db = b.pairData || pairMap[b.symbol];
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      switch (STATE.sortMode) {
+        case 'gainers': return (db.priceChangePercent || 0) - (da.priceChangePercent || 0);
+        case 'losers':  return (da.priceChangePercent || 0) - (db.priceChangePercent || 0);
+        case 'volume':
+        default:        return (db.quoteVolume || 0) - (da.quoteVolume || 0);
+      }
+    });
+
+    console.log(`[排序] ${STATE.sortMode} → ${sorted.slice(0,5).map(p => p.symbol).join(', ')}...`);
+
+    // Reorder DOM elements
+    const grid = this.grid;
+    for (const panel of sorted) {
+      if (panel.panel && panel.panel.parentNode === grid) {
+        grid.appendChild(panel.panel);
+      }
+    }
   }
 
   setupKeyboardShortcuts() {
@@ -2376,6 +2435,9 @@ class Dashboard {
       // Subscribe to WebSocket for real-time updates
       this.connectAllWS();
 
+      // Apply current sort
+      this.sortPanels();
+
       // Update stats
       this.updateStats();
       document.getElementById('statData').textContent = '✓ 数据就绪';
@@ -2391,6 +2453,7 @@ class Dashboard {
     const panel = new ChartPanel(pair.symbol, this.grid);
     panel.create();
     panel.initChart();
+    panel.pairData = pair;
     panel.updatePrice(pair.lastPrice, pair.priceChangePercent);
     STATE.chartPanels[pair.symbol] = panel;
 
@@ -2438,6 +2501,7 @@ class Dashboard {
       }
       document.getElementById('pairCount').textContent =
         `币种: ${Object.keys(STATE.chartPanels).length}/${CONFIG.TOP_COINS}`;
+      this.sortPanels();
     } catch (e) {
       console.error('Fill missing pairs error:', e);
     }
@@ -2644,6 +2708,7 @@ class Dashboard {
 
       document.getElementById('pairCount').textContent =
         `币种: ${Object.keys(STATE.chartPanels).length}/${CONFIG.TOP_COINS}`;
+      this.sortPanels();
       this.updateStats();
 
       // Auto-remove problematic panels
