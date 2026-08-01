@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b0e11">
+<title>振幅监控 - 单K线振幅盯盘</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%230b0e11'/><text x='16' y='22' text-anchor='middle' fill='%23f0b90b' font-size='18'>📊</text></svg>">
+<style>
+:root {
+  --bg: #0b0e11;
+  --panel-bg: #1a1e24;
+  --header-bg: #14171d;
+  --text: #eaecef;
+  --text-secondary: #848e9c;
+  --green: #0ecb81;
+  --red: #f6465d;
+  --yellow: #f0b90b;
+  --orange: #ff9800;
+  --border: #2a2f38;
+  --hover: #262b33;
+  --blue: #1e80ff;
+  /* Amplitude color scale */
+  --amp-normal: rgba(14,203,129,0.15);
+  --amp-warn: rgba(240,185,11,0.2);
+  --amp-danger: rgba(255,152,0,0.25);
+  --amp-extreme: rgba(246,70,93,0.3);
+  --amp-text-normal: #0ecb81;
+  --amp-text-warn: #f0b90b;
+  --amp-text-danger: #ff9800;
+  --amp-text-extreme: #f6465d;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px; overflow-x: hidden; user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+#app { display:flex; flex-direction:column; height:100vh; }
+
+/* ── HEADER ── */
+#header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 20px; background:linear-gradient(180deg, #1a1e26 0%, var(--header-bg) 100%);
+  border-bottom:1px solid var(--border); z-index:100; flex-shrink:0; flex-wrap:wrap; gap:10px;
+}
+.header-left { display:flex; align-items:center; gap:14px; }
+.header-left h1 { font-size:18px; color:var(--yellow); white-space:nowrap; }
+#clock { font-size:20px; font-weight:700; font-family:'Consolas',monospace; min-width:160px; }
+.header-center { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+.header-right { display:flex; align-items:center; gap:12px; font-size:12px; }
+#connectionDot { width:9px; height:9px; border-radius:50%; background:var(--green); box-shadow:0 0 6px rgba(14,203,129,0.4); transition:all 0.3s; }
+#connectionDot.disconnected { background:var(--red); box-shadow:0 0 6px rgba(246,70,93,0.4); }
+
+.btn {
+  padding:6px 14px; border:1px solid var(--border); background:var(--panel-bg);
+  color:var(--text-secondary); cursor:pointer; border-radius:5px;
+  font-size:12px; transition:all 0.2s; font-weight:500; white-space:nowrap;
+}
+.btn:hover { border-color:var(--yellow); color:var(--text); background:var(--hover); }
+.btn.active { background:var(--yellow); color:#000; border-color:var(--yellow); font-weight:700; box-shadow:0 0 10px rgba(240,185,11,0.25); }
+.btn.blue.active { background:var(--blue); color:#fff; border-color:var(--blue); box-shadow:0 0 8px rgba(30,128,255,0.3); }
+.btn.danger { border-color:var(--red); color:var(--red); }
+.btn.danger:hover { background:rgba(246,70,93,0.15); }
+#muteBtn { font-size:15px; padding:6px 10px; }
+#muteBtn.muted { color:var(--red); border-color:var(--red); }
+
+/* ── STATS BAR ── */
+#statsBar {
+  display:flex; align-items:center; gap:24px;
+  padding:8px 20px; background:var(--header-bg);
+  border-bottom:1px solid var(--border); font-size:12px; flex-shrink:0; overflow-x:auto;
+}
+.stat-item { display:flex; align-items:center; gap:5px; white-space:nowrap; }
+.stat-label { color:var(--text-secondary); font-weight:500; }
+.stat-val { font-weight:600; font-family:'Consolas',monospace; }
+
+/* ── TOOLBAR ── */
+#toolbar {
+  display:flex; align-items:center; gap:8px; padding:8px 16px;
+  border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap;
+  background:rgba(0,0,0,0.15);
+}
+#toolbar .sep { color:var(--border); margin:0 4px; user-select:none; }
+#thresholdPreset { padding:5px 10px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:4px; font-size:12px; }
+
+/* ── TABLE ── */
+#tableWrapper {
+  flex:1; overflow:auto; position:relative;
+}
+#tableWrapper::-webkit-scrollbar { width:6px; height:6px; }
+#tableWrapper::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+#tableWrapper::-webkit-scrollbar-track { background:transparent; }
+#tableWrapper::-webkit-scrollbar-corner { background:transparent; }
+
+table { width:100%; border-collapse:collapse; table-layout:fixed; min-width:900px; }
+thead { position:sticky; top:0; z-index:10; }
+thead th {
+  background:#1a1e26; padding:8px 6px; text-align:center; font-size:11px;
+  border-bottom:2px solid var(--border); color:var(--text-secondary); font-weight:600;
+  cursor:pointer; white-space:nowrap; user-select:none;
+}
+thead th:hover { color:var(--text); background:#222730; }
+thead th.sort-asc::after { content:' ▲'; }
+thead th.sort-desc::after { content:' ▼'; }
+thead th.sym-col { text-align:left; padding-left:12px; width:100px; }
+thead th.price-col { width:90px; }
+thead th.chg-col { width:80px; }
+thead th.amp-col { width:72px; }
+
+tbody td {
+  padding:6px 4px; text-align:center; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.03);
+  font-family:'Consolas',monospace; transition:background 0.3s;
+}
+tbody td.sym-col { text-align:left; padding-left:12px; font-weight:700; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; letter-spacing:0.3px; }
+tbody td.price-col { color:var(--text); }
+tbody tr { transition:background 0.15s; }
+tbody tr:hover { background:rgba(255,255,255,0.03); }
+tbody tr.flash-row { animation:rowFlash 0.5s ease-out; }
+@keyframes rowFlash { 0%{background:rgba(240,185,11,0.2)} 100%{background:transparent} }
+
+/* Amplitude cell styles */
+.amp-cell { border-radius:3px; font-weight:600; position:relative; }
+.amp-normal { background:var(--amp-normal); color:var(--amp-text-normal); }
+.amp-warn { background:var(--amp-warn); color:var(--amp-text-warn); }
+.amp-danger { background:var(--amp-danger); color:var(--amp-text-danger); }
+.amp-extreme { background:var(--amp-extreme); color:var(--amp-text-extreme); animation:pulseAmp 1s ease-in-out infinite; }
+.amp-stale { color:var(--text-secondary); opacity:0.5; }
+@keyframes pulseAmp { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+/* Inline sparkline for previous candle amp */
+.amp-prev { font-size:10px; opacity:0.7; margin-left:3px; }
+
+/* ── ALERT PANEL ── */
+/* Pattern (engulfing) cell styles */
+.pattern-cell { font-weight:700; font-size:11px; border-radius:3px; text-align:center; }
+.pattern-bullish { background:rgba(14,203,129,0.18); color:#0ecb81; }
+.pattern-bearish { background:rgba(246,70,93,0.18); color:#f6465d; }
+.pattern-none { color:var(--text-secondary); opacity:0.35; }
+
+/* Row with active engulfing pattern */
+tbody tr.pattern-active-bullish { box-shadow:inset 3px 0 0 var(--green); }
+tbody tr.pattern-active-bearish { box-shadow:inset 3px 0 0 var(--red); }
+
+#alertPanel {
+  position:fixed; right:0; top:0; bottom:0; width:320px; background:var(--panel-bg);
+  border-left:1px solid var(--border); z-index:500; transform:translateX(100%);
+  transition:transform 0.25s ease; display:flex; flex-direction:column;
+  box-shadow:-4px 0 16px rgba(0,0,0,0.4);
+}
+#alertPanel.open { transform:translateX(0); }
+#alertPanelHeader {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px; border-bottom:1px solid var(--border); flex-shrink:0;
+}
+#alertPanelHeader h3 { font-size:15px; }
+#alertPanelList { flex:1; overflow-y:auto; }
+.alert-entry {
+  padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.04);
+  font-size:12px; animation:slideAlert 0.3s ease-out;
+}
+@keyframes slideAlert { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
+.alert-entry .alert-sym { font-weight:700; color:var(--yellow); }
+.alert-entry .alert-amp { font-weight:600; }
+.alert-entry .alert-time { font-size:10px; color:var(--text-secondary); }
+
+/* ── TOAST ── */
+#toastContainer {
+  position:fixed; top:16px; right:348px; z-index:3000;
+  display:flex; flex-direction:column; gap:8px; pointer-events:none;
+}
+.toast {
+  background:var(--panel-bg); border:1px solid var(--red);
+  padding:10px 16px; border-radius:8px; font-size:13px;
+  animation:toastIn 0.3s ease-out; box-shadow:0 4px 16px rgba(0,0,0,0.6); max-width:320px;
+}
+@keyframes toastIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+
+/* ── SETTINGS MODAL ── */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:2000;
+  display:flex; align-items:center; justify-content:center;
+}
+.modal-box {
+  background:var(--panel-bg); border:1px solid var(--border);
+  border-radius:10px; padding:24px; min-width:420px; max-width:90vw; max-height:85vh; overflow-y:auto;
+}
+.modal-box h3 { margin-bottom:16px; font-size:16px; }
+.modal-box label { font-size:12px; color:var(--text-secondary); display:block; margin-top:10px; margin-bottom:3px; }
+.modal-box input[type="number"] {
+  width:80px; padding:6px 10px; background:var(--bg); border:1px solid var(--border);
+  color:var(--text); border-radius:4px; font-size:13px; font-family:'Consolas',monospace;
+}
+.modal-box input[type="number"]:focus { border-color:var(--yellow); outline:none; }
+.threshold-row { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+.threshold-row span { width:40px; font-weight:600; font-size:12px; }
+
+/* ── PER-COIN ALERT POPUP ── */
+.coin-alert-popup {
+  position: fixed; z-index: 2500; background: var(--panel-bg);
+  border:1px solid var(--yellow); border-radius:8px; width:340px; max-height:80vh; overflow-y:auto;
+  box-shadow:0 6px 24px rgba(0,0,0,0.7); padding:14px; font-size:12px;
+}
+.coin-alert-popup h4 { font-size:14px; color:var(--yellow); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+.coin-alert-popup .tf-row { display:flex; align-items:center; gap:5px; margin-bottom:5px; }
+.coin-alert-popup .tf-row .tf-label { width:36px; font-weight:600; color:var(--text); font-size:11px; flex-shrink:0; }
+.coin-alert-popup .tf-row input { width:50px; padding:3px 4px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:3px; font-size:10px; font-family:'Consolas',monospace; text-align:center; }
+.coin-alert-popup .tf-row input:focus { border-color:var(--yellow); outline:none; }
+.coin-alert-popup .tf-row label { font-size:9px; color:var(--text-secondary); flex-shrink:0; }
+.coin-alert-popup .popup-actions { display:flex; gap:6px; margin-top:10px; }
+.coin-alert-popup .popup-actions button { flex:1; }
+.coin-alert-bell {
+  display:inline-block; cursor:pointer; padding:0 4px; font-size:13px; opacity:0.4; transition:all 0.15s;
+  vertical-align:middle; line-height:1;
+}
+.coin-alert-bell:hover { opacity:1; }
+.coin-alert-bell.active { opacity:1; color:var(--yellow); filter:drop-shadow(0 0 4px rgba(240,185,11,0.5)); }
+
+/* ── RESPONSIVE ── */
+@media (max-width:768px) {
+  #header { padding:8px 12px; }
+  .header-center { order:3; width:100%; justify-content:center; }
+  #alertPanel { width:100%; }
+  #toastContainer { right:16px; }
+  table { min-width:750px; }
+  thead th { font-size:10px; padding:6px 3px; }
+  tbody td { font-size:11px; padding:5px 3px; }
+}
+@media (max-width:480px) {
+  #header { padding:6px 8px; }
+  .header-left h1 { font-size:15px; }
+  #clock { font-size:16px; min-width:130px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- HEADER -->
+  <header id="header">
+    <div class="header-left">
+      <h1>📊 振幅监控</h1>
+      <span id="clock">--</span>
+    </div>
+    <div class="header-center">
+      <button class="btn" data-count="20" onclick="app.setSymbolCount(20)">20币</button>
+      <button class="btn active" data-count="30" onclick="app.setSymbolCount(30)">30币</button>
+      <button class="btn" data-count="50" onclick="app.setSymbolCount(50)">50币</button>
+      <button class="btn" data-count="200" onclick="app.setSymbolCount(200)">200币</button>
+      <span class="sep" style="color:var(--border);margin:0 2px;">│</span>
+      <select id="thresholdPreset" onchange="app.setThresholdPreset(this.value)">
+        <option value="crypto">🔴 加密货币 (默认)</option>
+        <option value="relaxed">🟡 宽松</option>
+        <option value="tight">🟢 严格</option>
+        <option value="custom">⚙️ 自定义</option>
+      </select>
+      <button class="btn" id="settingsBtn" onclick="app.toggleSettings()" title="自定义阈值">⚙️</button>
+    </div>
+    <div class="header-right">
+      <span id="connectionDot" title="WebSocket"></span>
+      <span id="pairCount" style="color:var(--text-secondary)">币种: 0</span>
+      <button class="btn" id="muteBtn" onclick="app.toggleMute()" title="静音/取消静音">🔊</button>
+      <button class="btn" id="alertListBtn" onclick="app.toggleAlertPanel()">🔔<span id="alertBadge" style="display:none;background:var(--red);color:#fff;border-radius:10px;padding:0 6px;margin-left:4px;font-size:10px;">0</span></button>
+      <button class="btn" onclick="app.manualRefresh()">🔄 刷新</button>
+    </div>
+  </header>
+
+  <!-- STATS BAR -->
+  <div id="statsBar">
+    <div class="stat-item"><span class="stat-label">监控币种:</span><span class="stat-val" id="statMonitored">0</span></div>
+    <div class="stat-item"><span class="stat-label">WebSocket:</span><span class="stat-val" id="statWs">--</span></div>
+    <div class="stat-item"><span class="stat-label">极端振幅:</span><span class="stat-val" style="color:var(--red)" id="statExtreme">0</span></div>
+    <div class="stat-item"><span class="stat-label">高危振幅:</span><span class="stat-val" style="color:var(--orange)" id="statDanger">0</span></div>
+    <div class="stat-item"><span class="stat-label">今日告警:</span><span class="stat-val" style="color:var(--yellow)" id="statAlerts">0</span></div>
+    <div class="stat-item"><span class="stat-label">最近更新:</span><span class="stat-val" id="statUpdate">--</span></div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div id="toolbar">
+    <span style="color:var(--text-secondary);font-size:12px;">排序:</span>
+    <button class="btn active" onclick="app.setSort('symbol')">字母</button>
+    <button class="btn" onclick="app.setSort('change_asc')">涨幅↑</button>
+    <button class="btn" onclick="app.setSort('change_desc')">跌幅↑</button>
+    <button class="btn" onclick="app.setSort('amp_5m')">5m振幅</button>
+    <button class="btn" onclick="app.setSort('amp_15m')">15m振幅</button>
+    <button class="btn" onclick="app.setSort('amp_1h')">1h振幅</button>
+    <button class="btn" onclick="app.setSort('amp_4h')">4h振幅</button>
+    <button class="btn" onclick="app.setSort('amp_1d')">1d振幅</button>
+    <span class="sep" style="color:var(--border);">│</span>
+    <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;">
+      <input type="checkbox" id="filterExtreme" onchange="app.toggleFilter('extreme')"> 仅极端
+    </label>
+    <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;">
+      <input type="checkbox" id="filterAlerted" onchange="app.toggleFilter('alerted')"> 仅已告警
+    </label>
+    <span class="sep" style="color:var(--border);">│</span>
+    <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;">
+      <input type="checkbox" id="filterEngulfing" onchange="app.toggleFilter('engulfing')"> 仅穿线形态
+    </label>
+  </div>
+
+  <!-- MAIN TABLE -->
+  <div id="tableWrapper">
+    <table>
+      <thead id="tableHead"></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ALERT PANEL -->
+<div id="alertPanel">
+  <div id="alertPanelHeader">
+    <h3>🔔 告警记录</h3>
+    <button class="btn" onclick="app.toggleAlertPanel()">✕</button>
+  </div>
+  <div id="alertPanelList"></div>
+  <div style="padding:10px;border-top:1px solid var(--border);text-align:right;">
+    <button class="btn danger" onclick="app.clearAlerts()">清空记录</button>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div id="settingsModal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3>⚙️ 振幅阈值设置 (%)</h3>
+    <div id="thresholdSettings"></div>
+    <div style="margin-top:14px;">
+      <label>告警冷却时间 (秒)</label>
+      <input type="number" id="alertCooldown" min="0" max="600" value="30" style="width:100px;">
+    </div>
+    <div style="margin-top:14px;">
+      <label>
+        <input type="checkbox" id="soundEnabled" checked> 启用声音告警
+      </label>
+      <label style="margin-left:16px;">
+        <input type="checkbox" id="notifyEnabled" checked> 启用浏览器通知
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:18px;">
+      <button class="btn active" onclick="app.saveSettings()" style="flex:1">💾 保存</button>
+      <button class="btn" onclick="app.resetThresholds()" style="flex:1">↩ 重置默认</button>
+      <button class="btn" onclick="app.toggleSettings()" style="flex:1">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toastContainer"></div>
+
+<script>
+// ==================== CONFIGURATION ====================
+const CONFIG = {
+  BINANCE_REST: 'https://fapi.binance.com/fapi/v1',
+  BINANCE_WS: 'wss://fstream.binance.com/stream',
+  MAX_WS_STREAMS: 600,
+  TIMEFRAMES: ['5m','15m','30m','1h','4h','1d'],
+  TF_LABELS: { '5m':'5分钟','15m':'15分钟','30m':'30分钟','1h':'1小时','4h':'4小时','1d':'日线' },
+  KLINE_LIMIT: 5, // Need 4+ candles for engulfing pattern detection
+};
+
+// ==================== DEFAULT THRESHOLDS ====================
+const DEFAULT_THRESHOLDS = {
+  crypto: {
+    '5m':  { warn:0.8,  danger:1.5, extreme:3.0 },
+    '15m': { warn:1.2,  danger:2.5, extreme:5.0 },
+    '30m': { warn:1.8,  danger:3.5, extreme:7.0 },
+    '1h':  { warn:2.5,  danger:5.0, extreme:10.0 },
+    '4h':  { warn:4.0,  danger:8.0, extreme:15.0 },
+    '1d':  { warn:6.0,  danger:12.0, extreme:20.0 },
+  },
+  relaxed: {
+    '5m':  { warn:1.5,  danger:3.0, extreme:6.0 },
+    '15m': { warn:2.0,  danger:5.0, extreme:10.0 },
+    '30m': { warn:3.0,  danger:7.0, extreme:14.0 },
+    '1h':  { warn:4.0,  danger:10.0, extreme:20.0 },
+    '4h':  { warn:6.0,  danger:15.0, extreme:25.0 },
+    '1d':  { warn:10.0, danger:20.0, extreme:35.0 },
+  },
+  tight: {
+    '5m':  { warn:0.4,  danger:0.8, extreme:1.5 },
+    '15m': { warn:0.6,  danger:1.2, extreme:2.5 },
+    '30m': { warn:0.8,  danger:1.8, extreme:3.5 },
+    '1h':  { warn:1.2,  danger:2.5, extreme:5.0 },
+    '4h':  { warn:2.0,  danger:4.0, extreme:8.0 },
+    '1d':  { warn:3.0,  danger:6.0, extreme:12.0 },
+  },
+};
+
+// ==================== GLOBAL STATE ====================
+const STATE = {
+  symbolCount: 30,
+  symbols: [],
+  timeframes: CONFIG.TIMEFRAMES,
+  thresholds: JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS.crypto)),
+  thresholdPreset: 'crypto',
+  klineCache: {},  // { 'BTCUSDT': { '5m': { open,high,low,close,amplitude,isClosed,time,prevAmp }, ... } }
+  pairMeta: {},     // { 'BTCUSDT': { lastPrice, priceChangePercent, quoteVolume } }
+  alerts: [],       // [{ id,symbol,tf,amplitude,threshold,level,time }]
+  alertLog: [],     // persisted alerts
+  alertCooldown: {}, // { 'BTCUSDT_5m_extreme': timestamp }
+  alertCooldownSec: 30,
+  patternCache: {},     // { 'BTCUSDT_5m': { type:'bullish_engulf'|'bearish_engulf', time, isClosed } }
+  patternAlerts: [],    // pattern alert log
+  patternCooldown: {},  // cooldown for pattern alerts per symbol+tf
+  sortBy: 'symbol',
+  sortAsc: true,
+  filters: { extreme: false, alerted: false },
+  perCoinAlerts: {}, // { 'BTCUSDT': { enabled: true, thresholds: { '5m': {warn,danger,extreme}, ... } } }
+  perCoinPopupTarget: null, // symbol whose popup is currently open
+  wsConnected: false,
+  wsReconnectTimer: null,
+  wsConnections: [],
+  muted: localStorage.getItem('amp_monitor_muted') === 'true',
+  soundEnabled: localStorage.getItem('amp_monitor_sound') !== 'false',
+  notifyEnabled: localStorage.getItem('amp_monitor_notify') !== 'false',
+  clockTimer: null,
+  initDone: false,
+};
+
+// ==================== UTILITIES ====================
+function fmtPrice(p) {
+  if (p == null || isNaN(p)) return '--';
+  if (p >= 1000) return p.toFixed(2);
+  if (p >= 1) return p.toFixed(4);
+  return p.toFixed(6);
+}
+function fmtPct(p) {
+  if (p == null || isNaN(p)) return '--';
+  return (p >= 0 ? '+' : '') + p.toFixed(2);
+}
+function fmtAmp(p) {
+  if (p == null || isNaN(p)) return '--';
+  return p.toFixed(2) + '%';
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function now() { return Math.floor(Date.now() / 1000); }
+
+function showToast(msg) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 5000);
+}
+
+// ==================== SOUND MANAGER ====================
+const SoundManager = {
+  _ctx: null,
+  _init() {
+    if (!this._ctx) {
+      try { this._ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+    }
+  },
+  playBeep(freq, duration, type = 'square') {
+    if (STATE.muted || !STATE.soundEnabled) return;
+    this._init();
+    if (!this._ctx) return;
+    try {
+      const osc = this._ctx.createOscillator();
+      const gain = this._ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, this._ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, this._ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this._ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(this._ctx.destination);
+      osc.start();
+      osc.stop(this._ctx.currentTime + duration);
+    } catch(e) {}
+  },
+  alert() {
+    this.playBeep(880, 0.15, 'square');
+    setTimeout(() => this.playBeep(660, 0.2, 'square'), 150);
+    setTimeout(() => this.playBeep(880, 0.25, 'square'), 350);
+  },
+  extreme() {
+    this.playBeep(1200, 0.1, 'sawtooth');
+    setTimeout(() => this.playBeep(1400, 0.1, 'sawtooth'), 100);
+    setTimeout(() => this.playBeep(1600, 0.15, 'sawtooth'), 200);
+    setTimeout(() => this.playBeep(1400, 0.15, 'sawtooth'), 350);
+    setTimeout(() => this.playBeep(1200, 0.2, 'sawtooth'), 500);
+  },
+  patternBullish() {
+    this.playBeep(523, 0.12, 'sine');
+    setTimeout(() => this.playBeep(659, 0.12, 'sine'), 100);
+    setTimeout(() => this.playBeep(784, 0.18, 'sine'), 200);
+  },
+  patternBearish() {
+    this.playBeep(784, 0.12, 'sine');
+    setTimeout(() => this.playBeep(659, 0.12, 'sine'), 100);
+    setTimeout(() => this.playBeep(523, 0.18, 'sine'), 200);
+  },
+};
+
+// ==================== BROWSER NOTIFICATIONS ====================
+function sendBrowserNotification(title, body) {
+  if (!STATE.notifyEnabled) return;
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    try { new Notification(title, { body, icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="%23f6465d"/><text x="16" y="22" text-anchor="middle" fill="%23fff" font-size="16">!</text></svg>' }); } catch(e) {}
+  } else if (Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+// ==================== BINANCE API ====================
+const BinanceAPI = {
+  _pending: Promise.resolve(),
+  _rateLimitQueue: [],
+  _rateLimitTimer: null,
+  _rateLimitedFetch(url) {
+    return new Promise((resolve, reject) => {
+      this._rateLimitQueue.push({ url, resolve, reject });
+      if (!this._rateLimitTimer) {
+        this._rateLimitTimer = setInterval(() => {
+          const task = this._rateLimitQueue.shift();
+          if (!task) { clearInterval(this._rateLimitTimer); this._rateLimitTimer = null; return; }
+          fetch(task.url)
+            .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(task.resolve, task.reject);
+        }, 10);
+      }
+    });
+  },
+  async _throttledFetch(url) {
+    const req = this._pending.then(() => sleep(60));
+    this._pending = req;
+    await req;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    return resp.json();
+  },
+  fetchJSON(url) { return this._throttledFetch(url); },
+  fetchKlinesBulk(symbol, interval, limit) {
+    limit = limit || 3;
+    return this._rateLimitedFetch(
+      CONFIG.BINANCE_REST + '/klines?symbol=' + symbol + '&interval=' + interval + '&limit=' + limit
+    ).then(function(data) {
+      return data.map(function(d) {
+        return {
+          time: Math.floor(d[0] / 1000),
+          open: parseFloat(d[1]),
+          high: parseFloat(d[2]),
+          low: parseFloat(d[3]),
+          close: parseFloat(d[4]),
+          volume: parseFloat(d[5]),
+          isClosed: true,
+        };
+      });
+    });
+  },
+
+  async getTopPairs(limit) {
+    const tickers = await this.fetchJSON(`${CONFIG.BINANCE_REST}/ticker/24hr`);
+    return tickers
+      .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('BUSD') && !t.symbol.includes('TUSD'))
+      .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
+      .slice(0, limit)
+      .map(t => ({
+        symbol: t.symbol,
+        lastPrice: parseFloat(t.lastPrice),
+        priceChangePercent: parseFloat(t.priceChangePercent),
+        quoteVolume: parseFloat(t.quoteVolume),
+      }));
+  },
+
+  async getKlines(symbol, interval, limit) {
+    limit = limit || 3;
+    return this.fetchKlinesBulk(symbol, interval, limit);
+  },
+
+  // Build combined WebSocket stream URL
+  connectWebSocket(streams, onMessage) {
+    // Split into chunks of MAX_WS_STREAMS
+    const connections = [];
+    for (let i = 0; i < streams.length; i += CONFIG.MAX_WS_STREAMS) {
+      const chunk = streams.slice(i, i + CONFIG.MAX_WS_STREAMS);
+      const url = `${CONFIG.BINANCE_WS}?streams=${chunk.join('/')}`;
+      connections.push(this._createWS(url, onMessage));
+    }
+    return connections;
+  },
+
+  _createWS(url, onMessage) {
+    function connect() {
+      const ws = new WebSocket(url);
+      ws.onopen = () => {
+        STATE.wsConnected = true;
+        updateConnectionUI();
+      };
+      ws.onmessage = (evt) => {
+        try {
+          const msg = JSON.parse(evt.data);
+          let klineData = null;
+          // Combined stream format: {"stream":"...","data":{...}}
+          if (msg.stream && msg.data && msg.data.e === 'kline') {
+            klineData = msg.data;
+          }
+          // Single stream format: {"e":"kline",...}
+          else if (msg.e === 'kline') {
+            klineData = msg;
+          }
+          if (klineData) onMessage(klineData);
+        } catch(e) {}
+      };
+      ws.onclose = () => {
+        STATE.wsConnected = false;
+        updateConnectionUI();
+        STATE.wsReconnectTimer = setTimeout(connect, 5000);
+      };
+      ws.onerror = () => {
+        STATE.wsConnected = false;
+        updateConnectionUI();
+      };
+      return ws;
+    }
+    const ws = connect();
+    STATE.wsConnections.push(ws);
+    return ws;
+  },
+};
+
+// ==================== MAIN APPLICATION ====================
+class AmplitudeMonitor {
+  constructor() {
+    this.tableBody = document.getElementById('tableBody');
+    this.tableHead = document.getElementById('tableHead');
+    this.cellRefs = {};  // { 'BTCUSDT_5m': <td> }
+    this.rowRefs = {};   // { 'BTCUSDT': <tr> }
+    this._savePending = false;
+  }
+
+  async init() {
+    this.startClock();
+    this.loadState();
+    this.renderThresholdSettings();
+    this.updateThresholdPresetUI();
+    this.updateMuteUI();
+    this.buildTableHeader();
+
+    // Request notification permission early
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    await this.loadData();
+    // startWebSocket() already called inside loadData() for early data flow
+    this.startPeriodicRefresh();
+    this.startStatsUpdater();
+    STATE.initDone = true;
+  }
+
+  loadState() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('amp_monitor_state') || '{}');
+      if (saved.symbolCount) STATE.symbolCount = saved.symbolCount;
+      if (saved.thresholdPreset) STATE.thresholdPreset = saved.thresholdPreset;
+      if (saved.thresholds) STATE.thresholds = saved.thresholds;
+      if (saved.alertLog) STATE.alertLog = saved.alertLog;
+      if (saved.alertCooldownSec != null) STATE.alertCooldownSec = saved.alertCooldownSec;
+      if (saved.perCoinAlerts) STATE.perCoinAlerts = saved.perCoinAlerts;
+    } catch(e) {}
+    STATE.soundEnabled = localStorage.getItem('amp_monitor_sound') !== 'false';
+    STATE.notifyEnabled = localStorage.getItem('amp_monitor_notify') !== 'false';
+    STATE.muted = localStorage.getItem('amp_monitor_muted') === 'true';
+    this.updateSymbolCountUI();
+  }
+
+  saveState() {
+    // Debounce: batch rapid saveState calls into one write per 500ms
+    if (this._savePending) return;
+    this._savePending = true;
+    var self = this;
+    setTimeout(function() {
+      self._savePending = false;
+      self._saveStateNow();
+    }, 500);
+  }
+  _saveStateNow() {
+    try {
+      localStorage.setItem('amp_monitor_state', JSON.stringify({
+        symbolCount: STATE.symbolCount,
+        thresholdPreset: STATE.thresholdPreset,
+        thresholds: STATE.thresholds,
+        alertLog: STATE.alertLog.slice(-200),
+        alertCooldownSec: STATE.alertCooldownSec,
+        perCoinAlerts: STATE.perCoinAlerts,
+      }));
+      localStorage.setItem('amp_monitor_sound', STATE.soundEnabled);
+      localStorage.setItem('amp_monitor_notify', STATE.notifyEnabled);
+    } catch(e) {}
+  }
+
+  // ── DATA LOADING ──
+  async loadData() {
+    document.getElementById('statUpdate').textContent = '加载中...';
+    document.getElementById('statUpdate').style.color = 'var(--yellow)';
+
+    try {
+      // Fetch top pairs
+      const pairs = await BinanceAPI.getTopPairs(STATE.symbolCount);
+      STATE.symbols = pairs.map(p => p.symbol);
+      for (const p of pairs) {
+        STATE.pairMeta[p.symbol] = {
+          lastPrice: p.lastPrice,
+          priceChangePercent: p.priceChangePercent,
+          quoteVolume: p.quoteVolume,
+        };
+      }
+
+      // Start WebSocket early so data flows in parallel with REST loading
+      this.startWebSocket();
+
+      // Fetch klines for all symbols × timeframes with controlled concurrency
+      const CONCURRENCY = 20;
+      const tasks = [];
+      for (const sym of STATE.symbols) {
+        for (const tf of STATE.timeframes) {
+          tasks.push({ sym, tf });
+        }
+      }
+
+      // Process in batches using the fast rate limiter (no 60ms throttle)
+      for (let i = 0; i < tasks.length; i += CONCURRENCY) {
+        const batch = tasks.slice(i, i + CONCURRENCY);
+        await Promise.all(batch.map(async ({ sym, tf }) => {
+          try {
+            const candles = await BinanceAPI.fetchKlinesBulk(sym, tf, CONFIG.KLINE_LIMIT);
+            this.processInitialKlines(sym, tf, candles);
+          } catch(e) {
+            // Will be filled by WebSocket later
+          }
+        }));
+      }
+
+      // Build table rows (uses DocumentFragment for fast DOM insertion)
+      this.buildTableBody();
+      this.updateStats();
+      document.getElementById('pairCount').textContent = `币种: ${STATE.symbols.length}`;
+      document.getElementById('statUpdate').textContent = '✓ 就绪';
+      document.getElementById('statUpdate').style.color = 'var(--green)';
+    } catch(e) {
+      console.error('[AmplitudeMonitor] loadData error:', e);
+      document.getElementById('statUpdate').textContent = '✗ 加载失败';
+      document.getElementById('statUpdate').style.color = 'var(--red)';
+    }
+  }
+
+  processInitialKlines(sym, tf, candles) {
+    if (!candles || candles.length < 2) return;
+    if (!STATE.klineCache[sym]) STATE.klineCache[sym] = {};
+
+    const current = candles[candles.length - 1];
+    const prev = candles[candles.length - 2];
+
+    const currentAmp = current.open > 0 ? ((current.high - current.low) / current.open) * 100 : 0;
+    const prevAmp = prev.open > 0 ? ((prev.high - prev.low) / prev.open) * 100 : 0;
+
+    // Store raw candles for pattern detection
+    const rawCandles = candles.map(c => ({
+      time: c.time, open: c.open, high: c.high, low: c.low, close: c.close, isClosed: true
+    }));
+
+    STATE.klineCache[sym][tf] = {
+      open: current.open,
+      high: current.high,
+      low: current.low,
+      close: current.close,
+      amplitude: currentAmp,
+      prevAmplitude: prevAmp,
+      time: current.time,
+      isClosed: true, // REST data is always closed candles
+      lastUpdate: now(),
+      candles: rawCandles,
+    };
+
+    // Run pattern detection on initial load
+    this.detectAndUpdatePattern(sym, tf);
+  }
+
+  // ── WEBSOCKET ──
+  startWebSocket() {
+    // Disconnect existing
+    this.disconnectWS();
+
+    // Build stream list
+    const streams = [];
+    for (const sym of STATE.symbols) {
+      for (const tf of STATE.timeframes) {
+        streams.push(`${sym.toLowerCase()}@kline_${tf}`);
+      }
+    }
+
+    // Start WebSocket connections
+    BinanceAPI.connectWebSocket(streams, (klineData) => {
+      this.handleWSKline(klineData);
+    });
+
+    document.getElementById('statWs').textContent = `${streams.length}流`;
+    document.getElementById('statWs').style.color = 'var(--green)';
+    updateConnectionUI();
+  }
+
+  disconnectWS() {
+    if (STATE.wsReconnectTimer) { clearTimeout(STATE.wsReconnectTimer); STATE.wsReconnectTimer = null; }
+    for (const ws of STATE.wsConnections) {
+      try { ws.close(); } catch(e) {}
+    }
+    STATE.wsConnections = [];
+    STATE.wsConnected = false;
+    updateConnectionUI();
+  }
+
+  handleWSKline(data) {
+    const k = data.k;
+    const sym = k.s;
+    const tf = k.i;
+    const o = parseFloat(k.o);
+    const h = parseFloat(k.h);
+    const l = parseFloat(k.l);
+    const c = parseFloat(k.c);
+    const isClosed = k.x;
+
+    if (o <= 0) return;
+
+    if (!STATE.klineCache[sym]) STATE.klineCache[sym] = {};
+
+    const prevData = STATE.klineCache[sym][tf];
+    let prevAmp = prevData ? prevData.amplitude : 0;
+
+    // If candle closed, the current amplitude becomes the previous
+    if (isClosed && prevData && !prevData.isClosed) {
+      prevAmp = prevData.amplitude;
+    }
+
+    const amplitude = ((h - l) / o) * 100;
+    const klineTime = Math.floor(k.t / 1000);
+
+    // Maintain candle array for pattern detection
+    let candleArr = (prevData && prevData.candles) ? [...prevData.candles] : [];
+    const existingIdx = candleArr.findIndex(c => c.time === klineTime);
+    const candleEntry = { time: klineTime, open: o, high: h, low: l, close: c, isClosed };
+
+    if (existingIdx >= 0) {
+      candleArr[existingIdx] = candleEntry;
+    } else {
+      candleArr.push(candleEntry);
+      if (candleArr.length > 6) candleArr = candleArr.slice(-6);
+    }
+
+    STATE.klineCache[sym][tf] = {
+      open: o, high: h, low: l, close: c,
+      amplitude, prevAmplitude: prevAmp,
+      time: klineTime,
+      isClosed,
+      lastUpdate: now(),
+      candles: candleArr,
+    };
+
+    // Update cell display
+    this.updateCell(sym, tf);
+
+    // Check thresholds and alert
+    this.checkAmplitudeAlert(sym, tf, amplitude);
+
+    // Check engulfing pattern
+    this.detectAndUpdatePattern(sym, tf);
+
+    // Update pair meta price
+    if (STATE.pairMeta[sym]) {
+      const oldPrice = STATE.pairMeta[sym].lastPrice;
+      STATE.pairMeta[sym].lastPrice = c;
+      if (tf === STATE.timeframes[0]) {
+        // Update price column for the shortest timeframe
+        this.updatePriceCell(sym, c);
+      }
+    }
+  }
+
+  // ── ALERT CHECKING ──
+  checkAmplitudeAlert(sym, tf, amplitude) {
+    // Use per-coin thresholds if enabled, fall back to global
+    let thresholds;
+    if (STATE.perCoinAlerts[sym] && STATE.perCoinAlerts[sym].enabled) {
+      thresholds = STATE.perCoinAlerts[sym].thresholds[tf];
+    }
+    if (!thresholds || !thresholds.warn) {
+      thresholds = STATE.thresholds[tf];
+    }
+    if (!thresholds) return;
+
+    let level = null;
+    if (amplitude >= thresholds.extreme) level = 'extreme';
+    else if (amplitude >= thresholds.danger) level = 'danger';
+    else if (amplitude >= thresholds.warn) level = 'warn';
+
+    if (!level) return;
+
+    // Cooldown check
+    const cooldownKey = `${sym}_${tf}_${level}`;
+    const lastAlert = STATE.alertCooldown[cooldownKey];
+    if (lastAlert && (now() - lastAlert) < STATE.alertCooldownSec) return;
+
+    STATE.alertCooldown[cooldownKey] = now();
+
+    // Create alert record
+    const alert = {
+      id: Date.now(),
+      sym, tf, amplitude, level, thresholds: thresholds[level],
+      time: now(),
+    };
+    STATE.alerts.push(alert);
+    STATE.alertLog.push(alert);
+    if (STATE.alertLog.length > 500) STATE.alertLog = STATE.alertLog.slice(-500);
+
+    // Visual feedback
+    this.flashRow(sym);
+    this.updateAlertBadge();
+    this.renderAlertPanel();
+
+    // Sound
+    if (level === 'extreme') {
+      SoundManager.extreme();
+    } else {
+      SoundManager.alert();
+    }
+
+    // Toast
+    const levelLabel = { warn:'⚠️ 警告', danger:'🔶 高危', extreme:'🔴 极端' };
+    showToast(`${levelLabel[level]} ${sym} ${CONFIG.TF_LABELS[tf]} 振幅 ${fmtAmp(amplitude)}`);
+
+    // Browser notification for extreme/danger
+    if (level === 'extreme' || level === 'danger') {
+      sendBrowserNotification(
+        `${levelLabel[level]}振幅 - ${sym}`,
+        `${CONFIG.TF_LABELS[tf]} K线振幅达到 ${amplitude.toFixed(2)}% (阈值: ${thresholds[level]}%)`
+      );
+    }
+
+    this.saveState();
+    this.updateStats();
+  }
+
+  // ── ENGULFING PATTERN DETECTION (一阳穿三阴 / 一阴穿三阳) ──
+  detectEngulfingPattern(sym, tf) {
+    const data = STATE.klineCache[sym] && STATE.klineCache[sym][tf];
+    if (!data || !data.candles || data.candles.length < 4) return null;
+
+    const candles = data.candles;
+    const c0 = candles[candles.length - 1]; // current
+    const c1 = candles[candles.length - 2]; // previous 1
+    const c2 = candles[candles.length - 3]; // previous 2
+    const c3 = candles[candles.length - 4]; // previous 3
+
+    const isBullish = (c) => c.close > c.open;
+    const isBearish = (c) => c.close < c.open;
+
+    // 一阳穿三阴: current bullish, prev 3 all bearish, current engulfs all 3
+    if (isBullish(c0) && isBearish(c1) && isBearish(c2) && isBearish(c3)) {
+      const prevHigh = Math.max(c1.high, c2.high, c3.high);
+      const prevLow = Math.min(c1.low, c2.low, c3.low);
+      if (c0.high >= prevHigh && c0.low <= prevLow) {
+        return { type: 'bullish_engulf', label: '一阳穿三阴', emoji: '🟢', shortLabel: '阳包阴' };
+      }
+    }
+
+    // 一阴穿三阳: current bearish, prev 3 all bullish, current engulfs all 3
+    if (isBearish(c0) && isBullish(c1) && isBullish(c2) && isBullish(c3)) {
+      const prevHigh = Math.max(c1.high, c2.high, c3.high);
+      const prevLow = Math.min(c1.low, c2.low, c3.low);
+      if (c0.high >= prevHigh && c0.low <= prevLow) {
+        return { type: 'bearish_engulf', label: '一阴穿三阳', emoji: '🔴', shortLabel: '阴包阳' };
+      }
+    }
+
+    return null;
+  }
+
+  detectAndUpdatePattern(sym, tf) {
+    const pattern = this.detectEngulfingPattern(sym, tf);
+    const patternKey = `${sym}_${tf}`;
+    const prevPattern = STATE.patternCache[patternKey];
+
+    if (pattern) {
+      const prevType = prevPattern ? prevPattern.type : null;
+      STATE.patternCache[patternKey] = {
+        type: pattern.type,
+        label: pattern.label,
+        emoji: pattern.emoji,
+        shortLabel: pattern.shortLabel,
+        time: now(),
+        isClosed: STATE.klineCache[sym][tf].isClosed,
+      };
+
+      // Alert only when pattern first appears or changes type, AND after init
+      if (STATE.initDone && (!prevPattern || prevType !== pattern.type)) {
+        this.triggerPatternAlert(sym, tf, pattern);
+      }
+    } else if (prevPattern) {
+      delete STATE.patternCache[patternKey];
+    }
+
+    // Update the pattern cell in table
+    this.updatePatternCell(sym, tf);
+    // Update row styling
+    this.updatePatternRowStyle(sym);
+  }
+
+  triggerPatternAlert(sym, tf, pattern) {
+    // Skip alerts during initial load
+    if (!STATE.initDone) return;
+
+    // Cooldown check
+    const cooldownKey = `${sym}_${tf}_pattern`;
+    const lastAlert = STATE.patternCooldown[cooldownKey];
+    if (lastAlert && (now() - lastAlert) < STATE.alertCooldownSec) return;
+    STATE.patternCooldown[cooldownKey] = now();
+
+    const isClosed = STATE.klineCache[sym][tf].isClosed;
+    const statusTag = isClosed ? ' [已确认]' : ' [形成中]';
+
+    // Log pattern alert
+    STATE.patternAlerts.push({
+      id: Date.now(),
+      sym, tf, type: pattern.type, label: pattern.label,
+      time: now(), isClosed,
+    });
+    if (STATE.patternAlerts.length > 200) STATE.patternAlerts = STATE.patternAlerts.slice(-200);
+
+    // Row flash
+    this.flashRow(sym);
+
+    // Sound - ascending for bullish, descending for bearish
+    if (pattern.type === 'bullish_engulf') {
+      SoundManager.patternBullish();
+    } else {
+      SoundManager.patternBearish();
+    }
+
+    // Toast
+    showToast(`${pattern.emoji} ${sym} ${CONFIG.TF_LABELS[tf]} ${pattern.label}${statusTag}`);
+
+    // Browser notification
+    sendBrowserNotification(
+      `${pattern.label} - ${sym}`,
+      `${CONFIG.TF_LABELS[tf]} K线 ${pattern.label} 形态${statusTag}`
+    );
+
+    this.updateStats();
+    this.saveState();
+  }
+
+  updatePatternRowStyle(sym) {
+    const row = this.rowRefs[sym];
+    if (!row) return;
+
+    // Check if any timeframe has an active pattern
+    let activePattern = null;
+    for (const tf of STATE.timeframes) {
+      const key = `${sym}_${tf}`;
+      if (STATE.patternCache[key]) {
+        activePattern = STATE.patternCache[key];
+        break;
+      }
+    }
+
+    row.classList.remove('pattern-active-bullish', 'pattern-active-bearish');
+    if (activePattern) {
+      row.classList.add(activePattern.type === 'bullish_engulf' ? 'pattern-active-bullish' : 'pattern-active-bearish');
+    }
+  }
+
+  flashRow(sym) {
+    const row = this.rowRefs[sym];
+    if (!row) return;
+    row.classList.remove('flash-row');
+    void row.offsetWidth;
+    row.classList.add('flash-row');
+  }
+
+  // ── UI UPDATES ──
+  buildTableHeader() {
+    let html = '<tr>';
+    html += '<th class="sym-col" onclick="app.setSort(\'symbol\')">币种</th>';
+    html += '<th class="price-col" onclick="app.setSort(\'price\')">价格</th>';
+    html += '<th class="chg-col" onclick="app.setSort(\'change_desc\')">24h涨跌</th>';
+    for (const tf of STATE.timeframes) {
+      html += `<th class="amp-col" onclick="app.setSort('amp_${tf}')" title="${CONFIG.TF_LABELS[tf]}">${tf}</th>`;
+    }
+    html += '<th class="amp-col" style="width:72px;" title="一阳穿三阴 / 一阴穿三阳 形态">形态</th>';
+    html += '</tr>';
+    this.tableHead.innerHTML = html;
+  }
+
+  buildTableBody() {
+    const sorted = this.getSortedSymbols();
+    this.tableBody.innerHTML = '';
+    this.cellRefs = {};
+    this.rowRefs = {};
+
+    const frag = document.createDocumentFragment();
+    for (const sym of sorted) {
+      const meta = STATE.pairMeta[sym] || {};
+      const tr = document.createElement('tr');
+      tr.id = `row-${sym}`;
+      this.rowRefs[sym] = tr;
+
+      // Symbol (with per-coin alert bell)
+      const tdSym = document.createElement('td');
+      tdSym.className = 'sym-col';
+      tdSym.style.whiteSpace = 'nowrap';
+      const coinName = sym.replace('USDT', '');
+      const hasCustomAlert = STATE.perCoinAlerts[sym] && STATE.perCoinAlerts[sym].enabled;
+      tdSym.innerHTML = `<span class="coin-alert-bell${hasCustomAlert ? ' active' : ''}" id="bell-${sym}" title="${hasCustomAlert ? '已设自定义振幅预警' : '点击设置该币自定义振幅预警'}">${hasCustomAlert ? '🔔' : '🔕'}</span> ${coinName}`;
+      tdSym.querySelector('.coin-alert-bell').addEventListener('click', (e) => {
+        e.stopPropagation();
+        app.togglePerCoinPopup(sym);
+      });
+      tr.appendChild(tdSym);
+
+      // Price
+      const tdPrice = document.createElement('td');
+      tdPrice.className = 'price-col';
+      tdPrice.id = `price-${sym}`;
+      tdPrice.textContent = fmtPrice(meta.lastPrice);
+      tr.appendChild(tdPrice);
+
+      // 24h Change
+      const tdChg = document.createElement('td');
+      tdChg.id = `chg-${sym}`;
+      tdChg.textContent = fmtPct(meta.priceChangePercent) + '%';
+      tdChg.style.color = (meta.priceChangePercent || 0) >= 0 ? 'var(--red)' : 'var(--green)';
+      tr.appendChild(tdChg);
+
+      // Amplitude cells for each timeframe
+      for (const tf of STATE.timeframes) {
+        const td = document.createElement('td');
+        td.className = 'amp-cell amp-stale';
+        td.id = `cell-${sym}-${tf}`;
+        td.textContent = '--';
+        td.title = `${sym} ${CONFIG.TF_LABELS[tf]}: 加载中...`;
+        this.cellRefs[`${sym}_${tf}`] = td;
+        tr.appendChild(td);
+      }
+
+      // Pattern cell
+      const tdPattern = document.createElement('td');
+      tdPattern.className = 'pattern-cell pattern-none';
+      tdPattern.id = `pattern-${sym}`;
+      tdPattern.textContent = '\u2014';
+      tdPattern.title = `${sym} 穿线形态: 检测中...`;
+      this.cellRefs[`${sym}_pattern`] = tdPattern;
+      tr.appendChild(tdPattern);
+
+      frag.appendChild(tr);
+    }
+    this.tableBody.appendChild(frag);
+
+    // Populate pattern cells from cache
+    for (const sym of sorted) {
+      this.updatePatternCell(sym);
+      this.updatePatternRowStyle(sym);
+    }
+
+    // Apply filters
+    this.applyFilters();
+    this.updateStats();
+  }
+
+  updateCell(sym, tf) {
+    const key = sym + '_' + tf;
+    const cell = this.cellRefs[key];
+    if (!cell) return;
+
+    const data = STATE.klineCache[sym] && STATE.klineCache[sym][tf];
+    if (!data) return;
+
+    const amp = data.amplitude;
+    const prevAmp = data.prevAmplitude;
+    const thresholds = STATE.thresholds[tf];
+
+    // Determine level
+    let level = 'normal';
+    if (thresholds) {
+      if (amp >= thresholds.extreme) level = 'extreme';
+      else if (amp >= thresholds.danger) level = 'danger';
+      else if (amp >= thresholds.warn) level = 'warn';
+    }
+
+    // Update cell — batch className via single set
+    cell.className = 'amp-cell amp-' + level;
+    // Use textContent for fast updates, innerHTML only when prevAmp differs
+    var ampText = amp.toFixed(2) + '%';
+    if (prevAmp > 0 && Math.abs(prevAmp - amp) > 0.005) {
+      cell.innerHTML = ampText + '<span class="amp-prev">(' + prevAmp.toFixed(1) + '%)</span>';
+    } else {
+      cell.textContent = ampText;
+    }
+
+    var levelLabel = level === 'normal' ? '正常' : level === 'warn' ? '警告' : level === 'danger' ? '高危' : '极端';
+    cell.title = sym + ' ' + CONFIG.TF_LABELS[tf] + '\n当前: ' + amp.toFixed(2) + '%\n前根: ' + prevAmp.toFixed(2) + '%\n状态: ' + levelLabel + (thresholds ? '\n阈值: >' + thresholds.warn + '%/>' + thresholds.danger + '%/>' + thresholds.extreme + '%' : '\n阈值: N/A');
+  }
+
+  updatePatternCell(sym, tf) {
+    // Show the best pattern across all timeframes for this symbol
+    const key = `${sym}_pattern`;
+    const cell = this.cellRefs[key];
+    if (!cell) return;
+
+    let bestPattern = null;
+    for (const t of STATE.timeframes) {
+      const pkey = `${sym}_${t}`;
+      const p = STATE.patternCache[pkey];
+      if (p) {
+        if (!bestPattern || (p.isClosed && !bestPattern.isClosed)) {
+          bestPattern = p;
+        }
+      }
+    }
+
+    cell.classList.remove('pattern-bullish', 'pattern-bearish', 'pattern-none');
+    if (bestPattern) {
+      cell.textContent = bestPattern.shortLabel;
+      cell.classList.add(bestPattern.type === 'bullish_engulf' ? 'pattern-bullish' : 'pattern-bearish');
+      const statusTag = bestPattern.isClosed ? '已确认' : '形成中';
+      cell.title = `${sym} ${bestPattern.label} [${statusTag}]`;
+    } else {
+      cell.textContent = '\u2014';
+      cell.classList.add('pattern-none');
+      cell.title = `${sym} 无穿线形态`;
+    }
+  }
+
+  updatePriceCell(sym, price) {
+    const cell = document.getElementById(`price-${sym}`);
+    if (cell) cell.textContent = fmtPrice(price);
+  }
+
+  // ── SORTING & FILTERING ──
+  setSort(mode) {
+    if (STATE.sortBy === mode) {
+      STATE.sortAsc = !STATE.sortAsc;
+    } else {
+      STATE.sortBy = mode;
+      STATE.sortAsc = mode === 'symbol'; // symbol defaults to ascending
+    }
+    this.updateSortUI();
+    // Sort by reordering existing DOM rows (fast) instead of rebuilding (slow)
+    this.sortTableRows();
+  }
+
+  updateSortUI() {
+    const btns = document.querySelectorAll('#toolbar .btn');
+    btns.forEach(b => {
+      if (b.onclick && b.onclick.toString().includes(`'${STATE.sortBy}'`)) {
+        b.classList.add('active');
+      } else {
+        b.classList.remove('active');
+      }
+    });
+  }
+
+  getSortedSymbols() {
+    let syms = [...STATE.symbols];
+    const sortKey = STATE.sortBy;
+
+    syms.sort((a, b) => {
+      let va, vb;
+      const metaA = STATE.pairMeta[a] || {};
+      const metaB = STATE.pairMeta[b] || {};
+
+      if (sortKey === 'symbol') {
+        va = a; vb = b; return STATE.sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+      } else if (sortKey === 'price') {
+        va = metaA.lastPrice || 0; vb = metaB.lastPrice || 0;
+      } else if (sortKey === 'change_asc') {
+        va = metaA.priceChangePercent || 0; vb = metaB.priceChangePercent || 0;
+      } else if (sortKey === 'change_desc') {
+        va = metaA.priceChangePercent || 0; vb = metaB.priceChangePercent || 0;
+        return STATE.sortAsc ? va - vb : vb - va;
+      } else if (sortKey.startsWith('amp_')) {
+        const tf = sortKey.replace('amp_', '');
+        const cacheA = STATE.klineCache[a] && STATE.klineCache[a][tf];
+        const cacheB = STATE.klineCache[b] && STATE.klineCache[b][tf];
+        va = cacheA ? cacheA.amplitude : -1;
+        vb = cacheB ? cacheB.amplitude : -1;
+        return STATE.sortAsc ? va - vb : vb - va;
+      }
+      return STATE.sortAsc ? va - vb : vb - va;
+    });
+
+    return syms;
+  }
+
+  // DOM-based row reordering — avoids destroying/recreating all cells on sort
+  sortTableRows() {
+    const sorted = this.getSortedSymbols();
+    const tbody = this.tableBody;
+    // Detach and reattach in sorted order (appendChild moves existing nodes, no recreation)
+    for (let i = 0; i < sorted.length; i++) {
+      const row = this.rowRefs[sorted[i]];
+      if (row) tbody.appendChild(row);
+    }
+    this.applyFilters();
+  }
+
+  toggleFilter(type) {
+    STATE.filters[type] = !STATE.filters[type];
+    this.applyFilters();
+  }
+
+  applyFilters() {
+    const showExtremeOnly = STATE.filters.extreme;
+    const showAlertedOnly = STATE.filters.alerted;
+    const showEngulfingOnly = STATE.filters.engulfing;
+
+    const alertedSyms = new Set(STATE.alertLog.map(a => a.sym));
+    const patternSyms = new Set();
+    for (const key of Object.keys(STATE.patternCache)) {
+      for (const tf of STATE.timeframes) {
+        if (key.endsWith('_' + tf)) {
+          patternSyms.add(key.slice(0, -tf.length - 1));
+          break;
+        }
+      }
+    }
+
+    for (const sym of STATE.symbols) {
+      const row = this.rowRefs[sym];
+      if (!row) continue;
+      let visible = true;
+
+      if (showExtremeOnly) {
+        let hasExtreme = false;
+        for (const tf of STATE.timeframes) {
+          const data = STATE.klineCache[sym] && STATE.klineCache[sym][tf];
+          if (data && STATE.thresholds[tf] && data.amplitude >= STATE.thresholds[tf].extreme) {
+            hasExtreme = true; break;
+          }
+        }
+        if (!hasExtreme) visible = false;
+      }
+
+      if (showAlertedOnly && !alertedSyms.has(sym)) {
+        visible = false;
+      }
+
+      if (showEngulfingOnly && !patternSyms.has(sym)) {
+        visible = false;
+      }
+
+      row.style.display = visible ? '' : 'none';
+    }
+  }
+
+  // ── STATS ──
+  updateStats() {
+    let extremeCount = 0, dangerCount = 0;
+
+    for (const sym of STATE.symbols) {
+      for (const tf of STATE.timeframes) {
+        const data = STATE.klineCache[sym] && STATE.klineCache[sym][tf];
+        if (!data) continue;
+        const th = STATE.thresholds[tf];
+        if (!th) continue;
+        if (data.amplitude >= th.extreme) extremeCount++;
+        else if (data.amplitude >= th.danger) dangerCount++;
+      }
+    }
+
+    document.getElementById('statMonitored').textContent = STATE.symbols.length;
+    document.getElementById('statExtreme').textContent = extremeCount;
+    document.getElementById('statDanger').textContent = dangerCount;
+    document.getElementById('statAlerts').textContent = STATE.alertLog.length;
+
+    if (!STATE.initDone) return;
+    const nowStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    document.getElementById('statUpdate').textContent = nowStr;
+  }
+
+  startStatsUpdater() {
+    setInterval(() => this.updateStats(), 5000);
+  }
+
+  // ── ALERT PANEL ──
+  toggleAlertPanel() {
+    const panel = document.getElementById('alertPanel');
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open')) {
+      this.renderAlertPanel();
+    }
+  }
+
+  renderAlertPanel() {
+    const list = document.getElementById('alertPanelList');
+    const recent = STATE.alertLog.slice(-100).reverse();
+    if (recent.length === 0) {
+      list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-secondary);">暂无告警记录</div>';
+      return;
+    }
+    list.innerHTML = recent.map(a => {
+      const d = new Date(a.time * 1000);
+      const ts = d.toLocaleTimeString('zh-CN', { hour12: false });
+      const levelColor = { warn: 'var(--yellow)', danger: 'var(--orange)', extreme: 'var(--red)' };
+      const levelLabel = { warn: '⚠️', danger: '🔶', extreme: '🔴' };
+      return `<div class="alert-entry">
+        <span style="color:${levelColor[a.level]};margin-right:4px;">${levelLabel[a.level]}</span>
+        <span class="alert-sym">${a.sym}</span>
+        <span class="alert-amp" style="color:${levelColor[a.level]}">${a.amplitude.toFixed(2)}%</span>
+        <span style="color:var(--text-secondary)">${CONFIG.TF_LABELS[a.tf]}</span>
+        <span class="alert-time">${ts}</span>
+      </div>`;
+    }).join('');
+  }
+
+  updateAlertBadge() {
+    const badge = document.getElementById('alertBadge');
+    const count = STATE.alertLog.length;
+    if (count > 0) {
+      badge.style.display = 'inline';
+      badge.textContent = count > 99 ? '99+' : count;
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  clearAlerts() {
+    STATE.alertLog = [];
+    STATE.alerts = [];
+    this.renderAlertPanel();
+    this.updateAlertBadge();
+    this.saveState();
+    this.updateStats();
+  }
+
+  // ── SETTINGS ──
+  setSymbolCount(count) {
+    if (STATE.symbolCount === count) return;
+    STATE.symbolCount = count;
+    this.updateSymbolCountUI();
+    this.saveState();
+    this.reload();
+  }
+
+  updateSymbolCountUI() {
+    const btns = document.querySelectorAll('#header .btn[data-count]');
+    btns.forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.count) === STATE.symbolCount);
+    });
+  }
+
+  // ── PER-COIN ALERT POPUP ──
+  togglePerCoinPopup(sym) {
+    const existing = document.querySelector('.coin-alert-popup');
+    if (existing && STATE.perCoinPopupTarget === sym) {
+      this.closePerCoinPopup();
+      return;
+    }
+    this.closePerCoinPopup();
+    STATE.perCoinPopupTarget = sym;
+
+    const bell = document.getElementById(`bell-${sym}`);
+    const rect = bell ? bell.getBoundingClientRect() : { left: 200, top: 200 };
+
+    const popup = document.createElement('div');
+    popup.className = 'coin-alert-popup';
+    popup.id = 'perCoinPopup';
+
+    // Use symbol without USDT for display
+    const coinName = sym.replace('USDT', '');
+    const saved = STATE.perCoinAlerts[sym] || { enabled: false, thresholds: {} };
+
+    let html = `<h4>🎯 ${coinName} 自定义振幅预警
+      <span style="cursor:pointer;color:var(--text-secondary)" onclick="app.closePerCoinPopup()">✕</span></h4>`;
+    html += `<div style="margin-bottom:8px;font-size:11px;color:var(--text-secondary);">
+      <label style="cursor:pointer;">
+        <input type="checkbox" id="pcEnable_${sym}" ${saved.enabled ? 'checked' : ''}>
+        启用自定义阈值（不勾选则使用全局阈值）
+      </label>
+    </div>`;
+    html += `<div style="color:var(--text-secondary);font-size:10px;margin-bottom:4px;">警告 ≥  |  高危 ≥  |  极端 ≥</div>`;
+
+    for (const tf of STATE.timeframes) {
+      const globalTh = STATE.thresholds[tf] || { warn: 1, danger: 3, extreme: 6 };
+      const customTh = saved.thresholds[tf] || {};
+      // Show global default as placeholder when custom value is empty
+      const ph = (v, d) => (v != null && !isNaN(v)) ? v : d;
+      html += `<div class="tf-row">
+        <span class="tf-label">${tf}</span>
+        <input type="number" id="pcWarn_${sym}_${tf}" value="${ph(customTh.warn, globalTh.warn)}" step="0.1" min="0.1" placeholder="${globalTh.warn}" title="警告阈值 %">%
+        <input type="number" id="pcDanger_${sym}_${tf}" value="${ph(customTh.danger, globalTh.danger)}" step="0.1" min="0.2" placeholder="${globalTh.danger}" title="高危阈值 %">%
+        <input type="number" id="pcExtreme_${sym}_${tf}" value="${ph(customTh.extreme, globalTh.extreme)}" step="0.1" min="0.5" placeholder="${globalTh.extreme}" title="极端阈值 %">%
+      </div>`;
+    }
+
+    html += `<div class="popup-actions">
+      <button class="btn active" onclick="app.savePerCoinAlert('${sym}')">💾 保存</button>
+      <button class="btn" onclick="app.copyGlobalToPerCoin('${sym}')">📋 从全局复制</button>
+      <button class="btn danger" onclick="app.removePerCoinAlert('${sym}')">🗑 删除</button>
+    </div>`;
+
+    popup.innerHTML = html;
+    document.body.appendChild(popup);
+
+    // Position popup near the bell icon
+    const popupW = 340;
+    const popupH = Math.min(popup.offsetHeight || 500, window.innerHeight * 0.8);
+    let left = rect.right + 10;
+    let top = rect.top - 10;
+    if (left + popupW > window.innerWidth - 10) left = rect.left - popupW - 10;
+    if (top + popupH > window.innerHeight - 10) top = window.innerHeight - popupH - 10;
+    if (top < 10) top = 10;
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+
+    // Close when clicking outside
+    setTimeout(() => {
+      document.addEventListener('click', this._closePerCoinOnOutside, { once: true });
+    }, 50);
+  }
+
+  _closePerCoinOnOutside(e) {
+    const popup = document.getElementById('perCoinPopup');
+    if (!popup) return;
+    if (!popup.contains(e.target)) {
+      app.closePerCoinPopup();
+    } else {
+      document.addEventListener('click', app._closePerCoinOnOutside, { once: true });
+    }
+  }
+
+  closePerCoinPopup() {
+    STATE.perCoinPopupTarget = null;
+    const popup = document.getElementById('perCoinPopup');
+    if (popup) popup.remove();
+  }
+
+  copyGlobalToPerCoin(sym) {
+    for (const tf of STATE.timeframes) {
+      const global = STATE.thresholds[tf] || { warn: 1, danger: 3, extreme: 6 };
+      const elW = document.getElementById(`pcWarn_${sym}_${tf}`);
+      const elD = document.getElementById(`pcDanger_${sym}_${tf}`);
+      const elE = document.getElementById(`pcExtreme_${sym}_${tf}`);
+      if (elW) elW.value = global.warn;
+      if (elD) elD.value = global.danger;
+      if (elE) elE.value = global.extreme;
+    }
+    document.getElementById(`pcEnable_${sym}`).checked = true;
+  }
+
+  savePerCoinAlert(sym) {
+    const enabled = document.getElementById(`pcEnable_${sym}`).checked;
+    const thresholds = {};
+    for (const tf of STATE.timeframes) {
+      const w = parseFloat(document.getElementById(`pcWarn_${sym}_${tf}`).value);
+      const d = parseFloat(document.getElementById(`pcDanger_${sym}_${tf}`).value);
+      const e = parseFloat(document.getElementById(`pcExtreme_${sym}_${tf}`).value);
+      if (!isNaN(w) && !isNaN(d) && !isNaN(e)) {
+        thresholds[tf] = { warn: w, danger: d, extreme: e };
+      } else {
+        thresholds[tf] = { ...STATE.thresholds[tf] };
+      }
+    }
+    STATE.perCoinAlerts[sym] = { enabled, thresholds };
+    this.closePerCoinPopup();
+    this.updateBellIcon(sym);
+    this.refreshAllCells();
+    this.saveState();
+    showToast(`${enabled ? '✅' : '📋'} ${sym.replace('USDT','')} ${enabled ? '已启用自定义振幅预警' : '已设为使用全局阈值'}`, false);
+  }
+
+  removePerCoinAlert(sym) {
+    delete STATE.perCoinAlerts[sym];
+    this.closePerCoinPopup();
+    this.updateBellIcon(sym);
+    this.refreshAllCells();
+    this.saveState();
+    showToast(`🗑 已删除 ${sym.replace('USDT','')} 的自定义预警`, false);
+  }
+
+  updateBellIcon(sym) {
+    const bell = document.getElementById(`bell-${sym}`);
+    if (!bell) return;
+    const hasAlert = STATE.perCoinAlerts[sym] && STATE.perCoinAlerts[sym].enabled;
+    bell.classList.toggle('active', hasAlert);
+    bell.textContent = hasAlert ? '🔔' : '🔕';
+    bell.title = hasAlert ? '已设自定义振幅预警' : '点击设置该币自定义振幅预警';
+  }
+
+  setThresholdPreset(preset) {
+    if (preset === 'custom') {
+      STATE.thresholdPreset = 'custom';
+      this.toggleSettings();
+      return;
+    }
+    STATE.thresholdPreset = preset;
+    STATE.thresholds = JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS[preset]));
+    this.updateThresholdPresetUI();
+    this.renderThresholdSettings();
+    this.saveState();
+    this.refreshAllCells();
+  }
+
+  updateThresholdPresetUI() {
+    const sel = document.getElementById('thresholdPreset');
+    sel.value = STATE.thresholdPreset;
+  }
+
+  renderThresholdSettings() {
+    const container = document.getElementById('thresholdSettings');
+    let html = '';
+    for (const tf of STATE.timeframes) {
+      const th = STATE.thresholds[tf] || { warn: 2, danger: 5, extreme: 10 };
+      html += `<div class="threshold-row">
+        <span>${CONFIG.TF_LABELS[tf]}</span>
+        <label style="margin:0;">警告 ≥</label>
+        <input type="number" id="thresh_${tf}_warn" value="${th.warn}" step="0.1" min="0.1">%
+        <label style="margin:0;">高危 ≥</label>
+        <input type="number" id="thresh_${tf}_danger" value="${th.danger}" step="0.1" min="0.2">%
+        <label style="margin:0;">极端 ≥</label>
+        <input type="number" id="thresh_${tf}_extreme" value="${th.extreme}" step="0.1" min="0.5">%
+      </div>`;
+    }
+    container.innerHTML = html;
+
+    document.getElementById('alertCooldown').value = STATE.alertCooldownSec;
+    document.getElementById('soundEnabled').checked = STATE.soundEnabled;
+    document.getElementById('notifyEnabled').checked = STATE.notifyEnabled;
+  }
+
+  saveSettings() {
+    for (const tf of STATE.timeframes) {
+      STATE.thresholds[tf] = {
+        warn: parseFloat(document.getElementById(`thresh_${tf}_warn`).value) || 1,
+        danger: parseFloat(document.getElementById(`thresh_${tf}_danger`).value) || 3,
+        extreme: parseFloat(document.getElementById(`thresh_${tf}_extreme`).value) || 6,
+      };
+    }
+    STATE.alertCooldownSec = parseInt(document.getElementById('alertCooldown').value) || 30;
+    STATE.soundEnabled = document.getElementById('soundEnabled').checked;
+    STATE.notifyEnabled = document.getElementById('notifyEnabled').checked;
+    STATE.thresholdPreset = 'custom';
+    this.updateThresholdPresetUI();
+    this.refreshAllCells();
+    this.saveState();
+    document.getElementById('settingsModal').style.display = 'none';
+  }
+
+  resetThresholds() {
+    STATE.thresholdPreset = 'crypto';
+    STATE.thresholds = JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS.crypto));
+    this.updateThresholdPresetUI();
+    this.renderThresholdSettings();
+    this.refreshAllCells();
+    this.saveState();
+  }
+
+  toggleSettings() {
+    const modal = document.getElementById('settingsModal');
+    if (modal.style.display === 'none' || !modal.style.display) {
+      this.renderThresholdSettings();
+      modal.style.display = 'flex';
+    } else {
+      modal.style.display = 'none';
+    }
+  }
+
+  refreshAllCells() {
+    for (const sym of STATE.symbols) {
+      for (const tf of STATE.timeframes) {
+        this.updateCell(sym, tf);
+      }
+      this.updatePatternCell(sym);
+      this.updatePatternRowStyle(sym);
+    }
+    this.applyFilters();
+    this.updateStats();
+  }
+
+  // ── MUTE ──
+  toggleMute() {
+    STATE.muted = !STATE.muted;
+    localStorage.setItem('amp_monitor_muted', STATE.muted);
+    this.updateMuteUI();
+  }
+
+  updateMuteUI() {
+    const btn = document.getElementById('muteBtn');
+    btn.textContent = STATE.muted ? '🔇' : '🔊';
+    btn.classList.toggle('muted', STATE.muted);
+  }
+
+  // ── REFRESH ──
+  async manualRefresh() {
+    document.getElementById('statUpdate').textContent = '刷新中...';
+    document.getElementById('statUpdate').style.color = 'var(--yellow)';
+
+    try {
+      const pairs = await BinanceAPI.getTopPairs(STATE.symbolCount);
+      STATE.symbols = pairs.map(p => p.symbol);
+      for (const p of pairs) {
+        STATE.pairMeta[p.symbol] = {
+          lastPrice: p.lastPrice,
+          priceChangePercent: p.priceChangePercent,
+          quoteVolume: p.quoteVolume,
+        };
+      }
+
+      // Fetch latest klines using fast bulk loader
+      const CONCURRENCY = 20;
+      const tasks = [];
+      for (const sym of STATE.symbols) {
+        for (const tf of STATE.timeframes) {
+          tasks.push({ sym, tf });
+        }
+      }
+      for (let i = 0; i < tasks.length; i += CONCURRENCY) {
+        const batch = tasks.slice(i, i + CONCURRENCY);
+        await Promise.all(batch.map(async ({ sym, tf }) => {
+          try {
+            const candles = await BinanceAPI.fetchKlinesBulk(sym, tf, CONFIG.KLINE_LIMIT);
+            this.processInitialKlines(sym, tf, candles);
+          } catch(e) {}
+        }));
+      }
+
+      this.buildTableBody();
+      this.startWebSocket();
+      this.updateStats();
+      document.getElementById('pairCount').textContent = `币种: ${STATE.symbols.length}`;
+      document.getElementById('statUpdate').textContent = '✓ 刷新完成';
+      document.getElementById('statUpdate').style.color = 'var(--green)';
+    } catch(e) {
+      console.error('[AmplitudeMonitor] refresh error:', e);
+      document.getElementById('statUpdate').textContent = '✗ 刷新失败';
+      document.getElementById('statUpdate').style.color = 'var(--red)';
+    }
+  }
+
+  startPeriodicRefresh() {
+    // Refresh pair metadata every 60 seconds
+    setInterval(async () => {
+      try {
+        const pairs = await BinanceAPI.getTopPairs(STATE.symbolCount);
+        for (const p of pairs) {
+          if (STATE.pairMeta[p.symbol]) {
+            STATE.pairMeta[p.symbol].lastPrice = p.lastPrice;
+            STATE.pairMeta[p.symbol].priceChangePercent = p.priceChangePercent;
+          }
+        }
+        // Update price column
+        for (const sym of STATE.symbols) {
+          const meta = STATE.pairMeta[sym];
+          if (meta) this.updatePriceCell(sym, meta.lastPrice);
+        }
+        document.getElementById('statUpdate').textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+      } catch(e) {}
+    }, 60000);
+  }
+
+  async reload() {
+    this.disconnectWS();
+    STATE.klineCache = {};
+    STATE.pairMeta = {};
+    STATE.patternCache = {};
+    await this.loadData();
+    this.startWebSocket();
+  }
+
+  // ── CLOCK ──
+  startClock() {
+    const updateClock = () => {
+      const now = new Date();
+      const bjTime = new Date(now.getTime() + (8 * 60 * 60 * 1000) + now.getTimezoneOffset() * 60 * 1000);
+      const days = ['日','一','二','三','四','五','六'];
+      const str = bjTime.getUTCFullYear() + '-' +
+        String(bjTime.getUTCMonth() + 1).padStart(2,'0') + '-' +
+        String(bjTime.getUTCDate()).padStart(2,'0') + ' ' +
+        '周' + days[bjTime.getUTCDay()] + ' ' +
+        String(bjTime.getUTCHours()).padStart(2,'0') + ':' +
+        String(bjTime.getUTCMinutes()).padStart(2,'0') + ':' +
+        String(bjTime.getUTCSeconds()).padStart(2,'0') + ' BJT';
+      document.getElementById('clock').textContent = str;
+    };
+    updateClock();
+    STATE.clockTimer = setInterval(updateClock, 1000);
+  }
+}
+
+// ==================== GLOBAL HELPERS ====================
+function updateConnectionUI() {
+  const dot = document.getElementById('connectionDot');
+  if (STATE.wsConnected) {
+    dot.className = '';
+    dot.style.background = 'var(--green)';
+    dot.title = 'WebSocket 已连接';
+  } else {
+    dot.className = 'disconnected';
+    dot.style.background = 'var(--red)';
+    dot.title = 'WebSocket 已断开';
+  }
+}
+
+// ==================== BOOTSTRAP ====================
+const app = new AmplitudeMonitor();
+
+document.addEventListener('DOMContentLoaded', () => {
+  app.init();
+});
+
+// Close settings modal on outside click
+document.addEventListener('click', (e) => {
+  const modal = document.getElementById('settingsModal');
+  if (modal && e.target === modal) {
+    modal.style.display = 'none';
+  }
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey) return;
+  switch(e.key.toLowerCase()) {
+    case 'm': app.toggleMute(); break;
+    case 'r': app.manualRefresh(); break;
+    case 's': app.toggleSettings(); break;
+    case 'a': app.toggleAlertPanel(); break;
+    case 'escape': app.closePerCoinPopup(); break;
+  }
+});
+</script>
+</body>
+</html>

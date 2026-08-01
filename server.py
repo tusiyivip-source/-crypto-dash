@@ -10,9 +10,20 @@ import urllib.request
 import urllib.error
 from urllib.parse import urlparse
 
-PORT = 8081
+PORT = 8765
 
 class ProxyHandler(http.server.SimpleHTTPRequestHandler):
+    # Add Cache-Control to every response, suppress deprecated Expires
+    def send_response(self, code, message=None):
+        super().send_response(code, message)
+        self.send_header('Cache-Control', 'no-cache')
+
+    def send_header(self, keyword, value):
+        # Skip deprecated Expires
+        if keyword.lower() == 'expires':
+            return
+        super().send_header(keyword, value)
+
     def do_POST(self):
         if self.path == '/proxy/dingtalk':
             content_length = int(self.headers.get('Content-Length', 0))
