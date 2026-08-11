@@ -129,6 +129,16 @@ tbody tr.flash-row { animation:rowFlash 0.5s ease-out; }
 .amp-stale { color:var(--text-secondary); opacity:0.5; }
 @keyframes pulseAmp { 0%,100%{opacity:1} 50%{opacity:0.6} }
 
+/* Gain (single-candle change) cell styles */
+.gain-cell { border-radius:3px; font-weight:600; position:relative; }
+.gain-up { background:rgba(14,203,129,0.15); color:#0ecb81; }
+.gain-down { background:rgba(246,70,93,0.15); color:#f6465d; }
+.gain-flat { color:var(--text-secondary); opacity:0.6; }
+.gain-extreme-up { background:rgba(14,203,129,0.3); color:#0ecb81; animation:pulseGain 0.8s ease-in-out infinite; }
+.gain-extreme-down { background:rgba(246,70,93,0.3); color:#f6465d; animation:pulseGain 0.8s ease-in-out infinite; }
+.gain-stale { color:var(--text-secondary); opacity:0.5; }
+@keyframes pulseGain { 0%,100%{opacity:1} 50%{opacity:0.55} }
+
 /* Inline sparkline for previous candle amp */
 .amp-prev { font-size:10px; opacity:0.7; margin-left:3px; }
 
@@ -193,8 +203,25 @@ tbody tr.pattern-active-bearish { box-shadow:inset 3px 0 0 var(--red); }
   color:var(--text); border-radius:4px; font-size:13px; font-family:'Consolas',monospace;
 }
 .modal-box input[type="number"]:focus { border-color:var(--yellow); outline:none; }
+.modal-box input[type="text"],.modal-box input[type="url"] {
+  width:100%; padding:7px 10px; background:var(--bg); border:1px solid var(--border);
+  color:var(--text); border-radius:4px; font-size:12px; font-family:'Consolas',monospace;
+}
+.modal-box input[type="text"]:focus,.modal-box input[type="url"]:focus { border-color:var(--blue); outline:none; }
+.modal-box select {
+  padding:6px 10px; background:var(--bg); border:1px solid var(--border);
+  color:var(--text); border-radius:4px; font-size:12px;
+}
+.modal-box select:focus { border-color:var(--blue); outline:none; }
 .threshold-row { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
 .threshold-row span { width:40px; font-weight:600; font-size:12px; }
+.dingtalk-section { border-top:1px solid var(--border); margin-top:16px; padding-top:14px; }
+.dingtalk-section h4 { font-size:14px; margin-bottom:8px; color:var(--blue); }
+.dingtalk-section .hint { font-size:10px; color:var(--text-secondary); margin-top:2px; }
+.dingtalk-status { display:inline-flex; align-items:center; gap:4px; font-size:11px; }
+.dingtalk-status .dt-dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
+.dingtalk-status .dt-dot.on { background:var(--green); box-shadow:0 0 4px rgba(14,203,129,0.4); }
+.dingtalk-status .dt-dot.off { background:var(--text-secondary); }
 
 /* ── PER-COIN ALERT POPUP ── */
 .coin-alert-popup {
@@ -272,12 +299,14 @@ tbody tr.pattern-active-bearish { box-shadow:inset 3px 0 0 var(--red); }
     <div class="stat-item"><span class="stat-label">极端振幅:</span><span class="stat-val" style="color:var(--red)" id="statExtreme">0</span></div>
     <div class="stat-item"><span class="stat-label">高危振幅:</span><span class="stat-val" style="color:var(--orange)" id="statDanger">0</span></div>
     <div class="stat-item"><span class="stat-label">今日告警:</span><span class="stat-val" style="color:var(--yellow)" id="statAlerts">0</span></div>
+    <div class="stat-item"><span class="stat-label">极端涨幅:</span><span class="stat-val" style="color:var(--red)" id="statGainExtreme">0</span></div>
+    <div class="stat-item"><span class="stat-label">高危涨幅:</span><span class="stat-val" style="color:var(--orange)" id="statGainDanger">0</span></div>
     <div class="stat-item"><span class="stat-label">最近更新:</span><span class="stat-val" id="statUpdate">--</span></div>
   </div>
 
   <!-- TOOLBAR -->
   <div id="toolbar">
-    <span style="color:var(--text-secondary);font-size:12px;">排序:</span>
+    <span style="color:var(--text-secondary);font-size:12px;">振幅排序:</span>
     <button class="btn active" onclick="app.setSort('symbol')">字母</button>
     <button class="btn" onclick="app.setSort('change_asc')">涨幅↑</button>
     <button class="btn" onclick="app.setSort('change_desc')">跌幅↑</button>
@@ -286,6 +315,14 @@ tbody tr.pattern-active-bearish { box-shadow:inset 3px 0 0 var(--red); }
     <button class="btn" onclick="app.setSort('amp_1h')">1h振幅</button>
     <button class="btn" onclick="app.setSort('amp_4h')">4h振幅</button>
     <button class="btn" onclick="app.setSort('amp_1d')">1d振幅</button>
+    <span class="sep" style="color:var(--border);">│</span>
+    <span style="color:var(--blue);font-size:12px;">单K涨幅排序:</span>
+    <button class="btn blue active" onclick="app.setSort('gain_5m')">5m</button>
+    <button class="btn blue" onclick="app.setSort('gain_10m')">10m</button>
+    <button class="btn blue" onclick="app.setSort('gain_30m')">30m</button>
+    <button class="btn blue" onclick="app.setSort('gain_1h')">1h</button>
+    <button class="btn blue" onclick="app.setSort('gain_2h')">2h</button>
+    <button class="btn blue" onclick="app.setSort('gain_1d')">1d</button>
     <span class="sep" style="color:var(--border);">│</span>
     <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;">
       <input type="checkbox" id="filterExtreme" onchange="app.toggleFilter('extreme')"> 仅极端
@@ -337,6 +374,41 @@ tbody tr.pattern-active-bearish { box-shadow:inset 3px 0 0 var(--red); }
         <input type="checkbox" id="notifyEnabled" checked> 启用浏览器通知
       </label>
     </div>
+    <!-- 单K涨幅阈值 -->
+    <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px;">
+      <h4 style="font-size:14px;color:var(--blue);margin-bottom:6px;">📈 单K涨幅阈值 (%)</h4>
+      <div id="gainThresholdSettings"></div>
+    </div>
+    <!-- 钉钉推送设置 -->
+    <div class="dingtalk-section">
+      <h4>📨 钉钉机器人推送</h4>
+      <div style="margin-bottom:8px;">
+        <label style="cursor:pointer;">
+          <input type="checkbox" id="dingtalkEnabled"> 启用钉钉推送
+        </label>
+      </div>
+      <label>Webhook 地址</label>
+      <input type="url" id="dingtalkWebhook" placeholder="https://oapi.dingtalk.com/robot/send?access_token=...">
+      <div class="hint">钉钉群机器人 Webhook URL，支持加签方式</div>
+      <label style="margin-top:8px;">CORS 代理地址 <span style="color:var(--text-secondary);font-weight:400;">(浏览器跨域需要，留空使用公共代理)</span></label>
+      <input type="text" id="dingtalkCorsProxy" placeholder="例如: http://localhost:8080/">
+      <div class="hint">从浏览器直接调用钉钉 API 会被 CORS 策略阻止。页面内置了公共 CORS 代理链，若不稳定可自行部署一个 <a href="https://github.com/Rob--W/cors-anywhere" target="_blank" style="color:var(--blue);">cors-anywhere</a> 并填入此处</div>
+      <label style="margin-top:8px;">推送最低级别</label>
+      <select id="dingtalkPushLevel">
+        <option value="warn">⚠️ 警告及以上</option>
+        <option value="danger">🔶 高危及以上</option>
+        <option value="extreme">🔴 仅极端</option>
+      </select>
+      <div style="margin-top:8px;">
+        <label style="cursor:pointer;">
+          <input type="checkbox" id="dingtalkPushPattern" checked> 同时推送穿线形态告警
+        </label>
+      </div>
+      <div style="margin-top:8px;">
+        <button class="btn" onclick="app.testDingTalk()" style="font-size:11px;">🧪 测试推送</button>
+        <span id="dtTestResult" style="font-size:11px;margin-left:8px;"></span>
+      </div>
+    </div>
     <div style="display:flex;gap:8px;margin-top:18px;">
       <button class="btn active" onclick="app.saveSettings()" style="flex:1">💾 保存</button>
       <button class="btn" onclick="app.resetThresholds()" style="flex:1">↩ 重置默认</button>
@@ -356,6 +428,11 @@ const CONFIG = {
   MAX_WS_STREAMS: 600,
   TIMEFRAMES: ['5m','15m','30m','1h','4h','1d'],
   TF_LABELS: { '5m':'5分钟','15m':'15分钟','30m':'30分钟','1h':'1小时','4h':'4小时','1d':'日线' },
+  // 单根K线涨幅时间框架（与振幅共享5m/30m/1h/1d的K线数据，10m/2h需独立订阅）
+  GAIN_TIMEFRAMES: ['5m','10m','30m','1h','2h','1d'],
+  GAIN_TF_LABELS: { '5m':'5分钟','10m':'10分钟','30m':'30分钟','1h':'1小时','2h':'2小时','1d':'日线' },
+  // 需要额外订阅K线的涨幅时间框架（不与振幅重合的）
+  GAIN_EXTRA_TF: ['10m','2h'],
   KLINE_LIMIT: 5, // Need 4+ candles for engulfing pattern detection
 };
 
@@ -385,6 +462,15 @@ const DEFAULT_THRESHOLDS = {
     '4h':  { warn:2.0,  danger:4.0, extreme:8.0 },
     '1d':  { warn:3.0,  danger:6.0, extreme:12.0 },
   },
+  // 单根K线涨幅阈值（绝对值，涨跌都触发）
+  gain: {
+    '5m':  { warn:1.0,  danger:2.0, extreme:4.0 },
+    '10m': { warn:1.5,  danger:3.0, extreme:6.0 },
+    '30m': { warn:2.0,  danger:4.0, extreme:8.0 },
+    '1h':  { warn:3.0,  danger:6.0, extreme:12.0 },
+    '2h':  { warn:4.0,  danger:8.0, extreme:16.0 },
+    '1d':  { warn:6.0,  danger:12.0, extreme:24.0 },
+  },
 };
 
 // ==================== GLOBAL STATE ====================
@@ -393,18 +479,25 @@ const STATE = {
   symbols: [],
   timeframes: CONFIG.TIMEFRAMES,
   thresholds: JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS.crypto)),
+  gainThresholds: JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS.gain)),
   thresholdPreset: 'crypto',
   klineCache: {},  // { 'BTCUSDT': { '5m': { open,high,low,close,amplitude,isClosed,time,prevAmp }, ... } }
+  gainCache: {},    // { 'BTCUSDT': { '5m': { changePct, direction, open, close, isClosed, time }, ... } }
+  gainKlineCache: {}, // K线缓存 for gain-specific timeframes (10m, 2h)
   pairMeta: {},     // { 'BTCUSDT': { lastPrice, priceChangePercent, quoteVolume } }
   alerts: [],       // [{ id,symbol,tf,amplitude,threshold,level,time }]
   alertLog: [],     // persisted alerts
   alertCooldown: {}, // { 'BTCUSDT_5m_extreme': timestamp }
+  gainAlerts: [],   // gain alert log
+  gainAlertCooldown: {}, // cooldown for gain alerts
   alertCooldownSec: 30,
   patternCache: {},     // { 'BTCUSDT_5m': { type:'bullish_engulf'|'bearish_engulf', time, isClosed } }
   patternAlerts: [],    // pattern alert log
   patternCooldown: {},  // cooldown for pattern alerts per symbol+tf
   sortBy: 'symbol',
   sortAsc: true,
+  gainSortBy: 'gain_5m',  // separate sort for gain columns
+  gainSortAsc: false,     // default: highest gain first
   filters: { extreme: false, alerted: false },
   perCoinAlerts: {}, // { 'BTCUSDT': { enabled: true, thresholds: { '5m': {warn,danger,extreme}, ... } } }
   perCoinPopupTarget: null, // symbol whose popup is currently open
@@ -414,6 +507,11 @@ const STATE = {
   muted: localStorage.getItem('amp_monitor_muted') === 'true',
   soundEnabled: localStorage.getItem('amp_monitor_sound') !== 'false',
   notifyEnabled: localStorage.getItem('amp_monitor_notify') !== 'false',
+  dingtalkEnabled: localStorage.getItem('amp_monitor_dingtalk_enabled') === 'true',
+  dingtalkWebhook: localStorage.getItem('amp_monitor_dingtalk_webhook') || '',
+  dingtalkCorsProxy: localStorage.getItem('amp_monitor_dingtalk_cors_proxy') || '',
+  dingtalkPushLevel: localStorage.getItem('amp_monitor_dingtalk_level') || 'danger',
+  dingtalkPushPattern: localStorage.getItem('amp_monitor_dingtalk_pattern') !== 'false',
   clockTimer: null,
   initDone: false,
 };
@@ -503,6 +601,93 @@ function sendBrowserNotification(title, body) {
   } else if (Notification.permission === 'default') {
     Notification.requestPermission();
   }
+}
+
+// ==================== DINGTALK PUSH ====================
+// DingTalk webhook push via CORS proxy chain
+// Browsers block direct cross-origin requests to oapi.dingtalk.com,
+// so we try multiple CORS proxies in sequence until one succeeds.
+const DINGTALK_CORS_PROXIES = [
+  'https://corsproxy.io/?',
+  'https://api.allorigins.win/raw?url=',
+];
+
+async function _fetchDingTalkViaProxy(proxyUrl, webhookUrl, body) {
+  // Detect proxy URL format:
+  // - Query-based (ends with ? or =): append &{encodedUrl}  e.g. corsproxy.io/?
+  // - Path-based (cors-anywhere style): append raw URL  e.g. localhost:8080/
+  let targetUrl;
+  if (proxyUrl.includes('?') || proxyUrl.endsWith('=')) {
+    targetUrl = proxyUrl + encodeURIComponent(webhookUrl);
+  } else {
+    targetUrl = proxyUrl + webhookUrl;
+  }
+  const resp = await fetch(targetUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: body,
+  });
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  return resp.json();
+}
+
+async function sendDingTalkMessage(title, text) {
+  if (!STATE.dingtalkEnabled || !STATE.dingtalkWebhook) return;
+  const payload = {
+    msgtype: 'markdown',
+    markdown: { title: title, text: text },
+  };
+  const body = JSON.stringify(payload);
+
+  // Strategy 1: direct fetch (some networks / newer DingTalk endpoints allow it)
+  try {
+    const resp = await fetch(STATE.dingtalkWebhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body,
+    });
+    const data = await resp.json();
+    if (data.errcode === 0) return;
+    console.warn('[DingTalk] Direct push failed:', data.errmsg || data);
+  } catch(e) {
+    // Direct blocked by CORS, fall through to proxies
+  }
+
+  // Strategy 2: try custom CORS proxy first if configured
+  if (STATE.dingtalkCorsProxy) {
+    try {
+      const data = await _fetchDingTalkViaProxy(STATE.dingtalkCorsProxy, STATE.dingtalkWebhook, body);
+      if (data.errcode === 0) return;
+      console.warn('[DingTalk] Custom proxy returned error:', data.errmsg || data);
+    } catch(e) {
+      console.warn('[DingTalk] Custom proxy failed, trying public proxies...');
+    }
+  }
+
+  // Strategy 3: try public CORS proxies
+  for (const proxy of DINGTALK_CORS_PROXIES) {
+    try {
+      const data = await _fetchDingTalkViaProxy(proxy, STATE.dingtalkWebhook, body);
+      if (data.errcode === 0) {
+        console.log('[DingTalk] Push succeeded via proxy:', proxy);
+        return;
+      }
+      console.warn('[DingTalk] Proxy returned error:', data.errmsg || data);
+    } catch(e) {
+      // This proxy failed, try the next one
+      continue;
+    }
+  }
+
+  console.warn('[DingTalk] All push strategies failed. Check webhook URL and network.');
+}
+
+function shouldDingTalkPush(level) {
+  if (!STATE.dingtalkEnabled || !STATE.dingtalkWebhook) return false;
+  const levels = ['warn', 'danger', 'extreme'];
+  const thresholdIdx = levels.indexOf(STATE.dingtalkPushLevel);
+  const currentIdx = levels.indexOf(level);
+  return currentIdx >= thresholdIdx;
 }
 
 // ==================== BINANCE API ====================
@@ -661,10 +846,17 @@ class AmplitudeMonitor {
       if (saved.alertLog) STATE.alertLog = saved.alertLog;
       if (saved.alertCooldownSec != null) STATE.alertCooldownSec = saved.alertCooldownSec;
       if (saved.perCoinAlerts) STATE.perCoinAlerts = saved.perCoinAlerts;
+      if (saved.gainThresholds) STATE.gainThresholds = saved.gainThresholds;
+      if (saved.gainAlerts) STATE.gainAlerts = saved.gainAlerts;
     } catch(e) {}
     STATE.soundEnabled = localStorage.getItem('amp_monitor_sound') !== 'false';
     STATE.notifyEnabled = localStorage.getItem('amp_monitor_notify') !== 'false';
     STATE.muted = localStorage.getItem('amp_monitor_muted') === 'true';
+    STATE.dingtalkEnabled = localStorage.getItem('amp_monitor_dingtalk_enabled') === 'true';
+    STATE.dingtalkWebhook = localStorage.getItem('amp_monitor_dingtalk_webhook') || '';
+    STATE.dingtalkCorsProxy = localStorage.getItem('amp_monitor_dingtalk_cors_proxy') || '';
+    STATE.dingtalkPushLevel = localStorage.getItem('amp_monitor_dingtalk_level') || 'danger';
+    STATE.dingtalkPushPattern = localStorage.getItem('amp_monitor_dingtalk_pattern') !== 'false';
     this.updateSymbolCountUI();
   }
 
@@ -684,12 +876,19 @@ class AmplitudeMonitor {
         symbolCount: STATE.symbolCount,
         thresholdPreset: STATE.thresholdPreset,
         thresholds: STATE.thresholds,
+        gainThresholds: STATE.gainThresholds,
         alertLog: STATE.alertLog.slice(-200),
         alertCooldownSec: STATE.alertCooldownSec,
         perCoinAlerts: STATE.perCoinAlerts,
+        gainAlerts: STATE.gainAlerts.slice(-200),
       }));
       localStorage.setItem('amp_monitor_sound', STATE.soundEnabled);
       localStorage.setItem('amp_monitor_notify', STATE.notifyEnabled);
+      localStorage.setItem('amp_monitor_dingtalk_enabled', STATE.dingtalkEnabled);
+      localStorage.setItem('amp_monitor_dingtalk_webhook', STATE.dingtalkWebhook);
+      localStorage.setItem('amp_monitor_dingtalk_cors_proxy', STATE.dingtalkCorsProxy);
+      localStorage.setItem('amp_monitor_dingtalk_level', STATE.dingtalkPushLevel);
+      localStorage.setItem('amp_monitor_dingtalk_pattern', STATE.dingtalkPushPattern);
     } catch(e) {}
   }
 
@@ -720,15 +919,23 @@ class AmplitudeMonitor {
         for (const tf of STATE.timeframes) {
           tasks.push({ sym, tf });
         }
+        // Also fetch gain-only timeframes (10m, 2h)
+        for (const tf of CONFIG.GAIN_EXTRA_TF) {
+          tasks.push({ sym, tf, isGainExtra: true });
+        }
       }
 
       // Process in batches using the fast rate limiter (no 60ms throttle)
       for (let i = 0; i < tasks.length; i += CONCURRENCY) {
         const batch = tasks.slice(i, i + CONCURRENCY);
-        await Promise.all(batch.map(async ({ sym, tf }) => {
+        await Promise.all(batch.map(async ({ sym, tf, isGainExtra }) => {
           try {
             const candles = await BinanceAPI.fetchKlinesBulk(sym, tf, CONFIG.KLINE_LIMIT);
-            this.processInitialKlines(sym, tf, candles);
+            if (isGainExtra) {
+              this.processInitialGainKlines(sym, tf, candles);
+            } else {
+              this.processInitialKlines(sym, tf, candles);
+            }
           } catch(e) {
             // Will be filled by WebSocket later
           }
@@ -776,8 +983,43 @@ class AmplitudeMonitor {
       candles: rawCandles,
     };
 
+    // Compute initial gain for shared timeframes
+    if (CONFIG.GAIN_TIMEFRAMES.includes(tf)) {
+      const gainPct = current.open > 0 ? ((current.close - current.open) / current.open) * 100 : 0;
+      if (!STATE.gainCache[sym]) STATE.gainCache[sym] = {};
+      STATE.gainCache[sym][tf] = {
+        changePct: gainPct, direction: gainPct >= 0 ? 'up' : 'down',
+        open: current.open, close: current.close,
+        isClosed: true, time: current.time, lastUpdate: now(),
+      };
+    }
+
     // Run pattern detection on initial load
     this.detectAndUpdatePattern(sym, tf);
+  }
+
+  processInitialGainKlines(sym, tf, candles) {
+    if (!candles || candles.length < 1) return;
+    const current = candles[candles.length - 1];
+    if (current.open <= 0) return;
+    const changePct = ((current.close - current.open) / current.open) * 100;
+    if (!STATE.gainCache[sym]) STATE.gainCache[sym] = {};
+    STATE.gainCache[sym][tf] = {
+      changePct, direction: changePct >= 0 ? 'up' : 'down',
+      open: current.open, close: current.close,
+      isClosed: true, time: current.time, lastUpdate: now(),
+    };
+    // Also init gainKlineCache for gain-only TFs
+    if (CONFIG.GAIN_EXTRA_TF.includes(tf)) {
+      if (!STATE.gainKlineCache[sym]) STATE.gainKlineCache[sym] = {};
+      STATE.gainKlineCache[sym][tf] = {
+        open: current.open, high: current.high, low: current.low, close: current.close,
+        changePct, direction: changePct >= 0 ? 'up' : 'down',
+        amplitude: ((current.high - current.low) / current.open) * 100,
+        isClosed: true, time: current.time, lastUpdate: now(),
+      };
+    }
+    this.updateGainCell(sym, tf);
   }
 
   // ── WEBSOCKET ──
@@ -789,6 +1031,10 @@ class AmplitudeMonitor {
     const streams = [];
     for (const sym of STATE.symbols) {
       for (const tf of STATE.timeframes) {
+        streams.push(`${sym.toLowerCase()}@kline_${tf}`);
+      }
+      // Extra streams for gain-only timeframes (10m, 2h)
+      for (const tf of CONFIG.GAIN_EXTRA_TF) {
         streams.push(`${sym.toLowerCase()}@kline_${tf}`);
       }
     }
@@ -865,6 +1111,15 @@ class AmplitudeMonitor {
     // Check thresholds and alert
     this.checkAmplitudeAlert(sym, tf, amplitude);
 
+    // Compute gain for shared timeframes (5m, 30m, 1h, 1d)
+    if (CONFIG.GAIN_TIMEFRAMES.includes(tf)) {
+      this.computeAndUpdateGain(sym, tf, o, c, isClosed, klineTime);
+    }
+    // Also handle gain-only timeframes (10m, 2h)
+    if (CONFIG.GAIN_EXTRA_TF.includes(tf)) {
+      this.handleGainKline(sym, tf, o, h, l, c, isClosed, klineTime);
+    }
+
     // Check engulfing pattern
     this.detectAndUpdatePattern(sym, tf);
 
@@ -937,6 +1192,20 @@ class AmplitudeMonitor {
         `${levelLabel[level]}振幅 - ${sym}`,
         `${CONFIG.TF_LABELS[tf]} K线振幅达到 ${amplitude.toFixed(2)}% (阈值: ${thresholds[level]}%)`
       );
+    }
+
+    // DingTalk push
+    if (shouldDingTalkPush(level)) {
+      const coinName = sym.replace('USDT', '');
+      const dtTitle = `${levelLabel[level]}振幅告警 - ${sym}`;
+      const dtText = `## ${levelLabel[level]} 振幅告警\n\n` +
+        `**币种**: ${sym} (${coinName})\n\n` +
+        `**时间周期**: ${CONFIG.TF_LABELS[tf]}\n\n` +
+        `**当前振幅**: <font color="${level === 'extreme' ? '#f6465d' : level === 'danger' ? '#ff9800' : '#f0b90b'}">${amplitude.toFixed(2)}%</font>\n\n` +
+        `**触发阈值**: ${thresholds[level]}%\n\n` +
+        `**告警时间**: ${new Date().toLocaleString('zh-CN', { hour12: false })}\n\n` +
+        `> 振幅监控系统自动推送`;
+      sendDingTalkMessage(dtTitle, dtText);
     }
 
     this.saveState();
@@ -1048,6 +1317,19 @@ class AmplitudeMonitor {
       `${CONFIG.TF_LABELS[tf]} K线 ${pattern.label} 形态${statusTag}`
     );
 
+    // DingTalk push for pattern
+    if (STATE.dingtalkEnabled && STATE.dingtalkWebhook && STATE.dingtalkPushPattern) {
+      const coinName = sym.replace('USDT', '');
+      const dtTitle = `${pattern.emoji} ${pattern.label} - ${sym}`;
+      const dtText = `## ${pattern.emoji} ${pattern.label}\n\n` +
+        `**币种**: ${sym} (${coinName})\n\n` +
+        `**时间周期**: ${CONFIG.TF_LABELS[tf]}\n\n` +
+        `**形态状态**: ${statusTag}\n\n` +
+        `**检测时间**: ${new Date().toLocaleString('zh-CN', { hour12: false })}\n\n` +
+        `> 振幅监控系统自动推送`;
+      sendDingTalkMessage(dtTitle, dtText);
+    }
+
     this.updateStats();
     this.saveState();
   }
@@ -1072,6 +1354,131 @@ class AmplitudeMonitor {
     }
   }
 
+  // ── GAIN (单K涨幅) METHODS ──
+  computeAndUpdateGain(sym, tf, o, c, isClosed, klineTime) {
+    if (o <= 0) return;
+    const changePct = ((c - o) / o) * 100;
+    if (!STATE.gainCache[sym]) STATE.gainCache[sym] = {};
+    STATE.gainCache[sym][tf] = {
+      changePct, direction: changePct >= 0 ? 'up' : 'down',
+      open: o, close: c, isClosed, time: klineTime, lastUpdate: now(),
+    };
+    this.updateGainCell(sym, tf);
+    this.checkGainAlert(sym, tf, changePct);
+  }
+
+  handleGainKline(sym, tf, o, h, l, c, isClosed, klineTime) {
+    // For gain-only timeframes (10m, 2h): store raw kline data and compute gain
+    if (o <= 0) return;
+    if (!STATE.gainKlineCache[sym]) STATE.gainKlineCache[sym] = {};
+    const changePct = ((c - o) / o) * 100;
+    STATE.gainKlineCache[sym][tf] = {
+      open: o, high: h, low: l, close: c,
+      changePct, direction: changePct >= 0 ? 'up' : 'down',
+      amplitude: ((h - l) / o) * 100,
+      isClosed, time: klineTime, lastUpdate: now(),
+    };
+    this.computeAndUpdateGain(sym, tf, o, c, isClosed, klineTime);
+  }
+
+  updateGainCell(sym, tf) {
+    const key = 'gain_' + sym + '_' + tf;
+    const cell = this.cellRefs[key];
+    if (!cell) return;
+
+    const data = STATE.gainCache[sym] && STATE.gainCache[sym][tf];
+    if (!data) return;
+
+    const chg = data.changePct;
+    const absChg = Math.abs(chg);
+    const th = STATE.gainThresholds[tf];
+
+    // Determine level
+    let cssClass = 'gain-flat';
+    if (th && absChg >= th.extreme) cssClass = chg >= 0 ? 'gain-extreme-up' : 'gain-extreme-down';
+    else if (th && absChg >= th.danger) cssClass = chg >= 0 ? 'gain-up' : 'gain-down';
+    else if (th && absChg >= th.warn) cssClass = chg >= 0 ? 'gain-up' : 'gain-down';
+    else if (Math.abs(chg) > 0.001) cssClass = chg >= 0 ? 'gain-up' : 'gain-down';
+
+    cell.className = 'gain-cell ' + cssClass;
+    const sign = chg >= 0 ? '+' : '';
+    cell.textContent = sign + chg.toFixed(2) + '%';
+    var levelLabel = absChg < 0.001 ? '平盘' : absChg >= (th ? th.extreme : 99) ? '极端' : absChg >= (th ? th.danger : 99) ? '高危' : absChg >= (th ? th.warn : 99) ? '警告' : '正常';
+    cell.title = sym + ' ' + CONFIG.GAIN_TF_LABELS[tf] + '\n涨幅: ' + sign + chg.toFixed(2) + '%\n开: ' + fmtPrice(data.open) + ' 收: ' + fmtPrice(data.close) + '\n状态: ' + levelLabel + (th ? '\n阈值: >' + th.warn + '%/>' + th.danger + '%/>' + th.extreme + '%' : '');
+  }
+
+  checkGainAlert(sym, tf, changePct) {
+    const absChg = Math.abs(changePct);
+    const th = STATE.gainThresholds[tf];
+    if (!th) return;
+
+    let level = null;
+    if (absChg >= th.extreme) level = 'extreme';
+    else if (absChg >= th.danger) level = 'danger';
+    else if (absChg >= th.warn) level = 'warn';
+    if (!level) return;
+
+    // Cooldown
+    const key = sym + '_' + tf + '_gain_' + level;
+    const last = STATE.gainAlertCooldown[key];
+    if (last && (now() - last) < STATE.alertCooldownSec) return;
+    STATE.gainAlertCooldown[key] = now();
+
+    const dir = changePct >= 0 ? '拉升' : '砸盘';
+    const emoji = changePct >= 0 ? '🚀' : '📉';
+    const alert = {
+      id: Date.now(), sym, tf, changePct, absChg, level, direction: dir,
+      thresholds: th[level], time: now(),
+    };
+    STATE.gainAlerts.push(alert);
+    if (STATE.gainAlerts.length > 500) STATE.gainAlerts = STATE.gainAlerts.slice(-500);
+
+    // Also add to general alert log
+    STATE.alertLog.push({
+      id: Date.now(), sym, tf, amplitude: absChg, level,
+      time: now(), _isGain: true, _direction: dir,
+    });
+
+    this.flashRow(sym);
+    this.updateAlertBadge();
+
+    // Sound
+    if (changePct >= 0) {
+      SoundManager.patternBullish();
+    } else {
+      SoundManager.patternBearish();
+    }
+
+    // Toast
+    const lvlLabel = { warn: '⚠️', danger: '🔶', extreme: '🔴' };
+    showToast(emoji + ' ' + lvlLabel[level] + ' ' + sym + ' ' + CONFIG.GAIN_TF_LABELS[tf] + ' ' + dir + ' ' + (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%');
+
+    // Browser notification
+    if (level === 'extreme' || level === 'danger') {
+      sendBrowserNotification(
+        (changePct >= 0 ? '🚀' : '📉') + ' ' + lvlLabel[level] + '涨幅 - ' + sym,
+        CONFIG.GAIN_TF_LABELS[tf] + ' 单K' + dir + ' ' + (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '% (阈值: ' + th[level] + '%)'
+      );
+    }
+
+    // DingTalk
+    if (shouldDingTalkPush(level)) {
+      const coinName = sym.replace('USDT', '');
+      const dtTitle = emoji + ' ' + lvlLabel[level] + '单K涨幅告警 - ' + sym;
+      const dtText = '## ' + emoji + ' ' + lvlLabel[level] + ' 单K涨幅告警\n\n' +
+        '**币种**: ' + sym + ' (' + coinName + ')\n\n' +
+        '**时间周期**: ' + CONFIG.GAIN_TF_LABELS[tf] + '\n\n' +
+        '**方向**: ' + dir + '\n\n' +
+        '**涨跌幅**: ' + (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%\n\n' +
+        '**触发阈值**: ' + th[level] + '%\n\n' +
+        '**时间**: ' + new Date().toLocaleString('zh-CN', { hour12: false }) + '\n\n' +
+        '> 振幅监控系统自动推送';
+      sendDingTalkMessage(dtTitle, dtText);
+    }
+
+    this.updateStats();
+  }
+
   flashRow(sym) {
     const row = this.rowRefs[sym];
     if (!row) return;
@@ -1088,6 +1495,9 @@ class AmplitudeMonitor {
     html += '<th class="chg-col" onclick="app.setSort(\'change_desc\')">24h涨跌</th>';
     for (const tf of STATE.timeframes) {
       html += `<th class="amp-col" onclick="app.setSort('amp_${tf}')" title="${CONFIG.TF_LABELS[tf]}">${tf}</th>`;
+    }
+    for (const tf of CONFIG.GAIN_TIMEFRAMES) {
+      html += `<th class="amp-col" onclick="app.setSort('gain_${tf}')" title="${CONFIG.GAIN_TF_LABELS[tf]}单K涨幅" style="color:var(--blue);">涨${tf}</th>`;
     }
     html += '<th class="amp-col" style="width:72px;" title="一阳穿三阴 / 一阴穿三阳 形态">形态</th>';
     html += '</tr>';
@@ -1145,6 +1555,17 @@ class AmplitudeMonitor {
         tr.appendChild(td);
       }
 
+      // Gain cells for each gain timeframe
+      for (const tf of CONFIG.GAIN_TIMEFRAMES) {
+        const tdGain = document.createElement('td');
+        tdGain.className = 'gain-cell gain-stale';
+        tdGain.id = `gain-${sym}-${tf}`;
+        tdGain.textContent = '--';
+        tdGain.title = `${sym} ${CONFIG.GAIN_TF_LABELS[tf]} 涨幅: 加载中...`;
+        this.cellRefs[`gain_${sym}_${tf}`] = tdGain;
+        tr.appendChild(tdGain);
+      }
+
       // Pattern cell
       const tdPattern = document.createElement('td');
       tdPattern.className = 'pattern-cell pattern-none';
@@ -1158,8 +1579,11 @@ class AmplitudeMonitor {
     }
     this.tableBody.appendChild(frag);
 
-    // Populate pattern cells from cache
+    // Populate gain + pattern cells from cache
     for (const sym of sorted) {
+      for (const tf of CONFIG.GAIN_TIMEFRAMES) {
+        this.updateGainCell(sym, tf);
+      }
       this.updatePatternCell(sym);
       this.updatePatternRowStyle(sym);
     }
@@ -1240,11 +1664,22 @@ class AmplitudeMonitor {
 
   // ── SORTING & FILTERING ──
   setSort(mode) {
-    if (STATE.sortBy === mode) {
-      STATE.sortAsc = !STATE.sortAsc;
+    // Detect gain sort vs amplitude sort
+    const isGainSort = mode.startsWith('gain_');
+    if (isGainSort) {
+      if (STATE.sortBy === mode) {
+        STATE.sortAsc = !STATE.sortAsc;
+      } else {
+        STATE.sortBy = mode;
+        STATE.sortAsc = false; // gain defaults to descending (highest first)
+      }
     } else {
-      STATE.sortBy = mode;
-      STATE.sortAsc = mode === 'symbol'; // symbol defaults to ascending
+      if (STATE.sortBy === mode) {
+        STATE.sortAsc = !STATE.sortAsc;
+      } else {
+        STATE.sortBy = mode;
+        STATE.sortAsc = mode === 'symbol';
+      }
     }
     this.updateSortUI();
     // Sort by reordering existing DOM rows (fast) instead of rebuilding (slow)
@@ -1253,11 +1688,22 @@ class AmplitudeMonitor {
 
   updateSortUI() {
     const btns = document.querySelectorAll('#toolbar .btn');
+    const isGainSort = STATE.sortBy.startsWith('gain_');
     btns.forEach(b => {
       if (b.onclick && b.onclick.toString().includes(`'${STATE.sortBy}'`)) {
         b.classList.add('active');
       } else {
-        b.classList.remove('active');
+        // Only deactivate buttons in the same group
+        const bIsGain = b.onclick && b.onclick.toString().includes('gain_');
+        const bIsAmp = b.onclick && (b.onclick.toString().includes('amp_') || b.onclick.toString().includes('symbol') || b.onclick.toString().includes('change_'));
+        if ((isGainSort && bIsGain && !b.onclick.toString().includes(`'${STATE.sortBy}'`)) ||
+            (!isGainSort && bIsAmp && !b.onclick.toString().includes(`'${STATE.sortBy}'`))) {
+          b.classList.remove('active');
+        } else if (!isGainSort && bIsGain) {
+          b.classList.remove('active');
+        } else if (isGainSort && bIsAmp) {
+          b.classList.remove('active');
+        }
       }
     });
   }
@@ -1279,6 +1725,13 @@ class AmplitudeMonitor {
         va = metaA.priceChangePercent || 0; vb = metaB.priceChangePercent || 0;
       } else if (sortKey === 'change_desc') {
         va = metaA.priceChangePercent || 0; vb = metaB.priceChangePercent || 0;
+        return STATE.sortAsc ? va - vb : vb - va;
+      } else if (sortKey.startsWith('gain_')) {
+        const tf = sortKey.replace('gain_', '');
+        const cacheA = STATE.gainCache[a] && STATE.gainCache[a][tf];
+        const cacheB = STATE.gainCache[b] && STATE.gainCache[b][tf];
+        va = cacheA ? cacheA.changePct : -999;
+        vb = cacheB ? cacheB.changePct : -999;
         return STATE.sortAsc ? va - vb : vb - va;
       } else if (sortKey.startsWith('amp_')) {
         const tf = sortKey.replace('amp_', '');
@@ -1374,6 +1827,24 @@ class AmplitudeMonitor {
     document.getElementById('statExtreme').textContent = extremeCount;
     document.getElementById('statDanger').textContent = dangerCount;
     document.getElementById('statAlerts').textContent = STATE.alertLog.length;
+
+    // Gain stats
+    let gainExtreme = 0, gainDanger = 0;
+    for (const sym of STATE.symbols) {
+      for (const tf of CONFIG.GAIN_TIMEFRAMES) {
+        const data = STATE.gainCache[sym] && STATE.gainCache[sym][tf];
+        if (!data) continue;
+        const th = STATE.gainThresholds[tf];
+        if (!th) continue;
+        const absChg = Math.abs(data.changePct);
+        if (absChg >= th.extreme) gainExtreme++;
+        else if (absChg >= th.danger) gainDanger++;
+      }
+    }
+    var geEl = document.getElementById('statGainExtreme');
+    var gdEl = document.getElementById('statGainDanger');
+    if (geEl) geEl.textContent = gainExtreme;
+    if (gdEl) gdEl.textContent = gainDanger;
 
     if (!STATE.initDone) return;
     const nowStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
@@ -1625,9 +2096,34 @@ class AmplitudeMonitor {
     }
     container.innerHTML = html;
 
+    // Render gain thresholds
+    var gainContainer = document.getElementById('gainThresholdSettings');
+    if (gainContainer) {
+      var gainHtml = '';
+      for (var _i = 0; _i < CONFIG.GAIN_TIMEFRAMES.length; _i++) {
+        var gtf = CONFIG.GAIN_TIMEFRAMES[_i];
+        var gth = STATE.gainThresholds[gtf] || { warn: 2, danger: 5, extreme: 10 };
+        gainHtml += '<div class="threshold-row">' +
+          '<span>' + CONFIG.GAIN_TF_LABELS[gtf] + '</span>' +
+          '<label style="margin:0;">警告 ≥</label>' +
+          '<input type="number" id="gainthresh_' + gtf + '_warn" value="' + gth.warn + '" step="0.1" min="0.1">%' +
+          '<label style="margin:0;">高危 ≥</label>' +
+          '<input type="number" id="gainthresh_' + gtf + '_danger" value="' + gth.danger + '" step="0.1" min="0.2">%' +
+          '<label style="margin:0;">极端 ≥</label>' +
+          '<input type="number" id="gainthresh_' + gtf + '_extreme" value="' + gth.extreme + '" step="0.1" min="0.5">%' +
+          '</div>';
+      }
+      gainContainer.innerHTML = gainHtml;
+    }
+
     document.getElementById('alertCooldown').value = STATE.alertCooldownSec;
     document.getElementById('soundEnabled').checked = STATE.soundEnabled;
     document.getElementById('notifyEnabled').checked = STATE.notifyEnabled;
+    document.getElementById('dingtalkEnabled').checked = STATE.dingtalkEnabled;
+    document.getElementById('dingtalkWebhook').value = STATE.dingtalkWebhook;
+    document.getElementById('dingtalkCorsProxy').value = STATE.dingtalkCorsProxy || '';
+    document.getElementById('dingtalkPushLevel').value = STATE.dingtalkPushLevel;
+    document.getElementById('dingtalkPushPattern').checked = STATE.dingtalkPushPattern;
   }
 
   saveSettings() {
@@ -1638,9 +2134,27 @@ class AmplitudeMonitor {
         extreme: parseFloat(document.getElementById(`thresh_${tf}_extreme`).value) || 6,
       };
     }
+    // Save gain thresholds
+    for (const tf of CONFIG.GAIN_TIMEFRAMES) {
+      var gwEl = document.getElementById('gainthresh_' + tf + '_warn');
+      var gdEl = document.getElementById('gainthresh_' + tf + '_danger');
+      var geEl = document.getElementById('gainthresh_' + tf + '_extreme');
+      if (gwEl && gdEl && geEl) {
+        STATE.gainThresholds[tf] = {
+          warn: parseFloat(gwEl.value) || 2,
+          danger: parseFloat(gdEl.value) || 5,
+          extreme: parseFloat(geEl.value) || 10,
+        };
+      }
+    }
     STATE.alertCooldownSec = parseInt(document.getElementById('alertCooldown').value) || 30;
     STATE.soundEnabled = document.getElementById('soundEnabled').checked;
     STATE.notifyEnabled = document.getElementById('notifyEnabled').checked;
+    STATE.dingtalkEnabled = document.getElementById('dingtalkEnabled').checked;
+    STATE.dingtalkWebhook = document.getElementById('dingtalkWebhook').value.trim();
+    STATE.dingtalkCorsProxy = document.getElementById('dingtalkCorsProxy').value.trim();
+    STATE.dingtalkPushLevel = document.getElementById('dingtalkPushLevel').value;
+    STATE.dingtalkPushPattern = document.getElementById('dingtalkPushPattern').checked;
     STATE.thresholdPreset = 'custom';
     this.updateThresholdPresetUI();
     this.refreshAllCells();
@@ -1651,6 +2165,7 @@ class AmplitudeMonitor {
   resetThresholds() {
     STATE.thresholdPreset = 'crypto';
     STATE.thresholds = JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS.crypto));
+    STATE.gainThresholds = JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS.gain));
     this.updateThresholdPresetUI();
     this.renderThresholdSettings();
     this.refreshAllCells();
@@ -1672,6 +2187,9 @@ class AmplitudeMonitor {
       for (const tf of STATE.timeframes) {
         this.updateCell(sym, tf);
       }
+      for (const tf of CONFIG.GAIN_TIMEFRAMES) {
+        this.updateGainCell(sym, tf);
+      }
       this.updatePatternCell(sym);
       this.updatePatternRowStyle(sym);
     }
@@ -1690,6 +2208,94 @@ class AmplitudeMonitor {
     const btn = document.getElementById('muteBtn');
     btn.textContent = STATE.muted ? '🔇' : '🔊';
     btn.classList.toggle('muted', STATE.muted);
+  }
+
+  // ── DINGTALK TEST ──
+  async testDingTalk() {
+    const webhook = document.getElementById('dingtalkWebhook').value.trim();
+    const resultEl = document.getElementById('dtTestResult');
+    if (!webhook) {
+      resultEl.textContent = '❌ 请先填写 Webhook 地址';
+      resultEl.style.color = 'var(--red)';
+      return;
+    }
+    resultEl.textContent = '⏳ 测试中 (直连)...';
+    resultEl.style.color = 'var(--yellow)';
+
+    const payload = {
+      msgtype: 'markdown',
+      markdown: {
+        title: '振幅监控 - 测试消息',
+        text: '## 📊 振幅监控系统\n\n**测试消息**：钉钉推送功能已成功配置！\n\n' +
+          `**推送级别**: ${STATE.dingtalkPushLevel === 'warn' ? '⚠️ 警告及以上' : STATE.dingtalkPushLevel === 'danger' ? '🔶 高危及以上' : '🔴 仅极端'}\n\n` +
+          `**配置时间**: ${new Date().toLocaleString('zh-CN', { hour12: false })}\n\n` +
+          '> 振幅监控系统自动推送',
+      },
+    };
+    const body = JSON.stringify(payload);
+
+    // Strategy 1: direct
+    let directOk = false;
+    try {
+      const resp = await fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body,
+      });
+      const data = await resp.json();
+      if (data.errcode === 0) {
+        resultEl.textContent = '✅ 推送成功！请检查钉钉群消息';
+        resultEl.style.color = 'var(--green)';
+        return;
+      }
+      directOk = true;
+      resultEl.textContent = '❌ 钉钉返回错误: ' + (data.errmsg || JSON.stringify(data));
+      resultEl.style.color = 'var(--red)';
+      return;
+    } catch(e) {
+      // CORS or network error, try proxies
+    }
+
+    // Strategy 2: try custom CORS proxy first
+    const customProxy = document.getElementById('dingtalkCorsProxy').value.trim();
+    if (customProxy) {
+      resultEl.textContent = '⏳ 测试中 (自定义代理)...';
+      try {
+        const data = await _fetchDingTalkViaProxy(customProxy, webhook, body);
+        if (data.errcode === 0) {
+          resultEl.textContent = '✅ 推送成功！请检查钉钉群消息';
+          resultEl.style.color = 'var(--green)';
+          return;
+        }
+        resultEl.textContent = '❌ 钉钉返回错误: ' + (data.errmsg || JSON.stringify(data));
+        resultEl.style.color = 'var(--red)';
+        return;
+      } catch(e) {
+        // custom proxy failed, try public
+      }
+    }
+
+    // Strategy 3: try public CORS proxies
+    const proxies = DINGTALK_CORS_PROXIES;
+    for (let i = 0; i < proxies.length; i++) {
+      resultEl.textContent = `⏳ 测试中 (代理${i + 1}/${proxies.length})...`;
+      try {
+        const data = await _fetchDingTalkViaProxy(proxies[i], webhook, body);
+        if (data.errcode === 0) {
+          resultEl.textContent = '✅ 推送成功！请检查钉钉群消息';
+          resultEl.style.color = 'var(--green)';
+          return;
+        }
+        resultEl.textContent = '❌ 钉钉返回错误: ' + (data.errmsg || JSON.stringify(data));
+        resultEl.style.color = 'var(--red)';
+        return;
+      } catch(e) {
+        continue;
+      }
+    }
+
+    resultEl.textContent = '❌ 所有推送方式均失败，请检查:\n① Webhook 地址是否正确\n② 网络是否能访问外网\n③ 代理/VPN 是否正常';
+    resultEl.style.color = 'var(--red)';
   }
 
   // ── REFRESH ──
@@ -1715,13 +2321,21 @@ class AmplitudeMonitor {
         for (const tf of STATE.timeframes) {
           tasks.push({ sym, tf });
         }
+        // Also fetch gain-only timeframes
+        for (const tf of CONFIG.GAIN_EXTRA_TF) {
+          tasks.push({ sym, tf, isGainExtra: true });
+        }
       }
       for (let i = 0; i < tasks.length; i += CONCURRENCY) {
         const batch = tasks.slice(i, i + CONCURRENCY);
-        await Promise.all(batch.map(async ({ sym, tf }) => {
+        await Promise.all(batch.map(async ({ sym, tf, isGainExtra }) => {
           try {
             const candles = await BinanceAPI.fetchKlinesBulk(sym, tf, CONFIG.KLINE_LIMIT);
-            this.processInitialKlines(sym, tf, candles);
+            if (isGainExtra) {
+              this.processInitialGainKlines(sym, tf, candles);
+            } else {
+              this.processInitialKlines(sym, tf, candles);
+            }
           } catch(e) {}
         }));
       }
@@ -1763,6 +2377,8 @@ class AmplitudeMonitor {
   async reload() {
     this.disconnectWS();
     STATE.klineCache = {};
+    STATE.gainCache = {};
+    STATE.gainKlineCache = {};
     STATE.pairMeta = {};
     STATE.patternCache = {};
     await this.loadData();
