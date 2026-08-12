@@ -692,32 +692,31 @@ function shouldDingTalkPush(level) {
 
 // ==================== BINANCE API ====================
 const BinanceAPI = {
-  _pending: Promise.resolve(),
   _rateLimitQueue: [],
-  _rateLimitTimer: null,
+  _activeRequests: 0,
+  _maxConcurrency: 8,
+  _interReqDelay: 4,
   _rateLimitedFetch(url) {
     return new Promise((resolve, reject) => {
       this._rateLimitQueue.push({ url, resolve, reject });
-      if (!this._rateLimitTimer) {
-        this._rateLimitTimer = setInterval(() => {
-          const task = this._rateLimitQueue.shift();
-          if (!task) { clearInterval(this._rateLimitTimer); this._rateLimitTimer = null; return; }
-          fetch(task.url)
-            .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-            .then(task.resolve, task.reject);
-        }, 10);
-      }
+      this._processRateQueue();
     });
   },
-  async _throttledFetch(url) {
-    const req = this._pending.then(() => sleep(60));
-    this._pending = req;
-    await req;
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    return resp.json();
+  _processRateQueue() {
+    var self = this;
+    while (self._activeRequests < self._maxConcurrency && self._rateLimitQueue.length > 0) {
+      var task = self._rateLimitQueue.shift();
+      self._activeRequests++;
+      fetch(task.url)
+        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(task.resolve, task.reject)
+        .finally(function() {
+          self._activeRequests--;
+          setTimeout(function() { self._processRateQueue(); }, self._interReqDelay);
+        });
+    }
   },
-  fetchJSON(url) { return this._throttledFetch(url); },
+  fetchJSON(url) { return this._rateLimitedFetch(url); },
   fetchKlinesBulk(symbol, interval, limit) {
     limit = limit || 3;
     return this._rateLimitedFetch(
@@ -735,6 +734,17 @@ const BinanceAPI = {
         };
       });
     });
+  },
+
+  async getPriceMap() {
+    // Lightweight: /ticker/price returns only symbol+price, much smaller payload than /ticker/24hr
+    const data = await this._rateLimitedFetch(`${CONFIG.BINANCE_REST}/ticker/price`);
+    if (!Array.isArray(data)) return {};
+    const map = {};
+    for (var i = 0; i < data.length; i++) {
+      map[data[i].symbol] = parseFloat(data[i].price);
+    }
+    return map;
   },
 
   async getTopPairs(limit) {
@@ -909,49 +919,58 @@ class AmplitudeMonitor {
         };
       }
 
-      // Start WebSocket early so data flows in parallel with REST loading
+      // Build table rows IMMEDIATELY so user sees the UI with "--" placeholders
+      // Cells update in real-time as REST responses stream in
+      this.buildTableBody();
+      document.getElementById('pairCount').textContent = `币种: ${STATE.symbols.length}`;
+
+      // Start WebSocket RIGHT AWAY — real-time data flows in while REST loads
       this.startWebSocket();
 
-      // Fetch klines for all symbols × timeframes with controlled concurrency
-      const CONCURRENCY = 20;
-      const tasks = [];
-      for (const sym of STATE.symbols) {
-        for (const tf of STATE.timeframes) {
-          tasks.push({ sym, tf });
+      // Fire ALL kline requests concurrently (8 at a time via rate limiter)
+      // Each response updates its cell immediately — no batching, no waiting
+      var self = this;
+      var allTasks = [];
+      for (var s = 0; s < STATE.symbols.length; s++) {
+        var sym = STATE.symbols[s];
+        for (var tfIdx = 0; tfIdx < STATE.timeframes.length; tfIdx++) {
+          allTasks.push(self._fetchAndProcessKline(sym, STATE.timeframes[tfIdx], false));
         }
-        // Also fetch gain-only timeframes (10m, 2h)
-        for (const tf of CONFIG.GAIN_EXTRA_TF) {
-          tasks.push({ sym, tf, isGainExtra: true });
+        for (var gIdx = 0; gIdx < CONFIG.GAIN_EXTRA_TF.length; gIdx++) {
+          allTasks.push(self._fetchAndProcessKline(sym, CONFIG.GAIN_EXTRA_TF[gIdx], true));
         }
       }
 
-      // Process in batches using the fast rate limiter (no 60ms throttle)
-      for (let i = 0; i < tasks.length; i += CONCURRENCY) {
-        const batch = tasks.slice(i, i + CONCURRENCY);
-        await Promise.all(batch.map(async ({ sym, tf, isGainExtra }) => {
-          try {
-            const candles = await BinanceAPI.fetchKlinesBulk(sym, tf, CONFIG.KLINE_LIMIT);
-            if (isGainExtra) {
-              this.processInitialGainKlines(sym, tf, candles);
-            } else {
-              this.processInitialKlines(sym, tf, candles);
-            }
-          } catch(e) {
-            // Will be filled by WebSocket later
-          }
-        }));
-      }
+      // Wait for all REST data to settle (cells already updated during the wait)
+      await Promise.allSettled(allTasks);
 
-      // Build table rows (uses DocumentFragment for fast DOM insertion)
-      this.buildTableBody();
       this.updateStats();
-      document.getElementById('pairCount').textContent = `币种: ${STATE.symbols.length}`;
       document.getElementById('statUpdate').textContent = '✓ 就绪';
       document.getElementById('statUpdate').style.color = 'var(--green)';
     } catch(e) {
       console.error('[AmplitudeMonitor] loadData error:', e);
       document.getElementById('statUpdate').textContent = '✗ 加载失败';
       document.getElementById('statUpdate').style.color = 'var(--red)';
+    }
+  }
+
+  async _fetchAndProcessKline(sym, tf, isGainExtra) {
+    try {
+      var candles = await BinanceAPI.fetchKlinesBulk(sym, tf, CONFIG.KLINE_LIMIT);
+      if (isGainExtra) {
+        this.processInitialGainKlines(sym, tf, candles);
+      } else {
+        this.processInitialKlines(sym, tf, candles);
+        // Update amplitude cell immediately
+        this.updateCell(sym, tf);
+        // Update corresponding gain cell if this TF is shared
+        if (CONFIG.GAIN_TIMEFRAMES.indexOf(tf) >= 0) {
+          this.updateGainCell(sym, tf);
+        }
+        this.detectAndUpdatePattern(sym, tf);
+      }
+    } catch(e) {
+      // Will be filled by WebSocket later
     }
   }
 
@@ -994,8 +1013,7 @@ class AmplitudeMonitor {
       };
     }
 
-    // Run pattern detection on initial load
-    this.detectAndUpdatePattern(sym, tf);
+    // Pattern detection is now called from _fetchAndProcessKline after cell updates
   }
 
   processInitialGainKlines(sym, tf, candles) {
@@ -2314,34 +2332,23 @@ class AmplitudeMonitor {
         };
       }
 
-      // Fetch latest klines using fast bulk loader
-      const CONCURRENCY = 20;
-      const tasks = [];
-      for (const sym of STATE.symbols) {
-        for (const tf of STATE.timeframes) {
-          tasks.push({ sym, tf });
-        }
-        // Also fetch gain-only timeframes
-        for (const tf of CONFIG.GAIN_EXTRA_TF) {
-          tasks.push({ sym, tf, isGainExtra: true });
-        }
-      }
-      for (let i = 0; i < tasks.length; i += CONCURRENCY) {
-        const batch = tasks.slice(i, i + CONCURRENCY);
-        await Promise.all(batch.map(async ({ sym, tf, isGainExtra }) => {
-          try {
-            const candles = await BinanceAPI.fetchKlinesBulk(sym, tf, CONFIG.KLINE_LIMIT);
-            if (isGainExtra) {
-              this.processInitialGainKlines(sym, tf, candles);
-            } else {
-              this.processInitialKlines(sym, tf, candles);
-            }
-          } catch(e) {}
-        }));
-      }
-
+      // Build table immediately, then stream in kline data concurrently
       this.buildTableBody();
       this.startWebSocket();
+
+      var self = this;
+      var allTasks = [];
+      for (var s = 0; s < STATE.symbols.length; s++) {
+        var sym = STATE.symbols[s];
+        for (var tfIdx = 0; tfIdx < STATE.timeframes.length; tfIdx++) {
+          allTasks.push(self._fetchAndProcessKline(sym, STATE.timeframes[tfIdx], false));
+        }
+        for (var gIdx = 0; gIdx < CONFIG.GAIN_EXTRA_TF.length; gIdx++) {
+          allTasks.push(self._fetchAndProcessKline(sym, CONFIG.GAIN_EXTRA_TF[gIdx], true));
+        }
+      }
+      await Promise.allSettled(allTasks);
+
       this.updateStats();
       document.getElementById('pairCount').textContent = `币种: ${STATE.symbols.length}`;
       document.getElementById('statUpdate').textContent = '✓ 刷新完成';
@@ -2354,24 +2361,42 @@ class AmplitudeMonitor {
   }
 
   startPeriodicRefresh() {
-    // Refresh pair metadata every 60 seconds
-    setInterval(async () => {
+    // Lightweight price update every 90s using /ticker/price (WebSocket handles real-time)
+    // Full 24hr ticker refresh every 5 minutes for volume/change data
+    var self = this;
+    var refreshCount = 0;
+    setInterval(async function() {
       try {
-        const pairs = await BinanceAPI.getTopPairs(STATE.symbolCount);
-        for (const p of pairs) {
-          if (STATE.pairMeta[p.symbol]) {
-            STATE.pairMeta[p.symbol].lastPrice = p.lastPrice;
-            STATE.pairMeta[p.symbol].priceChangePercent = p.priceChangePercent;
+        refreshCount++;
+        if (refreshCount % 3 === 0) {
+          // Every ~4.5 min: full ticker refresh for 24h change + volume ranking
+          var pairs = await BinanceAPI.getTopPairs(STATE.symbolCount);
+          for (var i = 0; i < pairs.length; i++) {
+            var p = pairs[i];
+            if (STATE.pairMeta[p.symbol]) {
+              STATE.pairMeta[p.symbol].lastPrice = p.lastPrice;
+              STATE.pairMeta[p.symbol].priceChangePercent = p.priceChangePercent;
+              STATE.pairMeta[p.symbol].quoteVolume = p.quoteVolume;
+            }
+          }
+        } else {
+          // Lightweight: only price updates via /ticker/price
+          var priceMap = await BinanceAPI.getPriceMap();
+          for (var s = 0; s < STATE.symbols.length; s++) {
+            var sym = STATE.symbols[s];
+            if (priceMap[sym] != null && STATE.pairMeta[sym]) {
+              STATE.pairMeta[sym].lastPrice = priceMap[sym];
+            }
           }
         }
-        // Update price column
-        for (const sym of STATE.symbols) {
-          const meta = STATE.pairMeta[sym];
-          if (meta) this.updatePriceCell(sym, meta.lastPrice);
+        // Update price cells
+        for (var j = 0; j < STATE.symbols.length; j++) {
+          var meta = STATE.pairMeta[STATE.symbols[j]];
+          if (meta) self.updatePriceCell(STATE.symbols[j], meta.lastPrice);
         }
         document.getElementById('statUpdate').textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
       } catch(e) {}
-    }, 60000);
+    }, 90000);
   }
 
   async reload() {
