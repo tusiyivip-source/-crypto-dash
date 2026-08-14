@@ -63,6 +63,8 @@ body {
 .btn.blue.active { background:var(--blue); color:#fff; border-color:var(--blue); box-shadow:0 0 8px rgba(30,128,255,0.3); }
 .btn.danger { border-color:var(--red); color:var(--red); }
 .btn.danger:hover { background:rgba(246,70,93,0.15); }
+.btn.sort-asc::after { content:' ▲'; font-size:9px; }
+.btn.sort-desc::after { content:' ▼'; font-size:9px; }
 #muteBtn { font-size:15px; padding:6px 10px; }
 #muteBtn.muted { color:var(--red); border-color:var(--red); }
 
@@ -307,22 +309,22 @@ tbody tr.pattern-active-bearish { box-shadow:inset 3px 0 0 var(--red); }
   <!-- TOOLBAR -->
   <div id="toolbar">
     <span style="color:var(--text-secondary);font-size:12px;">振幅排序:</span>
-    <button class="btn active" onclick="app.setSort('symbol')">字母</button>
-    <button class="btn" onclick="app.setSort('change_asc')">涨幅↑</button>
-    <button class="btn" onclick="app.setSort('change_desc')">跌幅↑</button>
-    <button class="btn" onclick="app.setSort('amp_5m')">5m振幅</button>
-    <button class="btn" onclick="app.setSort('amp_15m')">15m振幅</button>
-    <button class="btn" onclick="app.setSort('amp_1h')">1h振幅</button>
-    <button class="btn" onclick="app.setSort('amp_4h')">4h振幅</button>
-    <button class="btn" onclick="app.setSort('amp_1d')">1d振幅</button>
+    <button class="btn active" data-sort="symbol" onclick="app.setSort('symbol')">字母</button>
+    <button class="btn" data-sort="change_asc" onclick="app.setSort('change_asc')">涨幅↑</button>
+    <button class="btn" data-sort="change_desc" onclick="app.setSort('change_desc')">跌幅↑</button>
+    <button class="btn" data-sort="amp_5m" onclick="app.setSort('amp_5m')">5m振幅</button>
+    <button class="btn" data-sort="amp_15m" onclick="app.setSort('amp_15m')">15m振幅</button>
+    <button class="btn" data-sort="amp_1h" onclick="app.setSort('amp_1h')">1h振幅</button>
+    <button class="btn" data-sort="amp_4h" onclick="app.setSort('amp_4h')">4h振幅</button>
+    <button class="btn" data-sort="amp_1d" onclick="app.setSort('amp_1d')">1d振幅</button>
     <span class="sep" style="color:var(--border);">│</span>
     <span style="color:var(--blue);font-size:12px;">单K涨幅排序:</span>
-    <button class="btn blue active" onclick="app.setSort('gain_5m')">5m</button>
-    <button class="btn blue" onclick="app.setSort('gain_10m')">10m</button>
-    <button class="btn blue" onclick="app.setSort('gain_30m')">30m</button>
-    <button class="btn blue" onclick="app.setSort('gain_1h')">1h</button>
-    <button class="btn blue" onclick="app.setSort('gain_2h')">2h</button>
-    <button class="btn blue" onclick="app.setSort('gain_1d')">1d</button>
+    <button class="btn blue active" data-sort="gain_5m" onclick="app.setSort('gain_5m')">5m</button>
+    <button class="btn blue" data-sort="gain_10m" onclick="app.setSort('gain_10m')">10m</button>
+    <button class="btn blue" data-sort="gain_30m" onclick="app.setSort('gain_30m')">30m</button>
+    <button class="btn blue" data-sort="gain_1h" onclick="app.setSort('gain_1h')">1h</button>
+    <button class="btn blue" data-sort="gain_2h" onclick="app.setSort('gain_2h')">2h</button>
+    <button class="btn blue" data-sort="gain_1d" onclick="app.setSort('gain_1d')">1d</button>
     <span class="sep" style="color:var(--border);">│</span>
     <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;">
       <input type="checkbox" id="filterExtreme" onchange="app.toggleFilter('extreme')"> 仅极端
@@ -502,8 +504,7 @@ const STATE = {
   perCoinAlerts: {}, // { 'BTCUSDT': { enabled: true, thresholds: { '5m': {warn,danger,extreme}, ... } } }
   perCoinPopupTarget: null, // symbol whose popup is currently open
   wsConnected: false,
-  wsReconnectTimer: null,
-  wsConnections: [],
+  wsConnections: [], // [{ close() }] — connection handles; each manages its own reconnect timer
   muted: localStorage.getItem('amp_monitor_muted') === 'true',
   soundEnabled: localStorage.getItem('amp_monitor_sound') !== 'false',
   notifyEnabled: localStorage.getItem('amp_monitor_notify') !== 'false',
@@ -521,7 +522,8 @@ function fmtPrice(p) {
   if (p == null || isNaN(p)) return '--';
   if (p >= 1000) return p.toFixed(2);
   if (p >= 1) return p.toFixed(4);
-  return p.toFixed(6);
+  if (p >= 0.0001) return p.toFixed(6);
+  return p.toFixed(8);
 }
 function fmtPct(p) {
   if (p == null || isNaN(p)) return '--';
@@ -779,8 +781,29 @@ const BinanceAPI = {
   },
 
   _createWS(url, onMessage) {
-    function connect() {
-      const ws = new WebSocket(url);
+    // Connection handle: each connection owns its own reconnect timer, and
+    // close() permanently stops the socket + its scheduled reconnects, so
+    // disconnectWS() can fully tear everything down (no leaked sockets).
+    let ws = null;
+    let stopped = false;
+    let reconnectTimer = null;
+
+    const handle = {
+      _remove() {
+        const idx = STATE.wsConnections.indexOf(handle);
+        if (idx >= 0) STATE.wsConnections.splice(idx, 1);
+      },
+      close() {
+        stopped = true;
+        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+        try { if (ws) ws.close(); } catch(e) {}
+        this._remove();
+      }
+    };
+
+    const connect = () => {
+      if (stopped) return;
+      ws = new WebSocket(url);
       ws.onopen = () => {
         STATE.wsConnected = true;
         updateConnectionUI();
@@ -801,19 +824,21 @@ const BinanceAPI = {
         } catch(e) {}
       };
       ws.onclose = () => {
+        handle._remove();
+        if (stopped) return;
         STATE.wsConnected = false;
         updateConnectionUI();
-        STATE.wsReconnectTimer = setTimeout(connect, 5000);
+        reconnectTimer = setTimeout(connect, 5000);
       };
       ws.onerror = () => {
         STATE.wsConnected = false;
         updateConnectionUI();
       };
-      return ws;
-    }
-    const ws = connect();
-    STATE.wsConnections.push(ws);
-    return ws;
+    };
+
+    STATE.wsConnections.push(handle);
+    connect();
+    return handle;
   },
 };
 
@@ -834,6 +859,7 @@ class AmplitudeMonitor {
     this.updateThresholdPresetUI();
     this.updateMuteUI();
     this.buildTableHeader();
+    this.updateAlertBadge();
 
     // Request notification permission early
     if ('Notification' in window && Notification.permission === 'default') {
@@ -1068,9 +1094,9 @@ class AmplitudeMonitor {
   }
 
   disconnectWS() {
-    if (STATE.wsReconnectTimer) { clearTimeout(STATE.wsReconnectTimer); STATE.wsReconnectTimer = null; }
-    for (const ws of STATE.wsConnections) {
-      try { ws.close(); } catch(e) {}
+    // Iterate over a copy: close() splices STATE.wsConnections while iterating
+    for (const conn of [...STATE.wsConnections]) {
+      try { conn.close(); } catch(e) {}
     }
     STATE.wsConnections = [];
     STATE.wsConnected = false;
@@ -1138,8 +1164,10 @@ class AmplitudeMonitor {
       this.handleGainKline(sym, tf, o, h, l, c, isClosed, klineTime);
     }
 
-    // Check engulfing pattern
-    this.detectAndUpdatePattern(sym, tf);
+    // Check engulfing pattern (amplitude TFs only — 10m/2h are gain-only and never shown)
+    if (STATE.timeframes.indexOf(tf) >= 0) {
+      this.detectAndUpdatePattern(sym, tf);
+    }
 
     // Update pair meta price
     if (STATE.pairMeta[sym]) {
@@ -1185,6 +1213,7 @@ class AmplitudeMonitor {
       time: now(),
     };
     STATE.alerts.push(alert);
+    if (STATE.alerts.length > 500) STATE.alerts = STATE.alerts.slice(-500);
     STATE.alertLog.push(alert);
     if (STATE.alertLog.length > 500) STATE.alertLog = STATE.alertLog.slice(-500);
 
@@ -1508,14 +1537,14 @@ class AmplitudeMonitor {
   // ── UI UPDATES ──
   buildTableHeader() {
     let html = '<tr>';
-    html += '<th class="sym-col" onclick="app.setSort(\'symbol\')">币种</th>';
-    html += '<th class="price-col" onclick="app.setSort(\'price\')">价格</th>';
-    html += '<th class="chg-col" onclick="app.setSort(\'change_desc\')">24h涨跌</th>';
+    html += '<th class="sym-col" data-sort="symbol" onclick="app.setSort(\'symbol\')">币种</th>';
+    html += '<th class="price-col" data-sort="price" onclick="app.setSort(\'price\')">价格</th>';
+    html += '<th class="chg-col" data-sort="change_desc" onclick="app.setSort(\'change_desc\')">24h涨跌</th>';
     for (const tf of STATE.timeframes) {
-      html += `<th class="amp-col" onclick="app.setSort('amp_${tf}')" title="${CONFIG.TF_LABELS[tf]}">${tf}</th>`;
+      html += `<th class="amp-col" data-sort="amp_${tf}" onclick="app.setSort('amp_${tf}')" title="${CONFIG.TF_LABELS[tf]}">${tf}</th>`;
     }
     for (const tf of CONFIG.GAIN_TIMEFRAMES) {
-      html += `<th class="amp-col" onclick="app.setSort('gain_${tf}')" title="${CONFIG.GAIN_TF_LABELS[tf]}单K涨幅" style="color:var(--blue);">涨${tf}</th>`;
+      html += `<th class="amp-col" data-sort="gain_${tf}" onclick="app.setSort('gain_${tf}')" title="${CONFIG.GAIN_TF_LABELS[tf]}单K涨幅" style="color:var(--blue);">涨${tf}</th>`;
     }
     html += '<th class="amp-col" style="width:72px;" title="一阳穿三阴 / 一阴穿三阳 形态">形态</th>';
     html += '</tr>';
@@ -1696,7 +1725,8 @@ class AmplitudeMonitor {
         STATE.sortAsc = !STATE.sortAsc;
       } else {
         STATE.sortBy = mode;
-        STATE.sortAsc = mode === 'symbol';
+        // 涨幅按钮默认降序(涨幅最高在前), 跌幅按钮默认升序(跌幅最大在前)
+        STATE.sortAsc = mode === 'symbol' || mode === 'change_desc';
       }
     }
     this.updateSortUI();
@@ -1705,24 +1735,17 @@ class AmplitudeMonitor {
   }
 
   updateSortUI() {
-    const btns = document.querySelectorAll('#toolbar .btn');
-    const isGainSort = STATE.sortBy.startsWith('gain_');
-    btns.forEach(b => {
-      if (b.onclick && b.onclick.toString().includes(`'${STATE.sortBy}'`)) {
-        b.classList.add('active');
-      } else {
-        // Only deactivate buttons in the same group
-        const bIsGain = b.onclick && b.onclick.toString().includes('gain_');
-        const bIsAmp = b.onclick && (b.onclick.toString().includes('amp_') || b.onclick.toString().includes('symbol') || b.onclick.toString().includes('change_'));
-        if ((isGainSort && bIsGain && !b.onclick.toString().includes(`'${STATE.sortBy}'`)) ||
-            (!isGainSort && bIsAmp && !b.onclick.toString().includes(`'${STATE.sortBy}'`))) {
-          b.classList.remove('active');
-        } else if (!isGainSort && bIsGain) {
-          b.classList.remove('active');
-        } else if (isGainSort && bIsAmp) {
-          b.classList.remove('active');
-        }
-      }
+    // Toolbar buttons and table headers carry data-sort attributes
+    document.querySelectorAll('#toolbar .btn[data-sort]').forEach(b => {
+      const mode = b.dataset.sort;
+      b.classList.toggle('active', mode === STATE.sortBy);
+      b.classList.toggle('sort-asc', mode === STATE.sortBy && STATE.sortAsc);
+      b.classList.toggle('sort-desc', mode === STATE.sortBy && !STATE.sortAsc);
+    });
+    document.querySelectorAll('#tableHead th[data-sort]').forEach(th => {
+      const mode = th.dataset.sort;
+      th.classList.toggle('sort-asc', mode === STATE.sortBy && STATE.sortAsc);
+      th.classList.toggle('sort-desc', mode === STATE.sortBy && !STATE.sortAsc);
     });
   }
 
@@ -2318,6 +2341,9 @@ class AmplitudeMonitor {
 
   // ── REFRESH ──
   async manualRefresh() {
+    // Guard against overlapping refreshes (keyboard 'r' spam / double clicks)
+    if (this._refreshing) return;
+    this._refreshing = true;
     document.getElementById('statUpdate').textContent = '刷新中...';
     document.getElementById('statUpdate').style.color = 'var(--yellow)';
 
@@ -2357,6 +2383,8 @@ class AmplitudeMonitor {
       console.error('[AmplitudeMonitor] refresh error:', e);
       document.getElementById('statUpdate').textContent = '✗ 刷新失败';
       document.getElementById('statUpdate').style.color = 'var(--red)';
+    } finally {
+      this._refreshing = false;
     }
   }
 
@@ -2406,8 +2434,8 @@ class AmplitudeMonitor {
     STATE.gainKlineCache = {};
     STATE.pairMeta = {};
     STATE.patternCache = {};
+    // loadData() 内部已调用 startWebSocket()
     await this.loadData();
-    this.startWebSocket();
   }
 
   // ── CLOCK ──
