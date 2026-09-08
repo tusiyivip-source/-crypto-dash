@@ -61,6 +61,16 @@ body {
 }
 .sort-btn:hover { border-color: var(--blue); color: var(--text); background: var(--hover); }
 .sort-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 700; box-shadow: 0 0 8px rgba(30,128,255,0.3); }
+.sort-btn.align-bull.active { background: #f6465d; color: #fff; border-color: #f6465d; font-weight: 700; box-shadow: 0 0 8px rgba(246,70,93,0.35); }
+.sort-btn.align-bear.active { background: #0ecb81; color: #000; border-color: #0ecb81; font-weight: 700; box-shadow: 0 0 8px rgba(14,203,129,0.35); }
+.sort-btn.scanning { opacity: 0.6; pointer-events: none; }
+.ma-badge {
+  display: inline-flex; align-items: center; font-size: 10px; font-weight: 600;
+  padding: 1px 6px; border-radius: 4px; margin-left: 6px; letter-spacing: 0.2px;
+  max-width: 130px; overflow: hidden; white-space: nowrap;
+}
+.ma-badge.bull { color: #f6465d; background: rgba(246,70,93,0.14); border: 1px solid rgba(246,70,93,0.35); }
+.ma-badge.bear { color: #0ecb81; background: rgba(14,203,129,0.12); border: 1px solid rgba(14,203,129,0.35); }
 .header-right { display: flex; align-items: center; gap: 16px; font-size: 12px; }
 #connectionDot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px rgba(14,203,129,0.4); transition: all 0.3s; }
 #connectionDot.disconnected { background: var(--red); box-shadow: 0 0 6px rgba(246,70,93,0.4); }
@@ -322,6 +332,8 @@ body {
 	      <button class="sort-btn active" data-sort="volume" onclick="dashboard.sortBy('volume')">📊 成交额</button>
 	      <button class="sort-btn" data-sort="gainers" onclick="dashboard.sortBy('gainers')">📈 涨幅</button>
 	      <button class="sort-btn" data-sort="losers" onclick="dashboard.sortBy('losers')">📉 跌幅</button>
+	      <button class="sort-btn align-bull" data-sort="maBull" onclick="dashboard.sortBy('maBull')" title="最新K线为阳线且收盘站上EMA7和MA7的币种置顶(扫描5m/15m/30m/1h/4h/1d)">▲ 阳线站上EMA7·MA7</button>
+	      <button class="sort-btn align-bear" data-sort="maBear" onclick="dashboard.sortBy('maBear')" title="最新K线为阴线且收盘跌破EMA7和MA7的币种置顶(扫描5m/15m/30m/1h/4h/1d)">▼ 阴线跌破EMA7·MA7</button>
     </div>
     <div class="header-right">
       <span id="connectionDot" title="WebSocket连接状态"></span>
@@ -404,7 +416,14 @@ const CONFIG = {
   TIMEFRAMES: ['3m', '5m', '10m', '15m', '30m', '1h', '2h', '3h', '4h', '6h', '1d', '2d', '3d'],
   DEFAULT_TF: '15m',
   KLINE_LIMIT: 400,
-  MA_PERIODS: [7, 14],
+  MA_PERIODS: [7],
+  EMA7_PERIOD: 7,
+  // EMA7/MA7 均线排列扫描配置: 常用级别、请求K线数、限速与自动刷新
+  ALIGN_TFS: ['5m', '15m', '30m', '1h', '4h', '1d'],
+  ALIGN_KLINE_LIMIT: 60,
+  ALIGN_REQ_GAP_MS: 55,   // 相邻请求最小间隔(≈18次/秒), 权重远低于币安限制
+  ALIGN_CACHE_TTL: 45000, // 缓存多久内视为新鲜
+  ALIGN_RESCAN_MS: 60000, // 排列模式下自动重新扫描间隔
   MACD_FAST: 12,
   MACD_SLOW: 26,
   MACD_SIGNAL: 9,
@@ -1287,7 +1306,7 @@ class ChartPanel {
     this.chart = null;
     this.candleSeries = null;
     this.ma7Series = null;
-    this.ma14Series = null;
+    this.ema7Series = null;
     this.macdHistSeries = null;
     this.macdSignalSeries = null;
     this.volumeSeries = null;
@@ -1313,6 +1332,7 @@ class ChartPanel {
     panel.innerHTML = `
       <div class="panel-header" title="点击展开/收起">
         <span class="panel-symbol">${this.symbol}</span>
+        <span class="ma-badge" style="display:none"></span>
         <span class="panel-price">--</span>
         <span class="panel-change">--</span>
         <div class="panel-actions">
@@ -1735,12 +1755,12 @@ class ChartPanel {
     document.addEventListener('keydown', escHandler);
     this._escHandler = escHandler;
 
-    // MA series
+    // MA series (仅显示 EMA7 与 MA7 两条均线)
     this.ma7Series = this.chart.addLineSeries({
       color: '#f0b90b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
     });
-    this.ma14Series = this.chart.addLineSeries({
-      color: '#e040fb', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+    this.ema7Series = this.chart.addLineSeries({
+      color: '#0ef0f0', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
     });
 
     // MACD series (creates 'macd' price scale)
@@ -1829,18 +1849,18 @@ class ChartPanel {
 
     // Calculate indicators
     const ma7 = Indicators.sma(this.candles, CONFIG.MA_PERIODS[0]);
-    const ma14 = Indicators.sma(this.candles, CONFIG.MA_PERIODS[1]);
+    const ema7 = Indicators.ema(this.candles, CONFIG.EMA7_PERIOD);
     const macd = Indicators.macd(this.candles);
 
     // Update MA lines
     const ma7Data = [];
-    const ma14Data = [];
+    const ema7Data = [];
     for (let i = 0; i < this.candles.length; i++) {
       if (ma7[i] != null) ma7Data.push({ time: this.candles[i].time, value: ma7[i] });
-      if (ma14[i] != null) ma14Data.push({ time: this.candles[i].time, value: ma14[i] });
+      if (ema7[i] != null) ema7Data.push({ time: this.candles[i].time, value: ema7[i] });
     }
     this.ma7Series.setData(ma7Data);
-    this.ma14Series.setData(ma14Data);
+    this.ema7Series.setData(ema7Data);
 
     // Update MACD
     const macdHistData = [];
@@ -1936,6 +1956,25 @@ class ChartPanel {
     priceEl.textContent = '$' + fmtPrice(price);
     changeEl.textContent = fmtPct(change);
     changeEl.className = 'panel-change ' + (change >= 0 ? 'up' : 'down');
+  }
+
+  // 均线排列徽标: dir = 'bull'(阳线站上) | 'bear'(阴线跌破), levels = 满足条件的级别数组
+  setMABadge(dir, levels) {
+    if (!this._maBadgeEl) this._maBadgeEl = this.panel ? this.panel.querySelector('.ma-badge') : null;
+    const el = this._maBadgeEl;
+    if (!el) return;
+    if (!dir || !levels || !levels.length) {
+      el.style.display = 'none';
+      el.textContent = '';
+      return;
+    }
+    const ordered = levels.slice().reverse(); // 级别从大到小排列显示
+    const name = dir === 'bull' ? '阳线站上' : '阴线跌破';
+    const arrow = dir === 'bull' ? '▲' : '▼';
+    el.className = 'ma-badge ' + dir;
+    el.textContent = arrow + ' ' + ordered.join(' ');
+    el.title = name + ' EMA7·MA7: ' + ordered.join(' ') + ' (级别从大到小)';
+    el.style.display = '';
   }
 
   updateStatus() {
@@ -2323,6 +2362,13 @@ const AlertManager = {
 class Dashboard {
   constructor() {
     this.grid = document.getElementById('chartGrid');
+    // EMA7/MA7 均线排列扫描状态
+    this.maAlign = {};          // symbol -> { bull: [tf...], bear: [tf...], ts }
+    this._maScanBusy = false;
+    this._maScanDone = false;
+    this._maScanFinishedAt = 0;
+    this._maScanTimer = null;
+    this._paceTail = Promise.resolve();
   }
 
   async init() {
@@ -2358,12 +2404,23 @@ class Dashboard {
     // Button clicks handled via inline onclick="dashboard.sortBy(...)"
   }
 
-  sortBy(mode) {
+  async sortBy(mode) {
+    const prev = STATE.sortMode;
     STATE.sortMode = mode;
     document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
     const btn = document.querySelector(`.sort-btn[data-sort="${mode}"]`);
     if (btn) btn.classList.add('active');
+
+    // 均线排列模式(阳线站上/阴线跌破): 需要先做多级别扫描
+    if (mode === 'maBull' || mode === 'maBear') {
+      const fresh = this._maScanDone && (Date.now() - this._maScanFinishedAt) < CONFIG.ALIGN_CACHE_TTL;
+      if (prev === mode || !fresh) await this.scanMAAlign(); // 重复点击=强制重新扫描
+      this._scheduleAlignRescan();
+    } else {
+      if (this._maScanTimer) { clearTimeout(this._maScanTimer); this._maScanTimer = null; }
+    }
     this.sortPanels();
+    this.renderMABadges();
   }
 
   sortPanels() {
@@ -2384,6 +2441,15 @@ class Dashboard {
       switch (STATE.sortMode) {
         case 'gainers': return (db.priceChangePercent || 0) - (da.priceChangePercent || 0);
         case 'losers':  return (da.priceChangePercent || 0) - (db.priceChangePercent || 0);
+        case 'maBull':
+        case 'maBear': {
+          // 满足条件的级别数多的排前面, 相同则按成交额
+          const dir = STATE.sortMode === 'maBull' ? 'bull' : 'bear';
+          const ra = this._alignRank(a.symbol, dir);
+          const rb = this._alignRank(b.symbol, dir);
+          if (ra !== rb) return rb - ra;
+          return (db.quoteVolume || 0) - (da.quoteVolume || 0);
+        }
         case 'volume':
         default:        return (db.quoteVolume || 0) - (da.quoteVolume || 0);
       }
@@ -2398,6 +2464,132 @@ class Dashboard {
         grid.appendChild(panel.panel);
       }
     }
+  }
+
+  // ==================== EMA7/MA7 均线排列扫描 ====================
+  _alignRank(symbol, dir) {
+    const info = this.maAlign[symbol];
+    return info && info[dir] ? info[dir].length : 0;
+  }
+
+  // 多级别并发扫描: 每币在5m/15m/30m/1h/4h/1d上取最新K线
+  // 阳线(收>开)且收盘同时高于EMA7与MA7 -> bull; 阴线且收盘同时低于两条均线 -> bear
+  async scanMAAlign() {
+    if (this._maScanBusy) { showToast('⏳ 均线扫描进行中，请稍候', false); return false; }
+    const symbols = Object.keys(STATE.chartPanels);
+    if (!symbols.length) return false;
+
+    this._maScanBusy = true;
+    this._setScanningUI(true);
+    const tfs = CONFIG.ALIGN_TFS;
+    const limit = CONFIG.ALIGN_KLINE_LIMIT;
+    const base = CONFIG.BINANCE_REST;
+    const total = symbols.length;
+    const statEl = document.getElementById('statData');
+    const setStat = (txt, color) => { if (statEl) { statEl.textContent = txt; statEl.style.color = color; } };
+    setStat(`均线扫描 0/${total}...`, 'var(--yellow)');
+
+    // 全局限速获取(相邻请求至少间隔 ALIGN_REQ_GAP_MS, 单次limit<=100权重1)
+    const pacedFetch = async (url) => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          await this._pacedTick();
+          const resp = await fetch(url);
+          if (resp.ok) return await resp.json();
+          throw new Error('HTTP ' + resp.status);
+        } catch (e) {
+          if (attempt === 1) throw e;
+          await sleep(600);
+        }
+      }
+    };
+
+    try {
+      let done = 0;
+      await this._poolMap(symbols, async (sym) => {
+        const bull = [], bear = [];
+        await this._poolMap(tfs, async (tf) => {
+          try {
+            const rows = await pacedFetch(`${base}/klines?symbol=${sym}&interval=${tf}&limit=${limit}`);
+            if (!rows || rows.length < 15) return;
+            const cs = rows.map(r => ({ open: parseFloat(r[1]), close: parseFloat(r[4]) }));
+            const ema7 = Indicators.ema(cs, CONFIG.EMA7_PERIOD);
+            const ma7 = Indicators.sma(cs, CONFIG.MA_PERIODS[0]);
+            const i = cs.length - 1;
+            const e7 = ema7[i], m7 = ma7[i], c = cs[i];
+            if (e7 == null || m7 == null) return;
+            if (c.close > c.open && c.close > e7 && c.close > m7) bull.push(tf);
+            else if (c.close < c.open && c.close < e7 && c.close < m7) bear.push(tf);
+          } catch (e) { /* 单个周期失败跳过 */ }
+        }, 2);
+        this.maAlign[sym] = { bull, bear, ts: Date.now() };
+        done++;
+        if (done % 10 === 0 || done === total) setStat(`均线扫描 ${done}/${total}...`, 'var(--yellow)');
+      }, 6);
+
+      this._maScanFinishedAt = Date.now();
+      this._maScanDone = true;
+      setStat(`✓ 均线扫描完成 ${total}币`, 'var(--green)');
+      showToast('✅ 均线排列扫描完成', false);
+    } catch (e) {
+      console.error('[均线扫描] error:', e);
+      setStat('✗ 均线扫描失败', 'var(--red)');
+    } finally {
+      this._maScanBusy = false;
+      this._setScanningUI(false);
+    }
+    return true;
+  }
+
+  // 简单并发池
+  async _poolMap(items, fn, concurrency) {
+    const results = new Array(items.length);
+    let next = 0;
+    const run = async () => {
+      while (true) {
+        const idx = next++;
+        if (idx >= items.length) return;
+        results[idx] = await fn(items[idx]);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => run()));
+    return results;
+  }
+
+  // 相邻请求至少间隔 ALIGN_REQ_GAP_MS, 保证不超过币安限速
+  _pacedTick() {
+    const tail = this._paceTail;
+    this._paceTail = tail.then(() => sleep(CONFIG.ALIGN_REQ_GAP_MS));
+    return this._paceTail;
+  }
+
+  // 排列模式下每 ALIGN_RESCAN_MS 自动重扫一次
+  _scheduleAlignRescan() {
+    if (this._maScanTimer) { clearTimeout(this._maScanTimer); this._maScanTimer = null; }
+    const mode = STATE.sortMode;
+    if (mode !== 'maBull' && mode !== 'maBear') return;
+    this._maScanTimer = setTimeout(async () => {
+      if (document.hidden || this._maScanBusy) { this._scheduleAlignRescan(); return; }
+      await this.scanMAAlign();
+      if (STATE.sortMode === 'maBull' || STATE.sortMode === 'maBear') {
+        this.sortPanels();
+        this.renderMABadges();
+      }
+      this._scheduleAlignRescan();
+    }, CONFIG.ALIGN_RESCAN_MS);
+  }
+
+  // 给每个面板更新均线排列徽标
+  renderMABadges() {
+    const dir = STATE.sortMode === 'maBull' ? 'bull' : STATE.sortMode === 'maBear' ? 'bear' : null;
+    for (const [sym, panel] of Object.entries(STATE.chartPanels)) {
+      const levels = dir && this.maAlign[sym] ? (this.maAlign[sym][dir] || []) : [];
+      if (panel.setMABadge) panel.setMABadge(dir, levels);
+    }
+  }
+
+  _setScanningUI(busy) {
+    document.querySelectorAll('.sort-btn[data-sort="maBull"], .sort-btn[data-sort="maBear"]').forEach(b => b.classList.toggle('scanning', busy));
   }
 
   setupKeyboardShortcuts() {
