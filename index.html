@@ -290,55 +290,6 @@ body {
   font-size: 14px; padding: 2px 4px; flex-shrink: 0;
 }
 .alerts-item .alerts-delete:hover { color: var(--red); }
-/* MA CROSS MONITOR PANEL */
-.monitor-panel {
-  position: fixed; top: 60px; left: 12px; z-index: 1500;
-  background: var(--panel-bg); border: 1px solid var(--border);
-  border-radius: 8px; width: 310px; max-height: 55vh;
-  display: flex; flex-direction: column; box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-}
-.monitor-panel.collapsed { max-height: none; }
-.monitor-panel.collapsed .alerts-body,
-.monitor-panel.collapsed .ma-monitor-config,
-.monitor-panel.collapsed .ma-monitor-status { display: none; }
-.ma-monitor-config {
-  display: flex; align-items: center; gap: 6px;
-  padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0;
-}
-#maMonitorTf {
-  background: var(--bg); color: var(--text); border: 1px solid var(--border);
-  border-radius: 4px; padding: 3px 4px; font-size: 12px; flex: 1; min-width: 0;
-}
-.ma-mon-btn {
-  padding: 3px 8px; border: 1px solid var(--border); background: var(--panel-bg);
-  color: var(--text); cursor: pointer; border-radius: 4px; font-size: 11px; white-space: nowrap;
-}
-.ma-mon-btn:hover { border-color: var(--yellow); }
-.ma-mon-btn.running { background: var(--red); color: #fff; border-color: var(--red); }
-.ma-monitor-status {
-  font-size: 10px; color: var(--text-secondary); padding: 4px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; white-space: nowrap;
-}
-.ma-mon-item {
-  display: flex; align-items: center; gap: 6px; padding: 5px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; cursor: pointer;
-}
-.ma-mon-item:hover { background: var(--hover); }
-.ma-mon-item .dir { font-weight: 700; flex-shrink: 0; }
-.ma-mon-item .dir.bull { color: #f6465d; }
-.ma-mon-item .dir.bear { color: #0ecb81; }
-.ma-mon-item .sym { font-weight: 600; flex-shrink: 0; }
-.ma-mon-item .meta { font-size: 10px; color: var(--text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ma-mon-item .price { font-family: Consolas, monospace; font-size: 11px; flex-shrink: 0; }
-.ma-mon-item .tm { font-size: 10px; color: var(--text-secondary); flex-shrink: 0; }
-.ma-mon-item .del { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 13px; padding: 0 2px; flex-shrink: 0; }
-.ma-mon-item .del:hover { color: var(--red); }
-#maMonitorBtn {
-  padding: 5px 10px; border: 1px solid var(--border); background: var(--panel-bg);
-  color: var(--text); cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: 600;
-}
-#maMonitorBtn:hover { border-color: var(--yellow); }
-#maMonitorBtn.has-events { border-color: #f6465d; box-shadow: 0 0 8px rgba(246,70,93,0.35); color: #f6465d; }
 /* RESPONSIVE */
 @media (max-width: 768px) {
   #chartGrid { grid-template-columns: 1fr; gap: 6px; padding: 6px; }
@@ -388,7 +339,6 @@ body {
       <span id="connectionDot" title="WebSocket连接状态"></span>
       <button id="manualRefreshBtn" title="手动刷新">🔄 刷新</button>
       <span id="pairCount">币种: 0/200</span>
-      <button id="maMonitorBtn" title="EMA7/MA7穿越监控(收盘站稳/跌破)">📡</button>
       <button id="alertConfigBtn" title="钉钉告警配置">🔔</button>
       <button id="alertHistoryBtn" title="告警历史">📋</button>
       <button id="installBtn" title="安装到桌面" style="display:none">📲 安装</button>
@@ -454,31 +404,6 @@ body {
       <div class="alerts-empty">暂无活跃警报</div>
     </div>
   </div>
-  <!-- MA Cross Monitor Panel -->
-  <div id="maMonitorPanel" class="monitor-panel" style="display:none">
-    <div class="alerts-header" id="maMonitorHeader" title="点击收起/展开">
-      <span>📡 EMA7/MA7穿越监控<span class="alerts-count" id="maMonitorCount">0</span></span>
-      <span class="alerts-toggle">−</span>
-    </div>
-    <div class="ma-monitor-config">
-      <select id="maMonitorTf" title="监控级别">
-        <option value="5m">5分钟</option>
-        <option value="15m">15分钟</option>
-        <option value="30m">30分钟</option>
-        <option value="1h" selected>1小时</option>
-        <option value="2h">2小时</option>
-        <option value="4h">4小时</option>
-        <option value="6h">6小时</option>
-        <option value="1d">日线</option>
-      </select>
-      <button id="maMonitorToggle" class="ma-mon-btn">▶ 启动</button>
-      <button id="maMonitorClear" class="ma-mon-btn" title="清空信号记录">🗑 清空</button>
-    </div>
-    <div class="ma-monitor-status" id="maMonitorStatus">○ 已停止 · 级别 1h</div>
-    <div class="alerts-body" id="maMonitorList">
-      <div class="alerts-empty">暂无穿越信号<br><span style="font-size:10px">已收盘K线 ▲上穿站稳 / ▼跌破 EMA7·MA7 时记录</span></div>
-    </div>
-  </div>
   <div id="chartGrid"></div>
 </div>
 <div id="tooltip"></div>
@@ -495,15 +420,10 @@ const CONFIG = {
   EMA7_PERIOD: 7,
   // EMA7/MA7 均线排列扫描配置: 常用级别、请求K线数、限速与自动刷新
   ALIGN_TFS: ['5m', '15m', '30m', '1h', '4h', '1d'],
-  ALIGN_KLINE_LIMIT: 45,
-  ALIGN_REQ_GAP_MS: 40,   // 相邻请求最小间隔(≈25次/秒≈1500权重/分钟), 单次limit<=100权重1
+  ALIGN_KLINE_LIMIT: 60,
+  ALIGN_REQ_GAP_MS: 55,   // 相邻请求最小间隔(≈18次/秒), 权重远低于币安限制
   ALIGN_CACHE_TTL: 45000, // 缓存多久内视为新鲜
   ALIGN_RESCAN_MS: 60000, // 排列模式下自动重新扫描间隔
-  // EMA7/MA7 单级别穿越监控(收盘站稳/跌破): 轮询间隔、取K线数与保留信号数
-  MA_MONITOR_DEFAULT_TF: '1h',
-  MA_MONITOR_POLL_MS: 20000,
-  MA_MONITOR_LIMIT: 60,
-  MA_MONITOR_KEEP: 40,
   MACD_FAST: 12,
   MACD_SLOW: 26,
   MACD_SIGNAL: 9,
@@ -535,7 +455,6 @@ const STATE = {
   dingtalkWebhook: localStorage.getItem('dingtalk_webhook') || '',
   dingtalkSecret: localStorage.getItem('dingtalk_secret') || '',
   dingtalkKeyword: localStorage.getItem('dingtalk_keyword') || '牛牛',
-  maMonitor: { enabled: false, tf: CONFIG.MA_MONITOR_DEFAULT_TF },
 };
 
 // ==================== UTILITIES ====================
@@ -1393,7 +1312,6 @@ class ChartPanel {
     this.volumeSeries = null;
     this.pairData = null;
     this.candles = [];
-    this.loadTF = null;         // 当前candles属于哪个周期(切换周期加载完成前保持旧值)
     this.dataValid = true;
     this.dataIssue = '';
     this._initialFitDone = false;
@@ -1898,7 +1816,6 @@ class ChartPanel {
     try {
       const candles = await BinanceAPI.getKlines(this.symbol, STATE.currentTF, CONFIG.KLINE_LIMIT);
       this.candles = candles;
-      this.loadTF = STATE.currentTF;
 
       const validation = Indicators.validateData(candles);
       this.dataValid = validation.valid;
@@ -2095,34 +2012,6 @@ class ChartPanel {
       dataStatus.textContent = '✓ 实时 ' + ts + ' UTC';
       dataStatus.style.color = 'var(--green)';
     }
-
-    // 实时更新本地最后一根K线(供均线排列扫描直接复用当前周期数据; 合成周期除外避免错位)
-    try {
-      const isSynth = CONFIG.SYNTHETIC_TF[STATE.currentTF];
-      if (!isSynth) {
-        const t = Math.floor(parseFloat(kline.t) / 1000);
-        const last = this.candles[this.candles.length - 1];
-        if (last && last.time === t) {
-          last.open = parseFloat(kline.o);
-          last.high = parseFloat(kline.h);
-          last.low = parseFloat(kline.l);
-          last.close = c;
-          last.volume = parseFloat(kline.v);
-        } else if (kline.x && (!last || t > last.time)) {
-          // 上一根收盘后开启的新K线
-          this.candles.push({ time: t, open: parseFloat(kline.o), high: parseFloat(kline.h), low: parseFloat(kline.l), close: c, volume: parseFloat(kline.v) });
-          if (this.candles.length > 600) this.candles.shift();
-        }
-      }
-    } catch (e) { /* ignore */ }
-
-    // EMA7/MA7穿越监控: 本币当前级别收盘瞬间实时判定(监控级别=当前查看级别时)
-    try {
-      if (STATE.maMonitor.enabled && kline.x && kline.i === STATE.maMonitor.tf &&
-          typeof dashboard !== 'undefined' && typeof dashboard.handleWSCandleClose === 'function') {
-        dashboard.handleWSCandleClose(this.symbol, c, Math.floor(parseFloat(kline.t) / 1000));
-      }
-    } catch (e) { /* ignore */ }
 
     // Check alerts against current close price
     AlertManager.checkAlerts(this.symbol, c);
@@ -2480,8 +2369,6 @@ class Dashboard {
     this._maScanFinishedAt = 0;
     this._maScanTimer = null;
     this._paceTail = Promise.resolve();
-    // 单级别EMA7/MA7穿越监控状态
-    this._maMon = { busy: false, timer: null, perSymbol: {}, events: [], _seq: 0 };
   }
 
   async init() {
@@ -2493,7 +2380,6 @@ class Dashboard {
     this.setupAlertMenu();
     this.setupDingTalkConfig();
     this.setupAlertHistory();
-    this.setupMAMonitor();
     AlertManager._loadAlerts();
     AlertManager._loadHistory();
     AlertManager._updateUI();
@@ -2601,50 +2487,46 @@ class Dashboard {
     const total = symbols.length;
     const statEl = document.getElementById('statData');
     const setStat = (txt, color) => { if (statEl) { statEl.textContent = txt; statEl.style.color = color; } };
+    setStat(`均线扫描 0/${total}...`, 'var(--yellow)');
 
     // 全局限速获取(相邻请求至少间隔 ALIGN_REQ_GAP_MS, 单次limit<=100权重1)
-    const pacedFetch = (url) => this._pacedFetchJSON(url);
-
-    // 汇总扫描任务: 当前周期直接复用面板内存K线(WS实时更新过), 其余周期走网络请求
-    const perSym = {};
-    const tasks = [];
-    for (const sym of symbols) {
-      perSym[sym] = { bull: [], bear: [] };
-      for (const tf of tfs) {
-        let local = null;
-        if (p && p.loadTF === tf && p._dataLoaded && p.candles && p.candles.length >= 20) local = p.candles;
-        tasks.push({ sym, tf, local });
+    const pacedFetch = async (url) => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          await this._pacedTick();
+          const resp = await fetch(url);
+          if (resp.ok) return await resp.json();
+          throw new Error('HTTP ' + resp.status);
+        } catch (e) {
+          if (attempt === 1) throw e;
+          await sleep(600);
+        }
       }
-    }
-    const totalNet = tasks.filter(t => !t.local).length;
-    setStat(totalNet ? `均线扫描 0% (0/${totalNet}请求)...` : '均线扫描 计算中...', 'var(--yellow)');
+    };
 
     try {
-      let netDone = 0;
-      await this._poolMap(tasks, async (task) => {
-        let cs = null;
-        if (task.local) {
-          // 面板内存K线, 只取最近一段加速计算
-          cs = task.local.slice(-limit).map(c => ({ open: c.open, close: c.close }));
-        } else {
+      let done = 0;
+      await this._poolMap(symbols, async (sym) => {
+        const bull = [], bear = [];
+        await this._poolMap(tfs, async (tf) => {
           try {
-            const rows = await pacedFetch(`${base}/klines?symbol=${task.sym}&interval=${task.tf}&limit=${limit}`);
-            if (rows && rows.length >= 15) cs = rows.map(r => ({ open: parseFloat(r[1]), close: parseFloat(r[4]) }));
-          } catch (e) { /* 单个请求失败跳过 */ }
-          netDone++;
-          if (netDone % 50 === 0 || netDone === totalNet) {
-            const pct = Math.round(netDone / totalNet * 100);
-            setStat(`均线扫描 ${pct}% (${netDone}/${totalNet}请求)...`, 'var(--yellow)');
-          }
-        }
-        const st = this._judgeAlign(cs);
-        if (st === 'bull') perSym[task.sym].bull.push(task.tf);
-        else if (st === 'bear') perSym[task.sym].bear.push(task.tf);
-      }, 8);
+            const rows = await pacedFetch(`${base}/klines?symbol=${sym}&interval=${tf}&limit=${limit}`);
+            if (!rows || rows.length < 15) return;
+            const cs = rows.map(r => ({ open: parseFloat(r[1]), close: parseFloat(r[4]) }));
+            const ema7 = Indicators.ema(cs, CONFIG.EMA7_PERIOD);
+            const ma7 = Indicators.sma(cs, CONFIG.MA_PERIODS[0]);
+            const i = cs.length - 1;
+            const e7 = ema7[i], m7 = ma7[i], c = cs[i];
+            if (e7 == null || m7 == null) return;
+            if (c.close > c.open && c.close > e7 && c.close > m7) bull.push(tf);
+            else if (c.close < c.open && c.close < e7 && c.close < m7) bear.push(tf);
+          } catch (e) { /* 单个周期失败跳过 */ }
+        }, 2);
+        this.maAlign[sym] = { bull, bear, ts: Date.now() };
+        done++;
+        if (done % 10 === 0 || done === total) setStat(`均线扫描 ${done}/${total}...`, 'var(--yellow)');
+      }, 6);
 
-      for (const sym of symbols) {
-        this.maAlign[sym] = { bull: perSym[sym].bull, bear: perSym[sym].bear, ts: Date.now() };
-      }
       this._maScanFinishedAt = Date.now();
       this._maScanDone = true;
       setStat(`✓ 均线扫描完成 ${total}币`, 'var(--green)');
@@ -2657,19 +2539,6 @@ class Dashboard {
       this._setScanningUI(false);
     }
     return true;
-  }
-
-  // 判断最新K线(含未收盘): 阳线(收>开)且收盘>EMA7且收盘>MA7 => bull; 阴线反之跌破 => bear
-  _judgeAlign(cs) {
-    if (!cs || cs.length < 15) return null;
-    const ema7 = Indicators.ema(cs, CONFIG.EMA7_PERIOD);
-    const ma7 = Indicators.sma(cs, CONFIG.MA_PERIODS[0]);
-    const i = cs.length - 1;
-    const e7 = ema7[i], m7 = ma7[i], c = cs[i];
-    if (e7 == null || m7 == null) return null;
-    if (c.close > c.open && c.close > e7 && c.close > m7) return 'bull';
-    if (c.close < c.open && c.close < e7 && c.close < m7) return 'bear';
-    return null;
   }
 
   // 简单并发池
@@ -2692,21 +2561,6 @@ class Dashboard {
     const tail = this._paceTail;
     this._paceTail = tail.then(() => sleep(CONFIG.ALIGN_REQ_GAP_MS));
     return this._paceTail;
-  }
-
-  // 全局限速 JSON 获取(失败重试一次)
-  async _pacedFetchJSON(url) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        await this._pacedTick();
-        const resp = await fetch(url);
-        if (resp.ok) return await resp.json();
-        throw new Error('HTTP ' + resp.status);
-      } catch (e) {
-        if (attempt === 1) throw e;
-        await sleep(600);
-      }
-    }
   }
 
   // 排列模式下每 ALIGN_RESCAN_MS 自动重扫一次
@@ -2736,265 +2590,6 @@ class Dashboard {
 
   _setScanningUI(busy) {
     document.querySelectorAll('.sort-btn[data-sort="maBull"], .sort-btn[data-sort="maBear"]').forEach(b => b.classList.toggle('scanning', busy));
-  }
-
-  // ==================== EMA7/MA7 单级别穿越监控 ====================
-  setupMAMonitor() {
-    const panel = document.getElementById('maMonitorPanel');
-    const btn = document.getElementById('maMonitorBtn');
-    const tfSel = document.getElementById('maMonitorTf');
-    const toggle = document.getElementById('maMonitorToggle');
-    const clearBtn = document.getElementById('maMonitorClear');
-    const header = document.getElementById('maMonitorHeader');
-
-    if (btn) btn.addEventListener('click', () => {
-      panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
-    });
-    if (header) header.addEventListener('click', () => {
-      if (!panel) return;
-      panel.classList.toggle('collapsed');
-      const t = panel.querySelector('.alerts-toggle');
-      if (t) t.textContent = panel.classList.contains('collapsed') ? '+' : '−';
-    });
-    if (tfSel) tfSel.addEventListener('change', async () => {
-      this._maMon.tf = tfSel.value;
-      if (STATE.maMonitor.enabled) {
-        this.stopMAMonitor();
-        await this.startMAMonitor();
-      } else {
-        this._renderMAMonitor();
-      }
-    });
-    if (toggle) toggle.addEventListener('click', () => {
-      if (STATE.maMonitor.enabled) this.stopMAMonitor();
-      else this.startMAMonitor();
-    });
-    if (clearBtn) clearBtn.addEventListener('click', () => {
-      this._maMon.events = [];
-      this._renderMAMonitor();
-    });
-    this._renderMAMonitor();
-  }
-
-  async startMAMonitor() {
-    if (STATE.maMonitor.enabled) return;
-    STATE.maMonitor.enabled = true;
-    // 重新开始时重置本地状态, 避免基于旧级别/旧数据重复触发
-    this._maMon.perSymbol = {};
-    this._maMon.events = [];
-    const panel = document.getElementById('maMonitorPanel');
-    if (panel) { panel.style.display = 'flex'; panel.classList.remove('collapsed'); }
-    this._updateMonUI(true);
-    showToast(`📡 穿越监控已启动 · 级别 ${this._maMon.tf}`, false);
-    await this.runMAMonitorCycle();
-    if (STATE.maMonitor.enabled) this._scheduleMAMonitor();
-  }
-
-  stopMAMonitor() {
-    STATE.maMonitor.enabled = false;
-    if (this._maMon.timer) { clearTimeout(this._maMon.timer); this._maMon.timer = null; }
-    this._updateMonUI(false);
-    showToast('📡 穿越监控已停止', false);
-  }
-
-  _scheduleMAMonitor() {
-    if (this._maMon.timer) { clearTimeout(this._maMon.timer); this._maMon.timer = null; }
-    if (!STATE.maMonitor.enabled) return;
-    this._maMon.timer = setTimeout(async () => {
-      if (document.hidden || this._maMon.busy) { this._scheduleMAMonitor(); return; }
-      await this.runMAMonitorCycle();
-      if (STATE.maMonitor.enabled) this._scheduleMAMonitor();
-    }, CONFIG.MA_MONITOR_POLL_MS);
-  }
-
-  // 单次巡检: 对所有已加载币种, 判断最新"已收盘"K线相对EMA7/MA7是否发生穿越
-  async runMAMonitorCycle() {
-    if (this._maMon.busy || !STATE.maMonitor.enabled) return;
-    const symbols = Object.keys(STATE.chartPanels);
-    if (!symbols.length) return;
-    this._maMon.busy = true;
-    const tf = STATE.maMonitor.tf;
-    const limit = CONFIG.MA_MONITOR_LIMIT;
-    const before = this._maMon.events.length;
-    try {
-      await this._poolMap(symbols, async (sym) => {
-        let cs = null;
-        // 面板内存K线正是监控级别(加载完成)时直接复用, 无需网络请求
-        const p = STATE.chartPanels[sym];
-        if (p && p.loadTF === tf && p._dataLoaded && p.candles && p.candles.length >= 20) {
-          cs = p.candles.slice(-(limit + 2)).map(c => ({ time: c.time, close: c.close }));
-          this._maProcessClosed(sym, tf, cs, cs.length - 2, true);
-          return;
-        }
-        try {
-          const rows = await this._pacedFetchJSON(`${CONFIG.BINANCE_REST}/klines?symbol=${sym}&interval=${tf}&limit=${limit}`);
-          if (!rows || rows.length < 20) return;
-          cs = rows.map(r => ({ time: Math.floor(parseFloat(r[0]) / 1000), close: parseFloat(r[4]) }));
-          this._maProcessClosed(sym, tf, cs, cs.length - 2, true);
-        } catch (e) { /* 单币失败跳过 */ }
-      }, 8);
-    } finally {
-      this._maMon.busy = false;
-    }
-    this._renderMAMonitor();
-    const fired = this._maMon.events.length - before;
-    if (fired > 0) {
-      let up = 0, down = 0;
-      for (const ev of this._maMon.events.slice(0, fired)) { if (ev.dir === 'bull') up++; else down++; }
-      showToast(`📡 穿越监控(${tf}): ${fired}个新信号 ▲${up} ▼${down}`, true);
-    }
-  }
-
-  // 收盘穿越判定(已在 _maProcessClosed 内完成)
-  _maStateOf(cs, ema, ma, idx) {
-    const c = cs[idx];
-    if (!c || ema[idx] == null || ma[idx] == null) return null;
-    if (c.close > ema[idx] && c.close > ma[idx]) return 'above';
-    if (c.close < ema[idx] && c.close < ma[idx]) return 'below';
-    return 'mid';
-  }
-
-  // 处理某币最新已收盘K线(curIdx): 与前一收盘K线状态比较, 发生穿越则记录信号
-  _maProcessClosed(symbol, tf, cs, curIdx, quiet) {
-    if (!cs || curIdx < 15 || curIdx >= cs.length) return;
-    const st = this._maMon.perSymbol[symbol];
-    const cur = cs[curIdx];
-    if (st && st.lastT === cur.time) return; // 这根收盘K线已处理过
-    const ema = Indicators.ema(cs, CONFIG.EMA7_PERIOD);
-    const ma = Indicators.sma(cs, CONFIG.MA_PERIODS[0]);
-    const curState = this._maStateOf(cs, ema, ma, curIdx);
-    if (curState === null) { this._maMon.perSymbol[symbol] = { lastT: cur.time, state: null }; return; }
-
-    let prevState = null;
-    if (curIdx - 1 >= 0 && st && st.lastT === cs[curIdx - 1].time) {
-      prevState = st.state; // 上一根即我们处理过的收盘K线
-    } else if (curIdx - 1 >= 15) {
-      prevState = this._maStateOf(cs, ema, ma, curIdx - 1);
-    }
-    if (prevState !== null) {
-      const dir = (prevState !== 'above' && curState === 'above') ? 'bull'
-                : (prevState !== 'below' && curState === 'below') ? 'bear' : null;
-      if (dir) {
-        this._maFireEvent({
-          id: 'mon_' + (++this._maMon._seq),
-          symbol, tf, dir,
-          price: cur.close,
-          at: Date.now(),
-        }, quiet);
-      }
-    }
-    this._maMon.perSymbol[symbol] = { lastT: cur.time, state: curState };
-  }
-
-  // WS实时路径: 本币当前级别收盘瞬间判定(监控级别==当前查看级别时由updateFromWS调用)
-  handleWSCandleClose(symbol, closePrice, closedT) {
-    if (!STATE.maMonitor.enabled) return;
-    const tf = STATE.maMonitor.tf;
-    const p = STATE.chartPanels[symbol];
-    if (!p || !p.candles || p.candles.length < 20) return;
-    const src = p.candles.slice(-(CONFIG.MA_MONITOR_LIMIT + 2));
-    const cs = src.map(cd => ({ time: cd.time, close: cd.close }));
-    let curIdx = -1;
-    for (let i = 0; i < cs.length; i++) {
-      if (cs[i].time === closedT) { curIdx = i; cs[i].close = closePrice; break; }
-    }
-    if (curIdx < 15) return;
-    this._maProcessClosed(symbol, tf, cs, curIdx, false);
-  }
-
-  _maFireEvent(ev, quiet) {
-    this._maMon.events.unshift(ev);
-    if (this._maMon.events.length > CONFIG.MA_MONITOR_KEEP) this._maMon.events.length = CONFIG.MA_MONITOR_KEEP;
-    this._renderMAMonitor();
-    if (!quiet) {
-      showToast(`📡 ${ev.symbol} ${ev.dir === 'bull' ? '▲ 上穿站稳' : '▼ 跌破'} EMA7/MA7 (${ev.tf}) @ $${fmtPrice(ev.price)}`, true);
-    }
-  }
-
-  _renderMAMonitor() {
-    const list = document.getElementById('maMonitorList');
-    const count = document.getElementById('maMonitorCount');
-    const tfSel = document.getElementById('maMonitorTf');
-    const status = document.getElementById('maMonitorStatus');
-    if (count) count.textContent = this._maMon.events.length;
-    if (tfSel && tfSel.value !== this._maMon.tf) tfSel.value = this._maMon.tf;
-    if (status) {
-      status.textContent = STATE.maMonitor.enabled
-        ? `● 监控中 · ${this._maMon.tf} · 信号 ${this._maMon.events.length}`
-        : `○ 已停止 · 级别 ${this._maMon.tf}`;
-      status.style.color = STATE.maMonitor.enabled ? 'var(--green)' : 'var(--text-secondary)';
-    }
-    this._updateMonBtn();
-    if (!list) return;
-    if (!this._maMon.events.length) {
-      list.innerHTML = '<div class="alerts-empty">暂无穿越信号<br><span style="font-size:10px">已收盘K线 ▲上穿站稳 / ▼跌破 EMA7·MA7 时记录</span></div>';
-      return;
-    }
-    list.innerHTML = this._maMon.events.map(ev => {
-      const d = new Date(ev.at);
-      const hh = String(d.getHours()).padStart(2, '0');
-      const mm = String(d.getMinutes()).padStart(2, '0');
-      const ss = String(d.getSeconds()).padStart(2, '0');
-      const arrow = ev.dir === 'bull' ? '▲' : '▼';
-      const text = ev.dir === 'bull' ? '上穿站稳' : '跌破';
-      return `<div class="ma-mon-item" data-id="${ev.id}">
-        <span class="dir ${ev.dir}">${arrow}</span>
-        <span class="sym">${ev.symbol}</span>
-        <span class="meta">${ev.tf} · ${text}</span>
-        <span class="price">$${fmtPrice(ev.price)}</span>
-        <span class="tm">${hh}:${mm}:${ss}</span>
-        <button class="del" data-id="${ev.id}" title="删除">✕</button>
-      </div>`;
-    }).join('');
-    list.querySelectorAll('.ma-mon-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        if (e.target.closest('.del')) return;
-        const ev = this._maMon.events.find(x => String(x.id) === item.dataset.id);
-        if (ev) this.focusSymbol(ev.symbol, ev.tf);
-      });
-    });
-    list.querySelectorAll('.del').forEach(b => b.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const id = b.dataset.id;
-      this._maMon.events = this._maMon.events.filter(x => String(x.id) !== id);
-      this._renderMAMonitor();
-    }));
-  }
-
-  _updateMonUI(running) {
-    const toggle = document.getElementById('maMonitorToggle');
-    if (toggle) {
-      toggle.textContent = running ? '⏸ 停止' : '▶ 启动';
-      toggle.classList.toggle('running', running);
-    }
-    this._renderMAMonitor();
-  }
-
-  _updateMonBtn() {
-    const btn = document.getElementById('maMonitorBtn');
-    if (!btn) return;
-    const n = this._maMon.events.length;
-    btn.textContent = n > 0 ? '📡' + n : '📡';
-    btn.classList.toggle('has-events', n > 0);
-    btn.title = n > 0 ? `EMA7/MA7穿越监控 · ${n}个信号` : 'EMA7/MA7穿越监控';
-  }
-
-  // 点击信号跳转: 切到对应级别并定位币种面板
-  async focusSymbol(symbol, tf) {
-    if (STATE.currentTF !== tf) {
-      document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
-      const target = document.querySelector(`.tf-btn[data-tf="${tf}"]`);
-      if (target) target.classList.add('active');
-      STATE.currentTF = tf;
-      await this.switchTimeframe();
-    }
-    const panel = STATE.chartPanels[symbol];
-    if (panel && panel.panel) {
-      panel.panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      panel.panel.classList.remove('panel-flash');
-      void panel.panel.offsetWidth;
-      panel.panel.classList.add('panel-flash');
-    }
   }
 
   setupKeyboardShortcuts() {
