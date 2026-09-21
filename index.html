@@ -71,6 +71,17 @@ body {
 }
 .ma-badge.bull { color: #f6465d; background: rgba(246,70,93,0.14); border: 1px solid rgba(246,70,93,0.35); }
 .ma-badge.bear { color: #0ecb81; background: rgba(14,203,129,0.12); border: 1px solid rgba(14,203,129,0.35); }
+.wave-badge {
+  display: inline-flex; align-items: center; font-size: 10px; font-weight: 600;
+  padding: 1px 6px; border-radius: 4px; margin-left: 6px; letter-spacing: 0.2px;
+  max-width: 210px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  color: #29b6f6; background: rgba(41,182,246,0.10); border: 1px solid rgba(41,182,246,0.32);
+  opacity: 0.7;
+}
+.wave-badge.cur {
+  opacity: 1; background: rgba(41,182,246,0.22); border-color: rgba(41,182,246,0.75);
+  box-shadow: 0 0 6px rgba(41,182,246,0.35);
+}
 .header-right { display: flex; align-items: center; gap: 16px; font-size: 12px; }
 #connectionDot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px rgba(14,203,129,0.4); transition: all 0.3s; }
 #connectionDot.disconnected { background: var(--red); box-shadow: 0 0 6px rgba(246,70,93,0.4); }
@@ -290,6 +301,62 @@ body {
   font-size: 14px; padding: 2px 4px; flex-shrink: 0;
 }
 .alerts-item .alerts-delete:hover { color: var(--red); }
+/* WAVE / CHAN PANEL — 缠论笔 + 均线穿越 多级别提醒 */
+.wave-panel {
+  position: fixed; top: 60px; left: 12px; z-index: 1500;
+  background: var(--panel-bg); border: 1px solid var(--border);
+  border-radius: 8px; width: 360px; max-height: 62vh;
+  display: flex; flex-direction: column; box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+.wave-panel.collapsed { max-height: none; }
+.wave-panel.collapsed .wave-config,
+.wave-panel.collapsed .wave-status,
+.wave-panel.collapsed .alerts-body { display: none; }
+.wave-config {
+  padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.05);
+  display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;
+}
+.wave-tfs { display: flex; flex-wrap: wrap; gap: 3px 9px; }
+.wave-lv { font-size: 11px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
+.wave-lv:hover { color: var(--text); }
+.wave-lv input { accent-color: var(--yellow); cursor: pointer; }
+.wave-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.wave-row label { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+.wave-row input[type="number"] {
+  width: 50px; background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 4px; padding: 2px 4px; font-size: 11px; font-family: Consolas, monospace;
+}
+.wave-row input[type="number"]:focus { border-color: var(--yellow); outline: none; }
+.wave-btn {
+  padding: 3px 9px; border: 1px solid var(--border); background: var(--panel-bg);
+  color: var(--text); cursor: pointer; border-radius: 4px; font-size: 11px; white-space: nowrap;
+}
+.wave-btn:hover { border-color: var(--yellow); }
+.wave-btn.running { background: var(--red); color: #fff; border-color: var(--red); }
+.wave-status {
+  font-size: 10px; color: var(--text-secondary); padding: 4px 10px; line-height: 1.5;
+  border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0;
+}
+.wave-item {
+  display: flex; align-items: center; gap: 6px; padding: 5px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; cursor: pointer;
+}
+.wave-item:hover { background: var(--hover); }
+.wave-item .dir { font-weight: 700; flex-shrink: 0; font-size: 11px; }
+.wave-item .dir.long { color: #f6465d; }
+.wave-item .dir.short { color: #0ecb81; }
+.wave-item .sym { font-weight: 600; flex-shrink: 0; }
+.wave-item .meta { font-size: 10px; color: var(--text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wave-item .price { font-family: Consolas, monospace; font-size: 11px; flex-shrink: 0; }
+.wave-item .tm { font-size: 10px; color: var(--text-secondary); flex-shrink: 0; }
+.wave-item .del { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 13px; padding: 0 2px; flex-shrink: 0; }
+.wave-item .del:hover { color: var(--red); }
+#waveMonitorBtn {
+  padding: 5px 10px; border: 1px solid var(--border); background: var(--panel-bg);
+  color: var(--text); cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: 600;
+}
+#waveMonitorBtn:hover { border-color: var(--yellow); }
+#waveMonitorBtn.has-events { border-color: #f6465d; box-shadow: 0 0 8px rgba(246,70,93,0.35); color: #f6465d; }
 /* RESPONSIVE */
 @media (max-width: 768px) {
   #chartGrid { grid-template-columns: 1fr; gap: 6px; padding: 6px; }
@@ -339,6 +406,7 @@ body {
       <span id="connectionDot" title="WebSocket连接状态"></span>
       <button id="manualRefreshBtn" title="手动刷新">🔄 刷新</button>
       <span id="pairCount">币种: 0/200</span>
+      <button id="waveMonitorBtn" title="缠论笔+均线穿越多级别提醒(每笔≥5根, 首次收盘站上/跌破MA7·EMA7)">🌊</button>
       <button id="alertConfigBtn" title="钉钉告警配置">🔔</button>
       <button id="alertHistoryBtn" title="告警历史">📋</button>
       <button id="installBtn" title="安装到桌面" style="display:none">📲 安装</button>
@@ -404,6 +472,37 @@ body {
       <div class="alerts-empty">暂无活跃警报</div>
     </div>
   </div>
+  <!-- 缠论笔 + 均线穿越 多级别提醒面板 -->
+  <div id="wavePanel" class="wave-panel" style="display:none">
+    <div class="alerts-header" id="waveHeader" title="点击收起/展开">
+      <span>🌊 缠论笔+均线穿越<span class="alerts-count" id="waveCount">0</span></span>
+      <span class="alerts-toggle">−</span>
+    </div>
+    <div class="wave-config">
+      <div class="wave-tfs" id="waveTfs">
+        <label class="wave-lv"><input type="checkbox" value="5m" checked>5m</label>
+        <label class="wave-lv"><input type="checkbox" value="15m" checked>15m</label>
+        <label class="wave-lv"><input type="checkbox" value="30m" checked>30m</label>
+        <label class="wave-lv"><input type="checkbox" value="1h" checked>1h</label>
+        <label class="wave-lv"><input type="checkbox" value="2h">2h</label>
+        <label class="wave-lv"><input type="checkbox" value="3h">3h</label>
+        <label class="wave-lv"><input type="checkbox" value="4h" checked>4h</label>
+        <label class="wave-lv"><input type="checkbox" value="6h">6h</label>
+        <label class="wave-lv"><input type="checkbox" value="1d">1d</label>
+      </div>
+      <div class="wave-row">
+        <label title="缠论笔自端点起至少运行的K线根数">每笔≥</label>
+        <input id="waveMinBars" type="number" step="1" min="3" max="20" value="5"><label>根</label>
+        <button id="waveToggle" class="wave-btn">▶ 启动监控</button>
+        <button id="waveClear" class="wave-btn" title="清空信号记录与前置标记">🗑 清空</button>
+      </div>
+      <div style="font-size:10px;color:var(--text-secondary)">▲ 下跌笔低点后首次收盘站上 MA7+EMA7 → 做多<br>▼ 上涨笔高点后首次收盘跌破 MA7+EMA7 → 做空 · 命中面板前置排列</div>
+    </div>
+    <div class="wave-status" id="waveStatus">○ 未启动</div>
+    <div class="alerts-body" id="waveList">
+      <div class="alerts-empty">暂无信号<br><span style="font-size:10px">笔端点以来首次收盘穿越 MA7+EMA7 时提醒</span></div>
+    </div>
+  </div>
   <div id="chartGrid"></div>
 </div>
 <div id="tooltip"></div>
@@ -420,10 +519,17 @@ const CONFIG = {
   EMA7_PERIOD: 7,
   // EMA7/MA7 均线排列扫描配置: 常用级别、请求K线数、限速与自动刷新
   ALIGN_TFS: ['5m', '15m', '30m', '1h', '4h', '1d'],
-  ALIGN_KLINE_LIMIT: 60,
-  ALIGN_REQ_GAP_MS: 55,   // 相邻请求最小间隔(≈18次/秒), 权重远低于币安限制
+  ALIGN_KLINE_LIMIT: 45,
+  ALIGN_REQ_GAP_MS: 35,   // 相邻请求最小间隔(≈28次/秒≈1700权重/分钟), 单次limit<=100权重1, 低于币安2400限制并留余量
   ALIGN_CACHE_TTL: 45000, // 缓存多久内视为新鲜
   ALIGN_RESCAN_MS: 60000, // 排列模式下自动重新扫描间隔
+  // 缠论笔 + 均线穿越 多级别提醒
+  WAVE_TFS: ['5m', '15m', '30m', '1h', '2h', '3h', '4h', '6h', '1d'],
+  WAVE_DEFAULT_TFS: ['5m', '15m', '30m', '1h', '4h'],
+  WAVE_MIN_BARS: 5,      // 缠论笔自端点起至少的K线根数
+  WAVE_KLINE_LIMIT: 100, // 每级别取K线数(需容纳多段笔; limit<=100 权重为1)
+  WAVE_POLL_MS: 30000,   // 轮询间隔(按K线收盘自动节流, 每级别一根K线只抓一次)
+  WAVE_KEEP: 60,
   MACD_FAST: 12,
   MACD_SLOW: 26,
   MACD_SIGNAL: 9,
@@ -455,6 +561,7 @@ const STATE = {
   dingtalkWebhook: localStorage.getItem('dingtalk_webhook') || '',
   dingtalkSecret: localStorage.getItem('dingtalk_secret') || '',
   dingtalkKeyword: localStorage.getItem('dingtalk_keyword') || '牛牛',
+  waveMonitor: { enabled: false },
 };
 
 // ==================== UTILITIES ====================
@@ -751,7 +858,7 @@ const ChanTheory = {
   },
 
   // ── 核心：手机版分型+笔计算 (简化去冗余过滤链) ──
-  buildStrokes(candles) {
+  buildStrokes(candles, quiet) {
     const N = candles.length;
     const MIN_C = this.MIN_STROKE_CANDLES;
     if (N < 13) return { strokes: [], liveTarget: null };
@@ -788,7 +895,7 @@ const ChanTheory = {
     const useHighs = filteredHighs.length >= 2 ? filteredHighs : rawHighs;
     const useLows = filteredLows.length >= 2 ? filteredLows : rawLows;
 
-    console.log(`[笔-分型] BHH:${rawHighs.length}/${filteredHighs.length} BLL:${rawLows.length}/${filteredLows.length} → 使用H:${useHighs.length} L:${useLows.length}`);
+    if (!quiet) console.log(`[笔-分型] BHH:${rawHighs.length}/${filteredHighs.length} BLL:${rawLows.length}/${filteredLows.length} → 使用H:${useHighs.length} L:${useLows.length}`);
 
     // ── 阶段3: 去重合并+交替连接 ──
     const all = [...useHighs, ...useLows].sort((a, b) => a.index - b.index);
@@ -828,7 +935,7 @@ const ChanTheory = {
       if (bestIdx >= 0) liveTarget = { index: bestIdx, price: bestPrice, time: candles[bestIdx].time, type: searchType };
     }
 
-    console.log(`[笔-手机版] ${N}根K线 → ${rawHighs.length}顶/${rawLows.length}底 → ${strokes.length}笔`);
+    if (!quiet) console.log(`[笔-手机版] ${N}根K线 → ${rawHighs.length}顶/${rawLows.length}底 → ${strokes.length}笔`);
 
     return { strokes, liveTarget };
   },
@@ -1312,6 +1419,7 @@ class ChartPanel {
     this.volumeSeries = null;
     this.pairData = null;
     this.candles = [];
+    this.loadTF = null;         // 当前candles属于哪个周期(切换周期加载完成前保持旧值, 避免误用)
     this.dataValid = true;
     this.dataIssue = '';
     this._initialFitDone = false;
@@ -1333,6 +1441,7 @@ class ChartPanel {
       <div class="panel-header" title="点击展开/收起">
         <span class="panel-symbol">${this.symbol}</span>
         <span class="ma-badge" style="display:none"></span>
+        <span class="wave-badge" style="display:none"></span>
         <span class="panel-price">--</span>
         <span class="panel-change">--</span>
         <div class="panel-actions">
@@ -1816,6 +1925,7 @@ class ChartPanel {
     try {
       const candles = await BinanceAPI.getKlines(this.symbol, STATE.currentTF, CONFIG.KLINE_LIMIT);
       this.candles = candles;
+      this.loadTF = STATE.currentTF;
 
       const validation = Indicators.validateData(candles);
       this.dataValid = validation.valid;
@@ -1977,6 +2087,22 @@ class ChartPanel {
     el.style.display = '';
   }
 
+  // 缠论笔+均线穿越信号徽标: 标注级别与方向(cls 用于高亮当前浏览级别)
+  setWaveBadge(text, title, cls) {
+    if (!this._waveBadgeEl) this._waveBadgeEl = this.panel ? this.panel.querySelector('.wave-badge') : null;
+    const el = this._waveBadgeEl;
+    if (!el) return;
+    if (!text) {
+      el.style.display = 'none';
+      el.textContent = '';
+      return;
+    }
+    el.className = 'wave-badge' + (cls ? ' ' + cls : '');
+    el.textContent = text;
+    el.title = title || text;
+    el.style.display = '';
+  }
+
   updateStatus() {
     const dataStatus = this.panel.querySelector('.data-status');
     if (this.dataValid) {
@@ -2012,6 +2138,36 @@ class ChartPanel {
       dataStatus.textContent = '✓ 实时 ' + ts + ' UTC';
       dataStatus.style.color = 'var(--green)';
     }
+
+    // 实时更新本地最后一根K线(供均线排列扫描直接复用当前周期数据; 合成周期除外避免错位)
+    try {
+      const isSynth = CONFIG.SYNTHETIC_TF[STATE.currentTF];
+      if (!isSynth) {
+        const t = Math.floor(parseFloat(kline.t) / 1000);
+        const last = this.candles[this.candles.length - 1];
+        if (last && last.time === t) {
+          // 同一根K线(含未收盘)持续更新
+          last.open = parseFloat(kline.o);
+          last.high = parseFloat(kline.h);
+          last.low = parseFloat(kline.l);
+          last.close = c;
+          last.volume = parseFloat(kline.v);
+        } else if (!last || t > last.time) {
+          // 更晚的K线(无论是否收盘): 直接追加为最新一根, 保证"含未收盘"数据实时
+          this.candles.push({ time: t, open: parseFloat(kline.o), high: parseFloat(kline.h), low: parseFloat(kline.l), close: c, volume: parseFloat(kline.v) });
+          if (this.candles.length > 600) this.candles.shift();
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    // 缠论笔+均线穿越监控: 本币当前级别收盘瞬间即时判定(该级别在勾选列表中时)
+    try {
+      if (STATE.waveMonitor.enabled && kline.x && typeof dashboard !== 'undefined' &&
+          dashboard._wave && dashboard._wave.enabled && dashboard._wave.tfs.indexOf(kline.i) !== -1 &&
+          typeof dashboard.waveWSCandleClose === 'function') {
+        dashboard.waveWSCandleClose(this.symbol, c, Math.floor(parseFloat(kline.t) / 1000), kline.i);
+      }
+    } catch (e) { /* ignore */ }
 
     // Check alerts against current close price
     AlertManager.checkAlerts(this.symbol, c);
@@ -2369,6 +2525,13 @@ class Dashboard {
     this._maScanFinishedAt = 0;
     this._maScanTimer = null;
     this._paceTail = Promise.resolve();
+    // 缠论笔 + 均线穿越 监控状态
+    this._wave = {
+      enabled: false,
+      tfs: CONFIG.WAVE_DEFAULT_TFS.slice(),
+      minBars: CONFIG.WAVE_MIN_BARS,
+      busy: false, timer: null, events: [], seen: {}, cache: {}, lastRun: 0, _seq: 0,
+    };
   }
 
   async init() {
@@ -2380,6 +2543,7 @@ class Dashboard {
     this.setupAlertMenu();
     this.setupDingTalkConfig();
     this.setupAlertHistory();
+    this.setupWaveMonitor();
     AlertManager._loadAlerts();
     AlertManager._loadHistory();
     AlertManager._updateUI();
@@ -2457,13 +2621,28 @@ class Dashboard {
 
     console.log(`[排序] ${STATE.sortMode} → ${sorted.slice(0,5).map(p => p.symbol).join(', ')}...`);
 
+    // 缠论笔信号命中的币种: 按级别置顶
+    //  ① 当前浏览周期有信号的币最前(新→旧) ② 其它周期的信号币按级别从高到低(新→旧)
+    let ordered = sorted;
+    const front = this._wave ? this._waveFrontOrder() : [];
+    if (front.length) {
+      const bySym = {};
+      for (const p of sorted) bySym[p.symbol] = p;
+      const frontPanels = [];
+      for (const s of front) {
+        if (bySym[s]) { frontPanels.push(bySym[s]); delete bySym[s]; }
+      }
+      ordered = frontPanels.concat(sorted.filter(p => bySym[p.symbol]));
+    }
+
     // Reorder DOM elements
     const grid = this.grid;
-    for (const panel of sorted) {
+    for (const panel of ordered) {
       if (panel.panel && panel.panel.parentNode === grid) {
         grid.appendChild(panel.panel);
       }
     }
+    if (this._wave) this.renderWaveBadges();
   }
 
   // ==================== EMA7/MA7 均线排列扫描 ====================
@@ -2483,50 +2662,51 @@ class Dashboard {
     this._setScanningUI(true);
     const tfs = CONFIG.ALIGN_TFS;
     const limit = CONFIG.ALIGN_KLINE_LIMIT;
-    const base = CONFIG.BINANCE_REST;
     const total = symbols.length;
     const statEl = document.getElementById('statData');
     const setStat = (txt, color) => { if (statEl) { statEl.textContent = txt; statEl.style.color = color; } };
-    setStat(`均线扫描 0/${total}...`, 'var(--yellow)');
 
-    // 全局限速获取(相邻请求至少间隔 ALIGN_REQ_GAP_MS, 单次limit<=100权重1)
-    const pacedFetch = async (url) => {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          await this._pacedTick();
-          const resp = await fetch(url);
-          if (resp.ok) return await resp.json();
-          throw new Error('HTTP ' + resp.status);
-        } catch (e) {
-          if (attempt === 1) throw e;
-          await sleep(600);
-        }
+    // 汇总扫描任务: 当前查看级别(已加载完成)直接复用面板内存K线, 其余级别走网络请求
+    const perSym = {};
+    const tasks = [];
+    for (const sym of symbols) {
+      perSym[sym] = { bull: [], bear: [] };
+      const p = STATE.chartPanels[sym];
+      for (const tf of tfs) {
+        let local = null;
+        if (p && p.loadTF === tf && p._dataLoaded && p.candles && p.candles.length >= 20) local = p.candles;
+        tasks.push({ sym, tf, local });
       }
-    };
+    }
+    const totalNet = tasks.filter(t => !t.local).length;
+    setStat(totalNet ? `均线扫描 0% (0/${totalNet}请求)...` : '均线扫描 计算中...', 'var(--yellow)');
 
     try {
-      let done = 0;
-      await this._poolMap(symbols, async (sym) => {
-        const bull = [], bear = [];
-        await this._poolMap(tfs, async (tf) => {
+      let netDone = 0;
+      await this._poolMap(tasks, async (task) => {
+        let cs = null;
+        if (task.local) {
+          // 面板内存K线(WS已实时更新), 只取最近一段加速计算
+          cs = task.local.slice(-limit).map(c => ({ open: c.open, close: c.close }));
+        } else {
           try {
-            const rows = await pacedFetch(`${base}/klines?symbol=${sym}&interval=${tf}&limit=${limit}`);
-            if (!rows || rows.length < 15) return;
-            const cs = rows.map(r => ({ open: parseFloat(r[1]), close: parseFloat(r[4]) }));
-            const ema7 = Indicators.ema(cs, CONFIG.EMA7_PERIOD);
-            const ma7 = Indicators.sma(cs, CONFIG.MA_PERIODS[0]);
-            const i = cs.length - 1;
-            const e7 = ema7[i], m7 = ma7[i], c = cs[i];
-            if (e7 == null || m7 == null) return;
-            if (c.close > c.open && c.close > e7 && c.close > m7) bull.push(tf);
-            else if (c.close < c.open && c.close < e7 && c.close < m7) bear.push(tf);
-          } catch (e) { /* 单个周期失败跳过 */ }
-        }, 2);
-        this.maAlign[sym] = { bull, bear, ts: Date.now() };
-        done++;
-        if (done % 10 === 0 || done === total) setStat(`均线扫描 ${done}/${total}...`, 'var(--yellow)');
-      }, 6);
+            const rows = await this._pacedFetchJSON(`${CONFIG.BINANCE_REST}/klines?symbol=${task.sym}&interval=${task.tf}&limit=${limit}`);
+            if (rows && rows.length >= 15) cs = rows.map(r => ({ open: parseFloat(r[1]), close: parseFloat(r[4]) }));
+          } catch (e) { /* 单个请求失败跳过 */ }
+          netDone++;
+          if (netDone % 50 === 0 || netDone === totalNet) {
+            const pct = Math.round(netDone / totalNet * 100);
+            setStat(`均线扫描 ${pct}% (${netDone}/${totalNet}请求)...`, 'var(--yellow)');
+          }
+        }
+        const st = this._judgeAlign(cs);
+        if (st === 'bull') perSym[task.sym].bull.push(task.tf);
+        else if (st === 'bear') perSym[task.sym].bear.push(task.tf);
+      }, 8);
 
+      for (const sym of symbols) {
+        this.maAlign[sym] = { bull: perSym[sym].bull, bear: perSym[sym].bear, ts: Date.now() };
+      }
       this._maScanFinishedAt = Date.now();
       this._maScanDone = true;
       setStat(`✓ 均线扫描完成 ${total}币`, 'var(--green)');
@@ -2539,6 +2719,19 @@ class Dashboard {
       this._setScanningUI(false);
     }
     return true;
+  }
+
+  // 判断最新K线(含未收盘): 阳线(收>开)且收盘>EMA7且收盘>MA7 => bull; 阴线反之跌破 => bear
+  _judgeAlign(cs) {
+    if (!cs || cs.length < 15) return null;
+    const ema7 = Indicators.ema(cs, CONFIG.EMA7_PERIOD);
+    const ma7 = Indicators.sma(cs, CONFIG.MA_PERIODS[0]);
+    const i = cs.length - 1;
+    const e7 = ema7[i], m7 = ma7[i], c = cs[i];
+    if (e7 == null || m7 == null) return null;
+    if (c.close > c.open && c.close > e7 && c.close > m7) return 'bull';
+    if (c.close < c.open && c.close < e7 && c.close < m7) return 'bear';
+    return null;
   }
 
   // 简单并发池
@@ -2561,6 +2754,21 @@ class Dashboard {
     const tail = this._paceTail;
     this._paceTail = tail.then(() => sleep(CONFIG.ALIGN_REQ_GAP_MS));
     return this._paceTail;
+  }
+
+  // 全局限速 JSON 获取(失败自动重试一次)
+  async _pacedFetchJSON(url) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await this._pacedTick();
+        const resp = await fetch(url);
+        if (resp.ok) return await resp.json();
+        throw new Error('HTTP ' + resp.status);
+      } catch (e) {
+        if (attempt === 1) throw e;
+        await sleep(600);
+      }
+    }
   }
 
   // 排列模式下每 ALIGN_RESCAN_MS 自动重扫一次
@@ -2590,6 +2798,442 @@ class Dashboard {
 
   _setScanningUI(busy) {
     document.querySelectorAll('.sort-btn[data-sort="maBull"], .sort-btn[data-sort="maBear"]').forEach(b => b.classList.toggle('scanning', busy));
+  }
+
+  // ==================== 缠论笔 + 均线穿越 多级别提醒 ====================
+  // 结构(缠论笔, 每笔自端点起至少 N 根K线, 默认5根):
+  //   ▲ 做多: 自最近一个"下跌笔低点端点"起, 首根已收盘K线同时站上 MA7 与 EMA7
+  //   ▼ 做空: 自最近一个"上涨笔高点端点"起, 首根已收盘K线同时跌破 MA7 与 EMA7
+  // 命中后: 该币面板前置排列 + 级别徽标 + Toast; 同一笔只提醒一次
+  setupWaveMonitor() {
+    const panel = document.getElementById('wavePanel');
+    const btn = document.getElementById('waveMonitorBtn');
+    const header = document.getElementById('waveHeader');
+    const toggle = document.getElementById('waveToggle');
+    const clearBtn = document.getElementById('waveClear');
+    const tfBox = document.getElementById('waveTfs');
+    const barsInput = document.getElementById('waveMinBars');
+
+    if (btn) btn.addEventListener('click', () => {
+      if (!panel) return;
+      panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+    });
+    if (header) header.addEventListener('click', () => {
+      if (!panel) return;
+      panel.classList.toggle('collapsed');
+      const t = panel.querySelector('.alerts-toggle');
+      if (t) t.textContent = panel.classList.contains('collapsed') ? '+' : '−';
+    });
+    if (tfBox) tfBox.addEventListener('change', () => {
+      const picked = Array.from(tfBox.querySelectorAll('input:checked')).map(i => i.value);
+      if (!picked.length) {
+        showToast('⚠ 至少保留一个监控级别', false);
+        const back = Array.from(tfBox.querySelectorAll('input')).find(i => i.value === this._wave.tfs[this._wave.tfs.length - 1]);
+        if (back) back.checked = true;
+        return;
+      }
+      this._wave.tfs = CONFIG.WAVE_TFS.filter(tf => picked.indexOf(tf) !== -1);
+      this._wave.cache = {};
+      this._renderWavePanel();
+    });
+    if (barsInput) {
+      barsInput.value = this._wave.minBars;
+      barsInput.addEventListener('change', () => {
+        let v = parseInt(barsInput.value, 10);
+        if (isNaN(v)) v = CONFIG.WAVE_MIN_BARS;
+        v = Math.min(20, Math.max(3, v));
+        barsInput.value = v;
+        this._wave.minBars = v;
+        this._renderWavePanel();
+      });
+    }
+    if (toggle) toggle.addEventListener('click', () => {
+      if (this._wave.enabled) this.stopWaveMonitor();
+      else this.startWaveMonitor();
+    });
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+      this._wave.events = [];
+      this._wave.seen = {};
+      this.renderWaveBadges();
+      this.sortPanels();
+      this._renderWavePanel();
+    });
+    this._renderWavePanel();
+  }
+
+  async startWaveMonitor() {
+    if (this._wave.enabled) return;
+    if (!this._wave.tfs.length) { showToast('⚠ 请先勾选至少一个监控级别', false); return; }
+    this._wave.enabled = true;
+    STATE.waveMonitor.enabled = true;
+    this._wave.events = [];
+    this._wave.seen = {};
+    this._wave.cache = {};
+    this.renderWaveBadges();
+    const panel = document.getElementById('wavePanel');
+    if (panel) { panel.style.display = 'flex'; panel.classList.remove('collapsed'); }
+    this._updateWaveUI(true);
+    showToast(`🌊 缠论笔+均线穿越监控已启动 · ${this._wave.tfs.join('/')} · 每笔≥${this._wave.minBars}根`, false);
+    await this.runWaveCycle();
+    if (this._wave.enabled) this._scheduleWave();
+  }
+
+  stopWaveMonitor() {
+    this._wave.enabled = false;
+    STATE.waveMonitor.enabled = false;
+    if (this._wave.timer) { clearTimeout(this._wave.timer); this._wave.timer = null; }
+    this._updateWaveUI(false);
+    showToast('🌊 缠论笔+均线穿越监控已停止', false);
+  }
+
+  _scheduleWave() {
+    if (this._wave.timer) { clearTimeout(this._wave.timer); this._wave.timer = null; }
+    if (!this._wave.enabled) return;
+    this._wave.timer = setTimeout(async () => {
+      if (document.hidden || this._wave.busy) { this._scheduleWave(); return; }
+      await this.runWaveCycle();
+      if (this._wave.enabled) this._scheduleWave();
+    }, CONFIG.WAVE_POLL_MS);
+  }
+
+  _tfSeconds(tf) {
+    const m = /^(\d+)([mhd])$/.exec(tf);
+    if (!m) return 300;
+    const n = parseInt(m[1], 10);
+    return m[2] === 'm' ? n * 60 : m[2] === 'h' ? n * 3600 : n * 86400;
+  }
+
+  _waveCacheKey(sym, tf) { return sym + '|' + tf; }
+
+  _waveCacheFresh(sym, tf) {
+    const hit = this._wave.cache[this._waveCacheKey(sym, tf)];
+    return !!(hit && Date.now() < hit.exp && hit.candles && hit.candles.length > 20);
+  }
+
+  // 带缓存的K线获取: 每个级别收盘一根K线才重新抓取一次(合成周期自动用基准周期聚合)
+  async _waveFetchCandles(sym, tf, limit) {
+    const key = this._waveCacheKey(sym, tf);
+    const now = Date.now();
+    const hit = this._wave.cache[key];
+    if (hit && now < hit.exp && hit.candles && hit.candles.length > 20) return hit.candles;
+    const parseRows = (rows) => rows.map(r => ({
+      time: Math.floor(parseFloat(r[0]) / 1000), open: parseFloat(r[1]), high: parseFloat(r[2]),
+      low: parseFloat(r[3]), close: parseFloat(r[4]), volume: parseFloat(r[5]),
+    }));
+    let candles = null;
+    try {
+      const synth = CONFIG.SYNTHETIC_TF[tf];
+      if (synth) {
+        const rawLimit = limit * synth.factor + synth.factor;   // 多取一点保证对齐
+        const rows = await this._pacedFetchJSON(`${CONFIG.BINANCE_REST}/klines?symbol=${sym}&interval=${synth.base}&limit=${rawLimit}`);
+        if (!rows || rows.length < 20) throw new Error('short');
+        candles = resampleCandles(parseRows(rows), synth.factor).slice(-limit);
+      } else {
+        const rows = await this._pacedFetchJSON(`${CONFIG.BINANCE_REST}/klines?symbol=${sym}&interval=${tf}&limit=${limit}`);
+        if (!rows || rows.length < 20) throw new Error('short');
+        candles = parseRows(rows);
+      }
+    } catch (e) {
+      this._wave.cache[key] = { exp: now + 20000, candles: hit ? hit.candles : null };
+      return hit ? hit.candles : null;
+    }
+    const barSec = this._tfSeconds(tf);
+    const closedT = candles.length >= 2 ? candles[candles.length - 2].time : 0;
+    const exp = closedT ? (closedT + 2 * barSec) * 1000 + 3000 : now + 20000;
+    this._wave.cache[key] = { exp, candles };
+    return candles;
+  }
+
+  // 缠论笔端点(仅用已收盘K线; endExclusive 表示已收盘K线的右边界)
+  _waveStrokes(candles, endExclusive) {
+    if (!candles || endExclusive < 20) return [];
+    const closed = candles.slice(0, endExclusive);
+    try {
+      const r = ChanTheory.buildStrokes(closed, true);
+      return (r && r.strokes) || [];
+    } catch (e) { return []; }
+  }
+
+  async runWaveCycle() {
+    if (this._wave.busy || !this._wave.enabled) return;
+    const symbols = Object.keys(STATE.chartPanels);
+    const tfs = this._wave.tfs.slice();
+    if (!symbols.length || !tfs.length) return;
+
+    this._wave.busy = true;
+    const before = this._wave.events.length;
+    const setStat = (txt, color) => { const el = document.getElementById('statData'); if (el) { el.textContent = txt; el.style.color = color; } };
+    const tasks = [];
+    let totalNet = 0;
+    for (const tf of tfs) {
+      for (const sym of symbols) {
+        const net = !this._waveCacheFresh(sym, tf);
+        if (net) totalNet++;
+        tasks.push({ sym, tf, net });
+      }
+    }
+    if (totalNet) setStat(`缠论笔监控 0% (0/${totalNet}请求)...`, 'var(--yellow)');
+
+    try {
+      let netDone = 0;
+      await this._poolMap(tasks, async (task) => {
+        const candles = await this._waveFetchCandles(task.sym, task.tf, CONFIG.WAVE_KLINE_LIMIT);
+        if (task.net) {
+          netDone++;
+          if (totalNet && (netDone % 50 === 0 || netDone === totalNet)) {
+            setStat(`缠论笔监控 ${Math.round(netDone / totalNet * 100)}% (${netDone}/${totalNet}请求)...`, 'var(--yellow)');
+          }
+        }
+        if (!candles || candles.length < 30) return;
+        this._waveEvaluate(task.sym, task.tf, candles);
+      }, 6);
+    } finally {
+      this._wave.busy = false;
+    }
+
+    this._wave.lastRun = Date.now();
+    const fired = this._wave.events.length - before;
+    if (fired > 0) this.sortPanels();      // 命中的币种面板前置排列(内部刷新级别徽标)
+    else this.renderWaveBadges();
+    this._renderWavePanel();
+    if (fired > 0) {
+      let l = 0, s = 0;
+      for (const ev of this._wave.events.slice(0, fired)) { if (ev.dir === 'long') l++; else s++; }
+      showToast(`🌊 缠论笔信号: ${fired}个已置顶排列 ▲多${l} ▼空${s}`, true);
+      setStat(`✓ 缠论笔监控完成 · 新信号 ${fired}`, 'var(--green)');
+    } else {
+      setStat('✓ 缠论笔监控检查完成(无新信号)', 'var(--green)');
+    }
+  }
+
+  // 判定某级别最新已收盘K线: 是否"笔端点以来首次收盘站上/跌破 MA7+EMA7"
+  _waveEvaluate(sym, tf, candles, closedIdx) {
+    if (!candles || candles.length < 30) return;
+    const i = (closedIdx == null || closedIdx < 0) ? candles.length - 2 : closedIdx;
+    if (i < 20 || i >= candles.length) return;
+    const cur = candles[i];
+    if (!cur || cur.time == null) return;
+
+    const ema7 = Indicators.ema(candles, CONFIG.EMA7_PERIOD);
+    const ma7 = Indicators.sma(candles, CONFIG.MA_PERIODS[0]);
+    if (ema7[i] == null || ma7[i] == null) return;
+    const above = cur.close > ma7[i] && cur.close > ema7[i];
+    const below = cur.close < ma7[i] && cur.close < ema7[i];
+    if (!above && !below) return;
+
+    const strokes = this._waveStrokes(candles, i + 1);
+    if (!strokes.length) return;
+    const want = above ? 'low' : 'high';         // 做多找低点笔端点, 做空找高点笔端点
+    let pIdx = -1, pPrice = 0, pTime = 0;
+    for (let k = strokes.length - 1; k >= 0; k--) {
+      if (strokes[k].type === want) { pIdx = strokes[k].index; pPrice = strokes[k].price; pTime = strokes[k].time; break; }
+    }
+    if (pIdx < 0 || pIdx >= i) return;
+    const bars = i - pIdx;
+    if (bars < this._wave.minBars) return;       // 这一笔还不足 minBars 根K线
+
+    // 自该笔端点以来必须是"第一次"收盘站上/跌破两条均线
+    for (let j = pIdx + 1; j < i; j++) {
+      if (above) {
+        if (ma7[j] != null && ema7[j] != null && candles[j].close > ma7[j] && candles[j].close > ema7[j]) return;
+      } else {
+        if (ma7[j] != null && ema7[j] != null && candles[j].close < ma7[j] && candles[j].close < ema7[j]) return;
+      }
+    }
+
+    const key = sym + '|' + tf + '|' + pTime;
+    if (this._wave.seen[key]) return;
+    this._wave.seen[key] = Date.now();
+    if (Object.keys(this._wave.seen).length > 5000) this._wave.seen = {};
+
+    this._waveFire({
+      id: 'wave_' + (++this._wave._seq),
+      symbol: sym, tf, dir: above ? 'long' : 'short',
+      price: cur.close, bars, pivot: pPrice, pivotTime: pTime, at: Date.now(),
+    }, false);
+  }
+
+  // WS实时路径: 当前查看级别收盘瞬间即时判定
+  waveWSCandleClose(symbol, closePrice, closedT, tf) {
+    if (!this._wave.enabled) return;
+    const p = STATE.chartPanels[symbol];
+    if (!p || !p.candles || p.candles.length < 30) return;
+    const src = p.candles.slice(-CONFIG.WAVE_KLINE_LIMIT);
+    const cs = src.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume }));
+    let idx = -1;
+    for (let k = cs.length - 1; k >= 0; k--) {
+      if (cs[k].time === closedT) { idx = k; break; }
+    }
+    if (idx < 20) return;
+    cs[idx].close = closePrice;
+    this._waveEvaluate(symbol, tf, cs, idx);
+  }
+
+  _waveFire(ev, quiet) {
+    this._wave.events.unshift(ev);
+    if (this._wave.events.length > CONFIG.WAVE_KEEP) this._wave.events.length = CONFIG.WAVE_KEEP;
+    this._renderWavePanel();
+    const p = STATE.chartPanels[ev.symbol];
+    if (p && p.panel) {
+      p.panel.classList.remove('panel-flash');
+      void p.panel.offsetWidth;
+      p.panel.classList.add('panel-flash');
+    }
+    if (!quiet) {
+      const head = ev.dir === 'long' ? '▲首次收盘站上MA7/EMA7' : '▼首次收盘跌破MA7/EMA7';
+      showToast(`🌊 ${ev.symbol} (${ev.tf}) ${head} · 笔后${ev.bars}根 @ $${fmtPrice(ev.price)}`, true);
+    }
+  }
+
+  // 每个币"最近一次信号"与"当前浏览周期上的最近一次信号"
+  _waveMaps() {
+    const cur = STATE.currentTF;
+    const latestAny = {}, latestCur = {};
+    for (const ev of this._wave.events) {          // events 最新在前
+      if (!latestAny[ev.symbol]) latestAny[ev.symbol] = ev;
+      if (ev.tf === cur && !latestCur[ev.symbol]) latestCur[ev.symbol] = ev;
+    }
+    return { latestAny, latestCur, cur };
+  }
+
+  // 置顶顺序: ①当前浏览周期有信号的币最前(新→旧) ②其余信号币按级别从高到低(新→旧)
+  _waveFrontOrder() {
+    const { latestAny, latestCur } = this._waveMaps();
+    const syms = Object.keys(latestAny);
+    if (!syms.length) return syms;
+    const high2low = CONFIG.WAVE_TFS.slice().reverse();   // 1d → 5m
+    const rank = (tf) => { const k = high2low.indexOf(tf); return k < 0 ? 99 : k; };
+    syms.sort((a, b) => {
+      const ca = latestCur[a] ? 0 : 1;
+      const cb = latestCur[b] ? 0 : 1;
+      if (ca !== cb) return ca - cb;                                  // ① 当前浏览周期优先
+      if (ca === 0) return (latestCur[b].at || 0) - (latestCur[a].at || 0);  // 同级别: 新→旧
+      const ea = latestAny[a], eb = latestAny[b];
+      const ra = rank(ea.tf), rb = rank(eb.tf);
+      if (ra !== rb) return ra - rb;                                   // ② 级别从高到低
+      return (eb.at || 0) - (ea.at || 0);                              // ③ 新→旧
+    });
+    return syms;
+  }
+
+  // 当前浏览周期下, 有信号的币数量(用于切换周期时提示)
+  _waveCountForTF(tf) {
+    const set = new Set();
+    for (const ev of this._wave.events) if (ev.tf === tf) set.add(ev.symbol);
+    return set.size;
+  }
+
+  // 命中的面板标注级别徽标(优先显示当前浏览周期上的信号并高亮)
+  renderWaveBadges() {
+    const { latestAny, latestCur, cur } = this._waveMaps();
+    for (const [sym, panel] of Object.entries(STATE.chartPanels)) {
+      if (!panel.setWaveBadge) continue;
+      const ev = latestCur[sym] || latestAny[sym];
+      if (!ev) { panel.setWaveBadge(''); continue; }
+      const arrow = ev.dir === 'long' ? '▲' : '▼';
+      panel.setWaveBadge(
+        `🌊${ev.tf} ${arrow}${ev.dir === 'long' ? '站上' : '跌破'}MA7·EMA7`,
+        `${ev.symbol} ${ev.tf} ${ev.dir === 'long' ? '做多' : '做空'} · 笔端点 $${fmtPrice(ev.pivot)} 起第${ev.bars}根收盘穿越 · 信号价 $${fmtPrice(ev.price)}${ev.tf === cur ? ' · 当前浏览级别' : ''}`,
+        ev.tf === cur ? 'cur' : 'other'
+      );
+    }
+  }
+
+  _renderWavePanel() {
+    const list = document.getElementById('waveList');
+    const count = document.getElementById('waveCount');
+    const status = document.getElementById('waveStatus');
+    if (count) count.textContent = this._wave.events.length;
+    if (status) {
+      // 各周期信号数(有信号的展示, 便于快速定位)
+      const counts = {};
+      for (const ev of this._wave.events) counts[ev.tf] = (counts[ev.tf] || 0) + 1;
+      const high2low = CONFIG.WAVE_TFS.slice().reverse();
+      const hitTxt = Object.keys(counts)
+        .sort((a, b) => high2low.indexOf(a) - high2low.indexOf(b))
+        .map(tf => `${tf === STATE.currentTF ? '★' : ''}${tf}:${counts[tf]}`)
+        .join(' ');
+      const base = `每笔≥${this._wave.minBars}根 · 浏览 ${STATE.currentTF}${hitTxt ? ' · 命中 ' + hitTxt : ''}`;
+      if (this._wave.enabled) {
+        const d = this._wave.lastRun ? new Date(this._wave.lastRun) : null;
+        const t = d ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}` : '--';
+        status.textContent = `● 监控中 · ${base} · 上次 ${t}`;
+        status.style.color = 'var(--green)';
+      } else {
+        status.textContent = `○ 已停止 · ${base}`;
+        status.style.color = 'var(--text-secondary)';
+      }
+    }
+    this._updateWaveBtn();
+    if (!list) return;
+    if (!this._wave.events.length) {
+      list.innerHTML = '<div class="alerts-empty">暂无信号<br><span style="font-size:10px">▲ 下跌笔低点后首次收盘站上 MA7+EMA7<br>▼ 上涨笔高点后首次收盘跌破 MA7+EMA7</span></div>';
+      return;
+    }
+    list.innerHTML = this._wave.events.map(ev => {
+      const d = new Date(ev.at);
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
+      const isLong = ev.dir === 'long';
+      return `<div class="wave-item ${isLong ? 'long' : 'short'}" data-id="${ev.id}">
+        <span class="dir ${isLong ? 'long' : 'short'}">${isLong ? '▲多' : '▼空'}</span>
+        <span class="sym">${ev.symbol}</span>
+        <span class="meta">${ev.tf} · 笔后${ev.bars}根 · 端点$${fmtPrice(ev.pivot)}</span>
+        <span class="price">$${fmtPrice(ev.price)}</span>
+        <span class="tm">${hh}:${mm}:${ss}</span>
+        <button class="del" data-id="${ev.id}" title="删除">✕</button>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('.wave-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.del')) return;
+        const ev = this._wave.events.find(x => String(x.id) === item.dataset.id);
+        if (ev) this.focusSymbol(ev.symbol, ev.tf);
+      });
+    });
+    list.querySelectorAll('.del').forEach(b => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = b.dataset.id;
+      this._wave.events = this._wave.events.filter(x => String(x.id) !== id);
+      this._renderWavePanel();
+    }));
+  }
+
+  _updateWaveUI(running) {
+    const toggle = document.getElementById('waveToggle');
+    if (toggle) {
+      toggle.textContent = running ? '⏸ 停止监控' : '▶ 启动监控';
+      toggle.classList.toggle('running', running);
+    }
+    this._renderWavePanel();
+  }
+
+  _updateWaveBtn() {
+    const btn = document.getElementById('waveMonitorBtn');
+    if (!btn) return;
+    const n = this._wave.events.length;
+    btn.textContent = n > 0 ? '🌊' + n : '🌊';
+    btn.classList.toggle('has-events', n > 0);
+    btn.title = n > 0 ? `缠论笔+均线穿越信号 · ${n}个` : '缠论笔+均线穿越多级别提醒(每笔≥5根)';
+  }
+
+  // 点击信号跳转: 切到对应级别并定位该币面板
+  async focusSymbol(symbol, tf) {
+    if (STATE.currentTF !== tf) {
+      document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+      const target = document.querySelector(`.tf-btn[data-tf="${tf}"]`);
+      if (target) target.classList.add('active');
+      STATE.currentTF = tf;
+      await this.switchTimeframe();
+    }
+    const panel = STATE.chartPanels[symbol];
+    if (panel && panel.panel) {
+      panel.panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      panel.panel.classList.remove('panel-flash');
+      void panel.panel.offsetWidth;
+      panel.panel.classList.add('panel-flash');
+    }
   }
 
   setupKeyboardShortcuts() {
@@ -2728,6 +3372,14 @@ class Dashboard {
     // Reconnect WebSocket
     this.connectAllWS();
     this.updateStats();
+
+    // 按当前浏览周期重新置顶排列(该周期有信号的币排到最前)
+    this.sortPanels();
+    this._renderWavePanel();
+    if (this._wave && this._wave.enabled) {
+      const n = this._waveCountForTF(STATE.currentTF);
+      if (n > 0) showToast(`🌊 ${STATE.currentTF} 有 ${n} 个信号币, 已置顶排列`, false);
+    }
 
     document.getElementById('statData').textContent = '✓ 数据就绪';
     document.getElementById('statData').style.color = 'var(--green)';
