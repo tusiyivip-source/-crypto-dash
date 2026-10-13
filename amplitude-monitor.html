@@ -1126,7 +1126,9 @@ class GainBoard {
           const candles = await BinanceAPI.getKlines(sym, info.base, limit);
           if (!alive()) return;
           self.applyRestCandles(sym, candles, info, STATE.restMode);
-        } catch(e) {}
+        } catch(e) {
+          self.queueRestFix(sym);        // 失败(多为限流暂停)的币稍后自动补一次
+        }
         done++;
         STATE.prefill.done = Math.min(done, list.length);
       }
