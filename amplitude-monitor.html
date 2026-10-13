@@ -1063,7 +1063,12 @@ class GainBoard {
     let b = STATE.buckets[sym];
     if (!b || b.start !== bStart) {
       const first = (t === bStart);          // 该 base K 线是否正好是本级别 K 线的第一根
-      b = { start:bStart, open:o, high:h, low:l, close:c, valid:first, lastUpdate:Date.now() };
+      let prev = b ? b.prev : null;
+      // 恰好跨一根 → 上一根刚刚收盘，记录它的单根收盘涨幅
+      if (b && b.start === bStart - info.ms && b.open > 0) {
+        prev = { start: b.start, open: b.open, close: b.close, gain: (b.close - b.open) / b.open * 100 };
+      }
+      b = { start:bStart, open:o, high:h, low:l, close:c, valid:first, lastUpdate:Date.now(), prev:prev };
       STATE.buckets[sym] = b;
       if (!first) this.queueRestFix(sym);    // 中途挂上（如 10m/3h 合成周期）需用 REST 校正开盘价
     } else {
@@ -1122,11 +1127,26 @@ class GainBoard {
     for (const c of src) { if (c.high > high) high = c.high; if (c.low < low) low = c.low; }
     const close = src[src.length - 1].close;
     const gain = (close - open) / open * 100;
+
+    // 上一根（已收盘）级别K线：开盘 → 收盘 的单根收盘涨幅
+    let prev = b ? b.prev : null;
+    const before = candles.filter(c => c.time * 1000 < bStart);
+    if (before.length) {
+      const lastT = before[before.length - 1].time * 1000;
+      const pStart = Math.floor(lastT / info.ms) * info.ms;
+      const pIn = before.filter(c => Math.floor(c.time * 1000 / info.ms) * info.ms === pStart);
+      if (pIn.length >= info.group) {
+        const po = pIn[0].open, pc = pIn[pIn.length - 1].close;
+        if (po > 0) prev = { start: pStart, open: po, close: pc, gain: (pc - po) / po * 100 };
+      }
+    }
+
     STATE.buckets[sym] = {
       start: bStart, open: open, high: high, low: low, close: close,
       gain: gain,
       amp: (high - low) / open * 100,
       valid: true, lastUpdate: Date.now(), src: 'rest',
+      prev: prev,
     };
     const m = STATE.meta[sym];
     if (m) m.lastPrice = close;
@@ -1139,7 +1159,8 @@ class GainBoard {
     const epoch = STATE.epoch;
     const info = levelInfo();
     // 带 MACD 时一次请求同时供“当前K线涨幅”和“MACD 历史”使用，不额外增加请求数
-    const limit = withMacd ? this.macdHistoryLimit(info) : Math.max(2, info.group + 1);
+    // 不带 MACD 时也要取到上一根完整的K线（用于“上根收盘涨幅”）
+    const limit = withMacd ? this.macdHistoryLimit(info) : Math.max(3, info.group * 2 + 1);
     const list = STATE.universe.slice();
     STATE.prefill = { active: true, done: 0, total: list.length, macd: !!withMacd };
     let idx = 0;
@@ -1276,12 +1297,12 @@ class GainBoard {
     const tdPrice = document.createElement('td'); tdPrice.className = 'price-col'; tr.appendChild(tdPrice);
     const tdGain  = document.createElement('td'); tdGain.className = 'gain-cell g-flat'; tr.appendChild(tdGain);
     const tdMacd  = document.createElement('td'); tdMacd.className = 'gain-cell g-flat'; tr.appendChild(tdMacd);
-    const tdOpen  = document.createElement('td'); tr.appendChild(tdOpen);
+    const tdPrev  = document.createElement('td'); tdPrev.className = 'gain-cell g-flat'; tr.appendChild(tdPrev);
     const tdAmp   = document.createElement('td'); tr.appendChild(tdAmp);
     const tdChg   = document.createElement('td'); tr.appendChild(tdChg);
     const tdVol   = document.createElement('td'); tdVol.style.color = 'var(--text-secondary)'; tr.appendChild(tdVol);
 
-    this.cellRefs[sym] = { rank:tdRank, price:tdPrice, gain:tdGain, macd:tdMacd, open:tdOpen, amp:tdAmp, chg:tdChg, vol:tdVol };
+    this.cellRefs[sym] = { rank:tdRank, price:tdPrice, gain:tdGain, macd:tdMacd, prev:tdPrev, amp:tdAmp, chg:tdChg, vol:tdVol };
     tr.addEventListener('click', () => app.selectSymbol(sym));
     if (STATE.chartSymbol === sym) tr.classList.add('selected-row');
     this.bodyEl.appendChild(tr);
@@ -1412,8 +1433,23 @@ class GainBoard {
         refs.macd.title = sym + ' MACD: 未扫描';
       }
 
-      // 开盘价 / 振幅
-      this.setText(refs.open, 'open', (b && b.open > 0) ? fmtPrice(b.open) : '--');
+      // 上一根（已收盘）单根收盘涨幅
+      const pv = b ? b.prev : null;
+      if (pv && isFinite(pv.gain)) {
+        const up = pv.gain >= 0;
+        refs.prev.className = 'gain-cell ' + (Math.abs(pv.gain) < 0.005 ? 'g-flat' : (up ? 'g-up' : 'g-down'));
+        this.setText(refs.prev, 'prev', (up ? '+' : '') + pv.gain.toFixed(2) + '%');
+        refs.prev.title = sym + ' 上一根 ' + info.label + ' K线（已收盘）\n' +
+          '开盘: ' + fmtPrice(pv.open) + '  收盘: ' + fmtPrice(pv.close) + '\n' +
+          '单根涨幅: ' + (up ? '+' : '') + pv.gain.toFixed(2) + '%\n' +
+          'K线时间: ' + bjtFull(pv.start) + ' (BJT)';
+      } else {
+        refs.prev.className = 'gain-cell dim';
+        this.setText(refs.prev, 'prev', '--');
+        refs.prev.title = sym + ' 上一根K线数据加载中…';
+      }
+
+      // 振幅
       if (b && isFinite(b.amp)) {
         this.setText(refs.amp, 'amp', b.amp.toFixed(2) + '%');
       } else {
@@ -1688,7 +1724,8 @@ class GainBoard {
     html += '<th class="gain-col" data-sort="gain" onclick="app.setSort(\'gain\')" title="' + info.label +
       ' 当前K线：开盘价 → 现价 的涨跌幅">本级涨幅<br>(' + STATE.level + ')</th>';
     html += '<th class="macd-col" title="当前级别 MACD(12,26,9)：上=零轴上方(DIF&gt;0)，下=零轴下方(DIF&lt;0)；▲=金叉(DIF≥DEA) ▼=死叉">MACD</th>';
-    html += '<th class="open-col">本K开盘</th>';
+    html += '<th class="open-col" title="上一根已收盘的 ' + info.label +
+      ' K线：开盘 → 收盘 的单根涨幅（已定型，不再变化）">上根涨幅<br>(已收盘)</th>';
     html += '<th class="amp-col">本K振幅</th>';
     html += '<th class="chg-col" data-sort="chg" onclick="app.setSort(\'chg\')" title="币安 24 小时滚动涨跌幅（与“本级涨幅”口径不同）">24h涨跌</th>';
     html += '<th class="vol-col" data-sort="vol" onclick="app.setSort(\'vol\')">24h额</th>';
