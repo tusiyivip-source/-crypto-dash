@@ -326,6 +326,7 @@ tbody tr.selected-row td.sym-col { color:var(--yellow); }
       <div id="chartFooter">
         <span id="chartStat">滚轮缩放 · 点左侧币种切换</span>
         <span style="display:flex;gap:6px;">
+          <button class="btn active" id="macdBtn" onclick="app.toggleMacd()" title="显示/隐藏 MACD(12,26,9) 副图">MACD</button>
           <button class="btn" onclick="app.selectTopChart()" style="font-size:11px;" title="跳到榜一">榜一</button>
           <button class="btn" onclick="app.openOnBinance()" style="font-size:11px;" title="在币安打开该合约">币安 →</button>
         </span>
@@ -500,6 +501,8 @@ const STATE = {
   chartHover: null,
   chartPanelOpen: true,
   chartLoading: false,
+  chartMacd: true,          // 下方 MACD 副图
+  macdParams: { fast: 12, slow: 26, signal: 9 },
   initDone: false,
   loadingUniverse: false,
 };
@@ -534,6 +537,15 @@ function bjtFull(ms) {
   const d = new Date(ms + 8*3600*1000);
   return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth()+1) + '-' + pad2(d.getUTCDate()) + ' ' +
     pad2(d.getUTCHours()) + ':' + pad2(d.getUTCMinutes()) + ':' + pad2(d.getUTCSeconds());
+}
+function fmtMacd(v) {
+  if (v == null || !isFinite(v)) return '--';
+  const a = Math.abs(v);
+  if (a >= 100) return v.toFixed(2);
+  if (a >= 1) return v.toFixed(4);
+  if (a >= 0.001) return v.toFixed(6);
+  if (a === 0) return '0';
+  return v.toExponential(2);
 }
 function fmtLeft(msLeft) {
   if (msLeft < 0) msLeft = 0;
@@ -776,6 +788,8 @@ class GainBoard {
     this.updateAlertBadge();
     this.renderAlertPanel();
     this.bindChartEvents();
+    const macdBtn = document.getElementById('macdBtn');
+    if (macdBtn) macdBtn.classList.toggle('active', STATE.chartMacd);
     this.toggleChart(window.innerWidth > 1100);   // 宽屏默认展开图表，窄屏默认收起
     this.updateChartHeader();
 
@@ -884,6 +898,7 @@ class GainBoard {
     STATE.muted = localStorage.getItem('amp_monitor_muted') === 'true';
     STATE.soundEnabled = localStorage.getItem('amp_monitor_sound') !== 'false';
     STATE.notifyEnabled = localStorage.getItem('amp_monitor_notify') !== 'false';
+    STATE.chartMacd = localStorage.getItem('gain_board_macd') !== '0';
     STATE.dingtalkEnabled = localStorage.getItem('amp_monitor_dingtalk_enabled') === 'true';
     STATE.dingtalkWebhook = localStorage.getItem('amp_monitor_dingtalk_webhook') || '';
     STATE.dingtalkCorsProxy = localStorage.getItem('amp_monitor_dingtalk_cors_proxy') || '';
@@ -1649,7 +1664,8 @@ class GainBoard {
 
   async fetchChartHistory(sym) {
     const info = levelInfo();
-    const need = Math.min(1000, STATE.chartVisible * info.group + 60);
+    // 多取 60 根做预热，保证 MACD(12,26,9) 的 EMA 收敛
+    const need = Math.min(1000, (STATE.chartVisible + 60) * info.group + info.group);
     try {
       const candles = await BinanceAPI.getKlines(sym, info.base, need);
       if (STATE.chartSymbol !== sym) return;
@@ -1811,9 +1827,25 @@ class GainBoard {
     }
 
     const padL = 6, padR = 58, padT = 8, padB = 18, gap = 6;
-    const volH = Math.round((h - padT - padB) * 0.17);
-    const priceTop = padT, priceBot = h - padB - volH - gap;
-    const volTop = priceBot + gap, volBot = h - padB;
+    const totalH = Math.max(120, h - padT - padB);
+    let priceH, volH = 0, macdH = 0;
+    if (STATE.chartMacd) {
+      macdH = Math.max(46, Math.round(totalH * 0.26));
+      volH = Math.max(20, Math.round(totalH * 0.12));
+      priceH = totalH - macdH - volH - gap*2;
+      if (priceH < 90) {                       // 面板太矮时压缩副图
+        macdH = Math.max(40, Math.round(totalH * 0.22));
+        volH = 18;
+        priceH = Math.max(60, totalH - macdH - volH - gap*2);
+      }
+    } else {
+      volH = Math.round(totalH * 0.17);
+      priceH = totalH - volH - gap;
+    }
+    const priceTop = padT, priceBot = padT + priceH;
+    const volTop = priceBot + gap, volBot = volTop + volH;
+    const macdTop = macdH ? volBot + gap : 0, macdBot = macdH ? volBot + gap + macdH : 0;
+    const bottomPane = macdH ? macdBot : volBot;
     const plotW = Math.max(40, w - padL - padR);
     const vis = Math.max(10, Math.min(STATE.chartVisible, data.length));
     const start = data.length - vis;
@@ -1858,6 +1890,90 @@ class GainBoard {
       }
       ctx.strokeStyle = 'rgba(255,255,255,0.055)';
       ctx.beginPath(); ctx.moveTo(padL, volBot + 0.5); ctx.lineTo(padL + plotW, volBot + 0.5); ctx.stroke();
+    }
+
+    // ── MACD 副图 ──
+    let macd = null;
+    if (macdH) {
+      macd = this.computeMACD(data, STATE.macdParams.fast, STATE.macdParams.slow, STATE.macdParams.signal);
+      let mmax = 0, mmin = 0;
+      for (let i = 0; i < slice.length; i++) {
+        const gi = start + i;
+        const vals = [macd.dif[gi], macd.dea[gi], macd.hist[gi]];
+        for (let k = 0; k < 3; k++) {
+          if (vals[k] > mmax) mmax = vals[k];
+          if (vals[k] < mmin) mmin = vals[k];
+        }
+      }
+      if (mmax === 0 && mmin === 0) { mmax = 1; mmin = -1; }
+      const mpad = (mmax - mmin) * 0.12 || Math.abs(mmax || mmin) * 0.1 || 1;
+      mmax += mpad; mmin -= mpad;
+      const yM = v => macdBot - (v - mmin) / (mmax - mmin) * (macdBot - macdTop);
+      const yZero = Math.round(yM(0)) + 0.5;
+
+      // 边框 + 零轴
+      ctx.strokeStyle = 'rgba(255,255,255,0.055)';
+      ctx.beginPath(); ctx.moveTo(padL, macdTop + 0.5); ctx.lineTo(padL + plotW, macdTop + 0.5); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+      ctx.beginPath(); ctx.moveTo(padL, yZero); ctx.lineTo(padL + plotW, yZero); ctx.stroke();
+
+      // 柱状（绿正红负，与页面K线配色一致）
+      for (let i = 0; i < slice.length; i++) {
+        const v = macd.hist[start + i];
+        const x = padL + i*cw + Math.max(0.5, cw*0.2);
+        const bw = Math.max(1, cw*0.6);
+        const yv = yM(v);
+        ctx.fillStyle = v >= 0 ? 'rgba(14,203,129,0.6)' : 'rgba(246,70,93,0.6)';
+        if (v >= 0) ctx.fillRect(x, yv, bw, Math.max(1, yZero - yv));
+        else ctx.fillRect(x, yZero, bw, Math.max(1, yv - yZero));
+      }
+
+      // DIF / DEA 曲线
+      const drawLine = function(arr, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let i = 0; i < slice.length; i++) {
+          const x = padL + i*cw + cw/2;
+          const y = yM(arr[start + i]);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.lineWidth = 1;
+      };
+      drawLine(macd.dea, '#1e80ff');
+      drawLine(macd.dif, '#f0b90b');
+
+      // 右侧刻度
+      ctx.fillStyle = '#848e9c';
+      ctx.font = '10px Consolas,monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(fmtMacd(mmax - mpad), padL + plotW + 5, macdTop + 6);
+      ctx.fillText(fmtMacd(mmin + mpad), padL + plotW + 5, macdBot - 6);
+
+      // 图例（悬停时显示该根，否则显示最新一根）
+      let mi = data.length - 1;
+      if (STATE.chartHover != null && STATE.chartHover >= 0 && STATE.chartHover < vis) mi = start + STATE.chartHover;
+      const dv = macd.dif[mi], ev = macd.dea[mi], hv = macd.hist[mi];
+      ctx.textBaseline = 'middle';
+      let lx = padL + 3, ly = macdTop + 8;
+      ctx.fillStyle = '#848e9c';
+      ctx.fillText('MACD(' + STATE.macdParams.fast + ',' + STATE.macdParams.slow + ',' + STATE.macdParams.signal + ')', lx, ly);
+      lx += ctx.measureText('MACD(' + STATE.macdParams.fast + ',' + STATE.macdParams.slow + ',' + STATE.macdParams.signal + ') ').width + 6;
+      const seg = function(label, val, color) {
+        ctx.fillStyle = '#848e9c';
+        ctx.fillText(label, lx, ly);
+        lx += ctx.measureText(label + ' ').width;
+        ctx.fillStyle = color;
+        const t = fmtMacd(val);
+        ctx.fillText(t, lx, ly);
+        lx += ctx.measureText(t + '  ').width;
+      };
+      seg('DIF', dv, '#f0b90b');
+      seg('DEA', ev, '#1e80ff');
+      seg('柱', hv, hv >= 0 ? '#0ecb81' : '#f6465d');
+      ctx.textAlign = 'left';
     }
 
     // K线
@@ -1919,11 +2035,38 @@ class GainBoard {
       const x = Math.round(padL + STATE.chartHover*cw + cw/2) + 0.5;
       ctx.setLineDash([3, 3]);
       ctx.strokeStyle = 'rgba(234,236,239,0.45)';
-      ctx.beginPath(); ctx.moveTo(x, priceTop); ctx.lineTo(x, volBot); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, priceTop); ctx.lineTo(x, bottomPane); ctx.stroke();
       const yh = Math.round(yOf(c.close)) + 0.5;
       ctx.beginPath(); ctx.moveTo(padL, yh); ctx.lineTo(padL + plotW, yh); ctx.stroke();
       ctx.setLineDash([]);
     }
+  }
+
+  // MACD(12,26,9)：DIF = EMA(fast) − EMA(slow)，DEA = EMA(DIF, signal)，柱 = DIF − DEA
+  // 用全量K线算（含预热段），只在画布上截取可视区间
+  computeMACD(candles, fast, slow, signal) {
+    const n = candles.length;
+    const dif = new Array(n), dea = new Array(n), hist = new Array(n);
+    const kF = 2 / (fast + 1), kS = 2 / (slow + 1), kD = 2 / (signal + 1);
+    let ef = 0, es = 0, ed = 0;
+    for (let i = 0; i < n; i++) {
+      const c = candles[i].close;
+      ef = (i === 0) ? c : c * kF + ef * (1 - kF);
+      es = (i === 0) ? c : c * kS + es * (1 - kS);
+      dif[i] = ef - es;
+      ed = (i === 0) ? dif[i] : dif[i] * kD + ed * (1 - kD);
+      dea[i] = ed;
+      hist[i] = dif[i] - dea[i];
+    }
+    return { dif: dif, dea: dea, hist: hist };
+  }
+
+  toggleMacd() {
+    STATE.chartMacd = !STATE.chartMacd;
+    const b = document.getElementById('macdBtn');
+    if (b) b.classList.toggle('active', STATE.chartMacd);
+    try { localStorage.setItem('gain_board_macd', STATE.chartMacd ? '1' : '0'); } catch(e) {}
+    this.renderChart();
   }
 
   async pollChart() {
