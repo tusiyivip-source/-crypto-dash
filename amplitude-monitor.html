@@ -89,7 +89,7 @@ body {
 #tableWrapper::-webkit-scrollbar-track { background:transparent; }
 #tableWrapper::-webkit-scrollbar-corner { background:transparent; }
 
-table { width:100%; border-collapse:collapse; table-layout:fixed; min-width:820px; }
+table { width:100%; border-collapse:collapse; table-layout:fixed; min-width:900px; }
 thead { position:sticky; top:0; z-index:10; }
 thead th {
   background:#1a1e26; padding:8px 4px; text-align:center; font-size:11px;
@@ -103,6 +103,7 @@ thead th.rank-col { width:48px; }
 thead th.sym-col { text-align:left; padding-left:12px; width:112px; }
 thead th.price-col { width:104px; }
 thead th.gain-col { width:100px; color:var(--green); }
+thead th.macd-col { width:74px; color:var(--yellow); }
 thead th.open-col { width:100px; }
 thead th.amp-col { width:80px; }
 thead th.chg-col { width:88px; }
@@ -283,6 +284,12 @@ tbody tr.selected-row td.sym-col { color:var(--yellow); }
     <button class="btn" data-rankdir="down" onclick="app.setRankDir('down')">跌幅榜</button>
     <span class="sep">│</span>
 
+    <span class="grp-label">MACD零轴:</span>
+    <button class="btn active" data-macdfilter="all" onclick="app.setMacdFilter('all')">全部</button>
+    <button class="btn" data-macdfilter="above" onclick="app.setMacdFilter('above')" title="只显示当前级别 MACD DIF &gt; 0（零轴上方）的币">零轴上</button>
+    <button class="btn" data-macdfilter="below" onclick="app.setMacdFilter('below')" title="只显示当前级别 MACD DIF &lt; 0（零轴下方）的币">零轴下</button>
+    <span class="sep">│</span>
+
     <span class="grp-label">阈值:</span>
     <select id="thresholdPreset" onchange="app.setThresholdPreset(this.value)">
       <option value="crypto">默认</option>
@@ -408,6 +415,7 @@ const CONFIG = {
   WS_CHUNK: 200,          // 每条 WS 连接的 stream 数量
   MIN_QUOTE_VOL: 1e6,     // 候选池门槛：24h 成交额 ≥ 100 万 USDT
   UNIVERSE_CAP: 520,
+  MACD_WARM: 60,          // 每个币预取多少个级别K线用于 MACD 预热
   LEVELS: ['10m','15m','30m','1h','2h','3h','4h','6h','12h','24h'],
   LEVEL_INFO: {
     '10m': { base:'5m',  ms:  600000, label:'10分钟', group:2 },
@@ -503,6 +511,10 @@ const STATE = {
   chartLoading: false,
   chartMacd: true,          // 下方 MACD 副图
   macdParams: { fast: 12, slow: 26, signal: 9 },
+  macdState: {},            // sym -> 当前级别的 MACD 状态（零轴/金叉判定）
+  macdScan: { active:false, done:0, total:0 },
+  macdToken: 0,
+  macdFilter: 'all',        // 'all' | 'above'(零轴上) | 'below'(零轴下)
   initDone: false,
   loadingUniverse: false,
 };
@@ -648,18 +660,25 @@ function shouldDingTalkPush(severity) {
 // ==================== BINANCE API ====================
 const BinanceAPI = {
   _queue: [], _active: 0, _maxConcurrency: 10, _gap: 4,
-  _win: [],                 // 最近 60s 内的请求时间戳
-  _maxPerMin: 1200,         // 每分钟请求预算（币安权重上限 2400/分钟，留一半余量）
+  _win: [],                 // 最近 60s 内的请求 {t, w}
+  _maxWeightPerMin: 1100,   // 每分钟权重预算（币安上限 2400/分钟，留一半余量）
   _blockedUntil: 0,         // 被限流(418/429)后的暂停截止时间
   _blockReason: '',
+  _weightOf(limit) {        // 币安 klines 权重规则
+    if (limit == null) return 1;
+    if (limit < 100) return 1;
+    if (limit < 500) return 2;
+    if (limit < 1000) return 5;
+    return 10;
+  },
   blockedRemaining() { return Math.max(0, this._blockedUntil - Date.now()); },
   clearQueue(reason) {
     const pend = this._queue.splice(0, this._queue.length);
     for (const t of pend) { try { t.reject(new Error(reason || 'cancelled')); } catch(e) {} }
   },
-  _fetch(url) {
+  _fetch(url, weight) {
     return new Promise((resolve, reject) => {
-      this._queue.push({ url:url, resolve:resolve, reject:reject });
+      this._queue.push({ url:url, resolve:resolve, reject:reject, w: weight || 1 });
       this._pump();
     });
   },
@@ -671,17 +690,19 @@ const BinanceAPI = {
       setTimeout(function() { self._pump(); }, Math.min(2000, self._blockedUntil - now));
       return;
     }
-    self._win = self._win.filter(function(t) { return now - t < 60000; });
+    self._win = self._win.filter(function(x) { return now - x.t < 60000; });
     while (self._active < self._maxConcurrency && self._queue.length) {
       const nw = Date.now();
-      self._win = self._win.filter(function(t) { return nw - t < 60000; });
-      if (self._win.length >= self._maxPerMin) {            // 超出分钟预算，等下一个窗口
+      self._win = self._win.filter(function(x) { return nw - x.t < 60000; });
+      let used = 0;
+      for (let i = 0; i < self._win.length; i++) used += self._win[i].w;
+      if (used + self._queue[0].w > self._maxWeightPerMin) {   // 超出权重预算，等下一个窗口
         setTimeout(function() { self._pump(); }, 1200);
         return;
       }
       const task = self._queue.shift();
       self._active++;
-      self._win.push(nw);
+      self._win.push({ t: nw, w: task.w });
       fetch(task.url)
         .then(function(r) {
           if (r.status === 418 || r.status === 429) {       // 币安限流：按 Retry-After 暂停全部请求
@@ -702,9 +723,10 @@ const BinanceAPI = {
         });
     }
   },
-  getJSON(url) { return this._fetch(url); },
+  getJSON(url, weight) { return this._fetch(url, weight || 1); },
   getKlines(symbol, interval, limit) {
-    return this._fetch(CONFIG.REST + '/klines?symbol=' + symbol + '&interval=' + interval + '&limit=' + (limit || 2))
+    const lim = limit || 2;
+    return this._fetch(CONFIG.REST + '/klines?symbol=' + symbol + '&interval=' + interval + '&limit=' + lim, this._weightOf(lim))
       .then(function(data) {
         return data.map(function(d) {
           return {
@@ -814,7 +836,7 @@ class GainBoard {
     this.setStatus('✓ 就绪', 'var(--green)');
     this.refreshBoard(true);
     this.startWebSocket();
-    if (!STATE.prefill.active) this.prefillAll();
+    if (!STATE.prefill.active) this.prefillAll(true);
     if (STATE.chartPanelOpen && !STATE.chartSymbol && STATE.displayed.length) this.selectSymbol(STATE.displayed[0]);
     else if (STATE.chartSymbol) { this.highlightRow(STATE.chartSymbol); this.updateChartHeader(); }
   }
@@ -828,8 +850,9 @@ class GainBoard {
     setInterval(() => this.processRestFixQueue(), 4000);
     setInterval(() => this.dataWatchdog(), 3000);           // WS 静默检测
     setInterval(() => this.pollChart(), 4000);              // 图表实时刷新（WS 静默时用）
+    setInterval(() => { if (!STATE.prefill.active) this.scanMacdAll(); }, 600000);  // MACD 全池校正
     setInterval(() => this.pollRest(), 20000);              // WS 静默时的 REST 轮询
-    setInterval(() => { if (STATE.restMode && !STATE.prefill.active) this.prefillAll(); }, 120000); // 全池重扫
+    setInterval(() => { if (STATE.restMode && !STATE.prefill.active) this.prefillAll(false); }, 120000); // 全池重扫(仅涨幅)
   }
 
   // WS 长时间没有 K 线推送 → 自动切换到 REST 轮询，保证榜单持续跳动
@@ -889,6 +912,7 @@ class GainBoard {
       if (saved.displayCount) STATE.displayCount = saved.displayCount;
       if (saved.rankMode) STATE.rankMode = saved.rankMode;
       if (saved.rankDir) STATE.rankDir = saved.rankDir;
+      if (saved.macdFilter) STATE.macdFilter = saved.macdFilter;
       if (saved.thresholdPreset) STATE.thresholdPreset = saved.thresholdPreset;
       if (saved.thresholds) STATE.thresholds = saved.thresholds;
       if (saved.alertCooldownSec != null) STATE.alertCooldownSec = saved.alertCooldownSec;
@@ -917,6 +941,7 @@ class GainBoard {
         displayCount: STATE.displayCount,
         rankMode: STATE.rankMode,
         rankDir: STATE.rankDir,
+        macdFilter: STATE.macdFilter,
         thresholdPreset: STATE.thresholdPreset,
         thresholds: STATE.thresholds,
         alertCooldownSec: STATE.alertCooldownSec,
@@ -1057,6 +1082,7 @@ class GainBoard {
     if (sym === STATE.chartSymbol) {
       this.updateChartBase({ time: Math.floor(t/1000), open: o, high: h, low: l, close: c, volume: parseFloat(k.q) || 0 });
     }
+    this.macdTick(sym, bStart, c);            // 实时推进该币 MACD 零轴状态
 
     STATE.wsMsgs++;
     this.checkAlert(sym, b.gain);
@@ -1104,16 +1130,18 @@ class GainBoard {
     };
     const m = STATE.meta[sym];
     if (m) m.lastPrice = close;
+    this.macdTick(sym, bStart, close);
     this.checkAlert(sym, gain);
   }
 
-  async prefillAll() {
+  async prefillAll(withMacd) {
     const token = ++STATE.scanToken;
     const epoch = STATE.epoch;
     const info = levelInfo();
-    const limit = Math.max(2, info.group + 1);
+    // 带 MACD 时一次请求同时供“当前K线涨幅”和“MACD 历史”使用，不额外增加请求数
+    const limit = withMacd ? this.macdHistoryLimit(info) : Math.max(2, info.group + 1);
     const list = STATE.universe.slice();
-    STATE.prefill = { active: true, done: 0, total: list.length };
+    STATE.prefill = { active: true, done: 0, total: list.length, macd: !!withMacd };
     let idx = 0;
     let done = 0;
     const self = this;
@@ -1126,6 +1154,7 @@ class GainBoard {
           const candles = await BinanceAPI.getKlines(sym, info.base, limit);
           if (!alive()) return;
           self.applyRestCandles(sym, candles, info, STATE.restMode);
+          if (withMacd) self.applyMacdHistory(sym, candles, info);
         } catch(e) {
           self.queueRestFix(sym);        // 失败(多为限流暂停)的币稍后自动补一次
         }
@@ -1160,6 +1189,13 @@ class GainBoard {
         if (m && isFinite(m.priceChangePercent)) key = m.priceChangePercent;
       }
       if (key === null) continue;
+      // MACD 零轴过滤：只保留 DIF 在零轴上/下方的币
+      if (STATE.macdFilter !== 'all') {
+        const st = STATE.macdState[sym];
+        if (!st || !st.ready) continue;
+        if (STATE.macdFilter === 'above' && !(st.dif > 0)) continue;
+        if (STATE.macdFilter === 'below' && !(st.dif < 0)) continue;
+      }
       arr.push({ sym: sym, key: key });
     }
     arr.sort(function(a, b) { return dir === 'up' ? b.key - a.key : a.key - b.key; });
@@ -1239,12 +1275,13 @@ class GainBoard {
 
     const tdPrice = document.createElement('td'); tdPrice.className = 'price-col'; tr.appendChild(tdPrice);
     const tdGain  = document.createElement('td'); tdGain.className = 'gain-cell g-flat'; tr.appendChild(tdGain);
+    const tdMacd  = document.createElement('td'); tdMacd.className = 'gain-cell g-flat'; tr.appendChild(tdMacd);
     const tdOpen  = document.createElement('td'); tr.appendChild(tdOpen);
     const tdAmp   = document.createElement('td'); tr.appendChild(tdAmp);
     const tdChg   = document.createElement('td'); tr.appendChild(tdChg);
     const tdVol   = document.createElement('td'); tdVol.style.color = 'var(--text-secondary)'; tr.appendChild(tdVol);
 
-    this.cellRefs[sym] = { rank:tdRank, price:tdPrice, gain:tdGain, open:tdOpen, amp:tdAmp, chg:tdChg, vol:tdVol };
+    this.cellRefs[sym] = { rank:tdRank, price:tdPrice, gain:tdGain, macd:tdMacd, open:tdOpen, amp:tdAmp, chg:tdChg, vol:tdVol };
     tr.addEventListener('click', () => app.selectSymbol(sym));
     if (STATE.chartSymbol === sym) tr.classList.add('selected-row');
     this.bodyEl.appendChild(tr);
@@ -1354,6 +1391,25 @@ class GainBoard {
       } else {
         refs.gain.className = 'gain-cell dim';
         this.setText(refs.gain, 'gain', '--');
+      }
+
+      // MACD 零轴状态
+      const st = STATE.macdState[sym];
+      if (st && st.ready && isFinite(st.dif)) {
+        const above = st.dif > 0;
+        const golden = st.dif >= st.dea;
+        refs.macd.className = 'gain-cell ' + (above ? 'g-up' : 'g-down');
+        this.setText(refs.macd, 'macd', (above ? '上' : '下') + (golden ? ' ▲' : ' ▼'));
+        refs.macd.title = sym + ' ' + info.label + ' MACD(' + STATE.macdParams.fast + ',' + STATE.macdParams.slow + ',' + STATE.macdParams.signal + ')\n' +
+          'DIF: ' + fmtMacd(st.dif) + '  (' + (above ? '零轴上方' : '零轴下方') + ')\n' +
+          'DEA: ' + fmtMacd(st.dea) + '\n' +
+          '柱: ' + fmtMacd(st.hist) + '\n' +
+          (golden ? 'DIF ≥ DEA：金叉/多头' : 'DIF < DEA：死叉/空头') +
+          (st.suspect ? '\n⚠ 本轮为增量推进，等待全量校正' : '');
+      } else {
+        refs.macd.className = 'gain-cell dim';
+        this.setText(refs.macd, 'macd', '--');
+        refs.macd.title = sym + ' MACD: 未扫描';
       }
 
       // 开盘价 / 振幅
@@ -1533,6 +1589,7 @@ class GainBoard {
     STATE.epoch++;
     BinanceAPI.clearQueue('level switched');   // 作废上一级别还没发出的请求，避免白白消耗限流预算
     STATE.buckets = {};
+    STATE.macdState = {};                      // MACD 是按级别算的，换级别要重扫
     STATE.alertCooldown = {};
     STATE.restFixQueue.clear();
     this.rowRefs = {};
@@ -1542,7 +1599,7 @@ class GainBoard {
     this.updateLevelUI();
     this.buildTableHeader();
     this.startWebSocket();
-    this.prefillAll();
+    this.prefillAll(true);
     this.refreshBoard(true);
     if (STATE.chartSymbol) {                 // 级别变了，图表按新级别重取
       STATE.chartBase = [];
@@ -1573,6 +1630,22 @@ class GainBoard {
     this.saveState();
   }
 
+  // MACD 零轴筛选：'all' 全部 / 'above' 零轴上方(DIF>0) / 'below' 零轴下方(DIF<0)
+  setMacdFilter(mode) {
+    STATE.macdFilter = mode;
+    this.updateToolbarUI();
+    this.refreshBoard(true);
+    this.saveState();
+    const ready = Object.keys(STATE.macdState).length;
+    if (mode !== 'all' && ready < STATE.universe.length * 0.5) {
+      showToast('⏳ 正在扫描全池 MACD（' + ready + '/' + STATE.universe.length + '），榜单会逐步补全');
+      this.scanMacdAll();
+    } else if (mode !== 'all') {
+      showToast((mode === 'above' ? '📈 只看 MACD 零轴上方（多头区）' : '📉 只看 MACD 零轴下方（空头区）') +
+        ' · 命中 ' + STATE.displayed.length + ' 个');
+    }
+  }
+
   setDisplayCount(n) {
     STATE.displayCount = n;
     this.updateToolbarUI();
@@ -1595,6 +1668,9 @@ class GainBoard {
     document.querySelectorAll('#toolbar .btn[data-rankdir]').forEach(b => {
       b.classList.toggle('active', b.dataset.rankdir === STATE.rankDir);
     });
+    document.querySelectorAll('#toolbar .btn[data-macdfilter]').forEach(b => {
+      b.classList.toggle('active', b.dataset.macdfilter === STATE.macdFilter);
+    });
     const sel = document.getElementById('thresholdPreset');
     if (sel) sel.value = STATE.thresholdPreset;
     const fe = document.getElementById('filterExtreme');
@@ -1611,6 +1687,7 @@ class GainBoard {
     html += '<th class="price-col" data-sort="price" onclick="app.setSort(\'price\')">现价</th>';
     html += '<th class="gain-col" data-sort="gain" onclick="app.setSort(\'gain\')" title="' + info.label +
       ' 当前K线：开盘价 → 现价 的涨跌幅">本级涨幅<br>(' + STATE.level + ')</th>';
+    html += '<th class="macd-col" title="当前级别 MACD(12,26,9)：上=零轴上方(DIF&gt;0)，下=零轴下方(DIF&lt;0)；▲=金叉(DIF≥DEA) ▼=死叉">MACD</th>';
     html += '<th class="open-col">本K开盘</th>';
     html += '<th class="amp-col">本K振幅</th>';
     html += '<th class="chg-col" data-sort="chg" onclick="app.setSort(\'chg\')" title="币安 24 小时滚动涨跌幅（与“本级涨幅”口径不同）">24h涨跌</th>';
@@ -2049,18 +2126,104 @@ class GainBoard {
   computeMACD(candles, fast, slow, signal) {
     const n = candles.length;
     const dif = new Array(n), dea = new Array(n), hist = new Array(n);
+    const emaFast = new Array(n), emaSlow = new Array(n);
     const kF = 2 / (fast + 1), kS = 2 / (slow + 1), kD = 2 / (signal + 1);
     let ef = 0, es = 0, ed = 0;
     for (let i = 0; i < n; i++) {
       const c = candles[i].close;
       ef = (i === 0) ? c : c * kF + ef * (1 - kF);
       es = (i === 0) ? c : c * kS + es * (1 - kS);
+      emaFast[i] = ef; emaSlow[i] = es;
       dif[i] = ef - es;
       ed = (i === 0) ? dif[i] : dif[i] * kD + ed * (1 - kD);
       dea[i] = ed;
       hist[i] = dif[i] - dea[i];
     }
-    return { dif: dif, dea: dea, hist: hist };
+    return { dif: dif, dea: dea, hist: hist, emaFast: emaFast, emaSlow: emaSlow };
+  }
+
+  // 全池 MACD：从一段历史K线初始化，并保留“已收盘”的 EMA 递推状态
+  applyMacdHistory(sym, base, info) {
+    const candles = this.aggregateLevel(base, STATE.level);
+    if (candles.length < 6) return;
+    const p = STATE.macdParams;
+    const m = this.computeMACD(candles, p.fast, p.slow, p.signal);
+    const last = candles.length - 1;
+    const iClosed = last - 1;                        // 倒数第二根视为已收盘基准
+    STATE.macdState[sym] = {
+      ready: true,
+      prevEmaF: m.emaFast[iClosed],
+      prevEmaS: m.emaSlow[iClosed],
+      prevDea: m.dea[iClosed],
+      bucketStart: candles[last].time,
+      lastClose: candles[last].close,
+      dif: m.dif[last], dea: m.dea[last], hist: m.hist[last],
+      suspect: false,
+      at: Date.now(),
+    };
+  }
+
+  // 每来一根/一次价格更新，用同一套 EMA 递推推进当前K线的 DIF/DEA（不污染已收盘状态）
+  macdTick(sym, bucketStart, close) {
+    const st = STATE.macdState[sym];
+    if (!st || !st.ready || !(close > 0)) return;
+    if (bucketStart < st.bucketStart) return;
+    const p = STATE.macdParams;
+    const kF = 2 / (p.fast + 1), kS = 2 / (p.slow + 1), kD = 2 / (p.signal + 1);
+    if (bucketStart > st.bucketStart) {
+      const c = st.lastClose;                      // 上一根收盘 → 提交
+      st.prevEmaF = c * kF + st.prevEmaF * (1 - kF);
+      st.prevEmaS = c * kS + st.prevEmaS * (1 - kS);
+      const difC = st.prevEmaF - st.prevEmaS;
+      st.prevDea = difC * kD + st.prevDea * (1 - kD);
+      st.bucketStart = bucketStart;
+      st.suspect = true;                           // 由定期全量重扫校正
+    }
+    st.lastClose = close;
+    const ef = close * kF + st.prevEmaF * (1 - kF);
+    const es = close * kS + st.prevEmaS * (1 - kS);
+    const dif = ef - es;
+    const dea = dif * kD + st.prevDea * (1 - kD);
+    st.dif = dif; st.dea = dea; st.hist = dif - dea;
+  }
+
+  // 全池 MACD 重扫（修正跨级别/长时间断流的偏差）
+  async scanMacdAll() {
+    if (STATE.macdScan.active || !STATE.universe.length) return;
+    const info = levelInfo();
+    const limit = this.macdHistoryLimit(info);
+    const token = ++STATE.macdToken;
+    const epoch = STATE.epoch;
+    const list = STATE.universe.slice();
+    STATE.macdScan = { active: true, done: 0, total: list.length };
+    let idx = 0, done = 0;
+    const self = this;
+    const alive = function() { return token === STATE.macdToken && epoch === STATE.epoch; };
+    const worker = async function() {
+      while (idx < list.length) {
+        if (!alive()) return;
+        const sym = list[idx++];
+        try {
+          const base = await BinanceAPI.getKlines(sym, info.base, limit);
+          if (!alive()) return;
+          self.applyMacdHistory(sym, base, info);
+          self.applyRestCandles(sym, base, info, STATE.restMode);
+        } catch(e) { self.queueRestFix(sym); }
+        done++;
+        STATE.macdScan.done = Math.min(done, list.length);
+      }
+    };
+    const workers = [];
+    for (let i = 0; i < 8; i++) workers.push(worker());
+    await Promise.all(workers);
+    if (!alive()) return;
+    STATE.macdScan.active = false;
+    this.refreshBoard(false);
+    this.updateStats();
+  }
+
+  macdHistoryLimit(info) {
+    return Math.min(1000, (CONFIG.MACD_WARM + 30) * info.group + info.group);
   }
 
   toggleMacd() {
@@ -2440,6 +2603,7 @@ class GainBoard {
       STATE.epoch++;
       BinanceAPI.clearQueue('refresh');
       STATE.buckets = {};
+      STATE.macdState = {};
       STATE.alertCooldown = {};
       STATE.restFixQueue.clear();
       this.rowRefs = {};
@@ -2448,7 +2612,7 @@ class GainBoard {
       STATE.displayed = [];
       await this.loadUniverse();
       this.startWebSocket();
-      await this.prefillAll();
+      await this.prefillAll(true);
       this.setStatus('✓ 刷新完成', 'var(--green)');
     } catch(e) {
       console.error('[manualRefresh]', e);
@@ -2472,7 +2636,9 @@ class GainBoard {
       if (blocked > 0) {
         this.setStatus('⏸ 币安限流，暂停 ' + Math.ceil(blocked/1000) + 's', 'var(--red)');
       } else if (STATE.prefill.active) {
-        this.setStatus('校准 ' + STATE.prefill.done + '/' + STATE.prefill.total, 'var(--yellow)');
+        this.setStatus('校准 ' + STATE.prefill.done + '/' + STATE.prefill.total + (STATE.prefill.macd ? ' · 含MACD' : ''), 'var(--yellow)');
+      } else if (STATE.macdScan.active) {
+        this.setStatus('MACD扫描 ' + STATE.macdScan.done + '/' + STATE.macdScan.total, 'var(--yellow)');
       } else if (STATE.initDone) {
         this.setStatus(bjtClock(Date.now(), false), 'var(--text-secondary)');
       }
