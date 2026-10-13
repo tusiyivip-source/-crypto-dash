@@ -4,74 +4,68 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0b0e11">
-<title>振幅监控 - 单K线振幅盯盘</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%230b0e11'/><text x='16' y='22' text-anchor='middle' fill='%23f0b90b' font-size='18'>📊</text></svg>">
+<title>单K涨幅榜 - 前200实时盯盘</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%230b0e11'/><text x='16' y='22' text-anchor='middle' fill='%230ecb81' font-size='16'>📈</text></svg>">
 <style>
 :root {
-  --bg: #0b0e11;
-  --panel-bg: #1a1e24;
-  --header-bg: #14171d;
-  --text: #eaecef;
-  --text-secondary: #848e9c;
-  --green: #0ecb81;
-  --red: #f6465d;
-  --yellow: #f0b90b;
-  --orange: #ff9800;
-  --border: #2a2f38;
-  --hover: #262b33;
-  --blue: #1e80ff;
-  /* Amplitude color scale */
-  --amp-normal: rgba(14,203,129,0.15);
-  --amp-warn: rgba(240,185,11,0.2);
-  --amp-danger: rgba(255,152,0,0.25);
-  --amp-extreme: rgba(246,70,93,0.3);
-  --amp-text-normal: #0ecb81;
-  --amp-text-warn: #f0b90b;
-  --amp-text-danger: #ff9800;
-  --amp-text-extreme: #f6465d;
+  --bg:#0b0e11; --panel-bg:#1a1e24; --header-bg:#14171d; --text:#eaecef; --text-secondary:#848e9c;
+  --green:#0ecb81; --red:#f6465d; --yellow:#f0b90b; --orange:#ff9800; --border:#2a2f38;
+  --hover:#262b33; --blue:#1e80ff;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
-  background: var(--bg); color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 13px; overflow-x: hidden; user-select: none;
-  -webkit-font-smoothing: antialiased;
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-size:13px; overflow-x:hidden; user-select:none; -webkit-font-smoothing:antialiased;
 }
 #app { display:flex; flex-direction:column; height:100vh; }
 
 /* ── HEADER ── */
 #header {
   display:flex; align-items:center; justify-content:space-between;
-  padding:10px 20px; background:linear-gradient(180deg, #1a1e26 0%, var(--header-bg) 100%);
-  border-bottom:1px solid var(--border); z-index:100; flex-shrink:0; flex-wrap:wrap; gap:10px;
+  padding:8px 16px; background:linear-gradient(180deg,#1a1e26 0%,var(--header-bg) 100%);
+  border-bottom:1px solid var(--border); z-index:100; flex-shrink:0; flex-wrap:wrap; gap:8px;
 }
-.header-left { display:flex; align-items:center; gap:14px; }
-.header-left h1 { font-size:18px; color:var(--yellow); white-space:nowrap; }
-#clock { font-size:20px; font-weight:700; font-family:'Consolas',monospace; min-width:160px; }
-.header-center { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
-.header-right { display:flex; align-items:center; gap:12px; font-size:12px; }
+.header-left { display:flex; align-items:center; gap:12px; }
+.header-left h1 { font-size:17px; color:var(--green); white-space:nowrap; }
+#clock { font-size:14px; font-weight:700; font-family:'Consolas',monospace; color:var(--text-secondary); white-space:nowrap; }
+.header-center { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.header-right { display:flex; align-items:center; gap:10px; font-size:12px; }
 #connectionDot { width:9px; height:9px; border-radius:50%; background:var(--green); box-shadow:0 0 6px rgba(14,203,129,0.4); transition:all 0.3s; }
 #connectionDot.disconnected { background:var(--red); box-shadow:0 0 6px rgba(246,70,93,0.4); }
+.tf-hint { color:var(--text-secondary); font-size:11px; margin-right:2px; }
+
+/* level buttons in header */
+.lvl-btn {
+  padding:7px 12px; border:1px solid var(--border); background:var(--panel-bg); color:var(--text-secondary);
+  cursor:pointer; border-radius:5px; font-size:13px; font-weight:700; font-family:'Consolas',monospace;
+  transition:all 0.15s; white-space:nowrap; min-width:46px;
+}
+.lvl-btn:hover { border-color:var(--green); color:var(--text); background:var(--hover); }
+.lvl-btn.active {
+  background:var(--green); color:#04170f; border-color:var(--green);
+  box-shadow:0 0 12px rgba(14,203,129,0.35);
+}
 
 .btn {
-  padding:6px 14px; border:1px solid var(--border); background:var(--panel-bg);
+  padding:6px 12px; border:1px solid var(--border); background:var(--panel-bg);
   color:var(--text-secondary); cursor:pointer; border-radius:5px;
   font-size:12px; transition:all 0.2s; font-weight:500; white-space:nowrap;
 }
 .btn:hover { border-color:var(--yellow); color:var(--text); background:var(--hover); }
 .btn.active { background:var(--yellow); color:#000; border-color:var(--yellow); font-weight:700; box-shadow:0 0 10px rgba(240,185,11,0.25); }
 .btn.blue.active { background:var(--blue); color:#fff; border-color:var(--blue); box-shadow:0 0 8px rgba(30,128,255,0.3); }
+.btn.green.active { background:var(--green); color:#04170f; border-color:var(--green); }
+.btn.red.active { background:var(--red); color:#fff; border-color:var(--red); }
 .btn.danger { border-color:var(--red); color:var(--red); }
 .btn.danger:hover { background:rgba(246,70,93,0.15); }
-.btn.sort-asc::after { content:' ▲'; font-size:9px; }
-.btn.sort-desc::after { content:' ▼'; font-size:9px; }
 #muteBtn { font-size:15px; padding:6px 10px; }
 #muteBtn.muted { color:var(--red); border-color:var(--red); }
 
 /* ── STATS BAR ── */
 #statsBar {
-  display:flex; align-items:center; gap:24px;
-  padding:8px 20px; background:var(--header-bg);
+  display:flex; align-items:center; gap:20px;
+  padding:7px 16px; background:var(--header-bg);
   border-bottom:1px solid var(--border); font-size:12px; flex-shrink:0; overflow-x:auto;
 }
 .stat-item { display:flex; align-items:center; gap:5px; white-space:nowrap; }
@@ -80,186 +74,154 @@ body {
 
 /* ── TOOLBAR ── */
 #toolbar {
-  display:flex; align-items:center; gap:8px; padding:8px 16px;
-  border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap;
-  background:rgba(0,0,0,0.15);
+  display:flex; align-items:center; gap:8px; padding:7px 16px;
+  border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; background:rgba(0,0,0,0.15);
 }
-#toolbar .sep { color:var(--border); margin:0 4px; user-select:none; }
-#thresholdPreset { padding:5px 10px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:4px; font-size:12px; }
+#toolbar .grp-label { color:var(--text-secondary); font-size:12px; }
+#toolbar .sep { color:var(--border); margin:0 2px; user-select:none; }
+#thresholdPreset { padding:5px 8px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:4px; font-size:12px; }
+#toolbar label.chk { font-size:12px; color:var(--text-secondary); display:flex; align-items:center; gap:4px; cursor:pointer; }
 
 /* ── TABLE ── */
-#tableWrapper {
-  flex:1; overflow:auto; position:relative;
-}
+#tableWrapper { flex:1; overflow:auto; position:relative; }
 #tableWrapper::-webkit-scrollbar { width:6px; height:6px; }
 #tableWrapper::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
 #tableWrapper::-webkit-scrollbar-track { background:transparent; }
 #tableWrapper::-webkit-scrollbar-corner { background:transparent; }
 
-table { width:100%; border-collapse:collapse; table-layout:fixed; min-width:900px; }
+table { width:100%; border-collapse:collapse; table-layout:fixed; min-width:820px; }
 thead { position:sticky; top:0; z-index:10; }
 thead th {
-  background:#1a1e26; padding:8px 6px; text-align:center; font-size:11px;
+  background:#1a1e26; padding:8px 4px; text-align:center; font-size:11px;
   border-bottom:2px solid var(--border); color:var(--text-secondary); font-weight:600;
   cursor:pointer; white-space:nowrap; user-select:none;
 }
 thead th:hover { color:var(--text); background:#222730; }
-thead th.sort-asc::after { content:' ▲'; }
-thead th.sort-desc::after { content:' ▼'; }
-thead th.sym-col { text-align:left; padding-left:12px; width:100px; }
-thead th.price-col { width:90px; }
-thead th.chg-col { width:80px; }
-thead th.amp-col { width:72px; }
+thead th.sort-asc::after { content:' ▲'; font-size:9px; }
+thead th.sort-desc::after { content:' ▼'; font-size:9px; }
+thead th.rank-col { width:48px; }
+thead th.sym-col { text-align:left; padding-left:12px; width:112px; }
+thead th.price-col { width:104px; }
+thead th.gain-col { width:100px; color:var(--green); }
+thead th.open-col { width:100px; }
+thead th.amp-col { width:80px; }
+thead th.chg-col { width:88px; }
+thead th.vol-col { width:100px; }
 
 tbody td {
-  padding:6px 4px; text-align:center; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.03);
-  font-family:'Consolas',monospace; transition:background 0.3s;
+  padding:5px 4px; text-align:center; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.03);
+  font-family:'Consolas',monospace; transition:background 0.3s; white-space:nowrap; overflow:hidden;
 }
+tbody td.rank-col { color:var(--text-secondary); font-size:11px; }
 tbody td.sym-col { text-align:left; padding-left:12px; font-weight:700; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; letter-spacing:0.3px; }
-tbody td.price-col { color:var(--text); }
 tbody tr { transition:background 0.15s; }
 tbody tr:hover { background:rgba(255,255,255,0.03); }
-tbody tr.flash-row { animation:rowFlash 0.5s ease-out; }
-@keyframes rowFlash { 0%{background:rgba(240,185,11,0.2)} 100%{background:transparent} }
+tbody tr.flash-row { animation:rowFlash 0.6s ease-out; }
+@keyframes rowFlash { 0%{background:rgba(240,185,11,0.28)} 100%{background:transparent} }
+tbody tr.hit-extreme { box-shadow:inset 3px 0 0 var(--red); }
+tbody tr.hit-danger { box-shadow:inset 3px 0 0 var(--orange); }
 
-/* Amplitude cell styles */
-.amp-cell { border-radius:3px; font-weight:600; position:relative; }
-.amp-normal { background:var(--amp-normal); color:var(--amp-text-normal); }
-.amp-warn { background:var(--amp-warn); color:var(--amp-text-warn); }
-.amp-danger { background:var(--amp-danger); color:var(--amp-text-danger); }
-.amp-extreme { background:var(--amp-extreme); color:var(--amp-text-extreme); animation:pulseAmp 1s ease-in-out infinite; }
-.amp-stale { color:var(--text-secondary); opacity:0.5; }
-@keyframes pulseAmp { 0%,100%{opacity:1} 50%{opacity:0.6} }
+/* gain cell */
+.gain-cell { border-radius:3px; font-weight:700; }
+.g-up { background:rgba(14,203,129,0.15); color:#0ecb81; }
+.g-down { background:rgba(246,70,93,0.15); color:#f6465d; }
+.g-flat { color:var(--text-secondary); opacity:0.55; }
+.g-hot-up { background:rgba(14,203,129,0.30); color:#0ecb81; animation:pulseG 0.9s ease-in-out infinite; }
+.g-hot-down { background:rgba(246,70,93,0.30); color:#f6465d; animation:pulseG 0.9s ease-in-out infinite; }
+.g-warn { background:rgba(240,185,11,0.22); color:#f0b90b; }
+.g-warn-down { background:rgba(240,185,11,0.22); color:#f0b90b; }
+.dim { color:var(--text-secondary); opacity:0.45; }
+@keyframes pulseG { 0%,100%{opacity:1} 50%{opacity:0.55} }
 
-/* Gain (single-candle change) cell styles */
-.gain-cell { border-radius:3px; font-weight:600; position:relative; }
-.gain-up { background:rgba(14,203,129,0.15); color:#0ecb81; }
-.gain-down { background:rgba(246,70,93,0.15); color:#f6465d; }
-.gain-flat { color:var(--text-secondary); opacity:0.6; }
-.gain-extreme-up { background:rgba(14,203,129,0.3); color:#0ecb81; animation:pulseGain 0.8s ease-in-out infinite; }
-.gain-extreme-down { background:rgba(246,70,93,0.3); color:#f6465d; animation:pulseGain 0.8s ease-in-out infinite; }
-.gain-stale { color:var(--text-secondary); opacity:0.5; }
-@keyframes pulseGain { 0%,100%{opacity:1} 50%{opacity:0.55} }
-
-/* Inline sparkline for previous candle amp */
-.amp-prev { font-size:10px; opacity:0.7; margin-left:3px; }
+/* ── MAIN LAYOUT (表格 + 右侧K线图) ── */
+#main { flex:1; display:flex; min-height:0; }
+#tableWrapper { flex:1; min-width:0; }
+#chartPanel {
+  width:412px; flex-shrink:0; border-left:1px solid var(--border);
+  background:var(--panel-bg); display:flex; flex-direction:column; min-width:0;
+}
+#chartPanel.hidden { display:none; }
+#chartHeader { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--border); flex-shrink:0; }
+#chartSym { font-weight:700; font-size:14px; letter-spacing:0.4px; white-space:nowrap; }
+#chartLevelTag { font-size:11px; color:var(--text-secondary); border:1px solid var(--border); border-radius:3px; padding:1px 5px; white-space:nowrap; }
+#chartGain { font-weight:700; font-family:'Consolas',monospace; font-size:14px; margin-left:auto; white-space:nowrap; }
+#chartMeta {
+  display:flex; flex-wrap:wrap; gap:2px 10px; padding:6px 12px; border-bottom:1px solid var(--border);
+  font-size:11px; font-family:'Consolas',monospace; color:var(--text-secondary); flex-shrink:0;
+}
+#chartMeta b { color:var(--text); font-weight:600; }
+#chartCanvasWrap { flex:1; position:relative; min-height:180px; }
+#chartCanvas { position:absolute; inset:0; width:100%; height:100%; display:block; cursor:crosshair; }
+#chartFooter { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 12px; border-top:1px solid var(--border); font-size:11px; color:var(--text-secondary); flex-shrink:0; }
+tbody tr.selected-row { background:rgba(240,185,11,0.10); box-shadow:inset 3px 0 0 var(--yellow); }
+tbody tr.selected-row td.sym-col { color:var(--yellow); }
 
 /* ── ALERT PANEL ── */
-/* Pattern (engulfing) cell styles */
-.pattern-cell { font-weight:700; font-size:11px; border-radius:3px; text-align:center; }
-.pattern-bullish { background:rgba(14,203,129,0.18); color:#0ecb81; }
-.pattern-bearish { background:rgba(246,70,93,0.18); color:#f6465d; }
-.pattern-none { color:var(--text-secondary); opacity:0.35; }
-
-/* Row with active engulfing pattern */
-tbody tr.pattern-active-bullish { box-shadow:inset 3px 0 0 var(--green); }
-tbody tr.pattern-active-bearish { box-shadow:inset 3px 0 0 var(--red); }
-
 #alertPanel {
-  position:fixed; right:0; top:0; bottom:0; width:320px; background:var(--panel-bg);
+  position:fixed; right:0; top:0; bottom:0; width:330px; background:var(--panel-bg);
   border-left:1px solid var(--border); z-index:500; transform:translateX(100%);
-  transition:transform 0.25s ease; display:flex; flex-direction:column;
-  box-shadow:-4px 0 16px rgba(0,0,0,0.4);
+  transition:transform 0.25s ease; display:flex; flex-direction:column; box-shadow:-4px 0 16px rgba(0,0,0,0.4);
 }
 #alertPanel.open { transform:translateX(0); }
-#alertPanelHeader {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:14px 16px; border-bottom:1px solid var(--border); flex-shrink:0;
-}
+#alertPanelHeader { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border); flex-shrink:0; }
 #alertPanelHeader h3 { font-size:15px; }
 #alertPanelList { flex:1; overflow-y:auto; }
-.alert-entry {
-  padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.04);
-  font-size:12px; animation:slideAlert 0.3s ease-out;
-}
+.alert-entry { padding:9px 14px; border-bottom:1px solid rgba(255,255,255,0.04); font-size:12px; animation:slideAlert 0.3s ease-out; }
 @keyframes slideAlert { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
 .alert-entry .alert-sym { font-weight:700; color:var(--yellow); }
-.alert-entry .alert-amp { font-weight:600; }
 .alert-entry .alert-time { font-size:10px; color:var(--text-secondary); }
 
 /* ── TOAST ── */
-#toastContainer {
-  position:fixed; top:16px; right:348px; z-index:3000;
-  display:flex; flex-direction:column; gap:8px; pointer-events:none;
-}
-.toast {
-  background:var(--panel-bg); border:1px solid var(--red);
-  padding:10px 16px; border-radius:8px; font-size:13px;
-  animation:toastIn 0.3s ease-out; box-shadow:0 4px 16px rgba(0,0,0,0.6); max-width:320px;
-}
+#toastContainer { position:fixed; top:16px; right:348px; z-index:3000; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+.toast { background:var(--panel-bg); border:1px solid var(--red); padding:10px 16px; border-radius:8px; font-size:13px; animation:toastIn 0.3s ease-out; box-shadow:0 4px 16px rgba(0,0,0,0.6); max-width:340px; }
 @keyframes toastIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
 
-/* ── SETTINGS MODAL ── */
-.modal-overlay {
-  position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:2000;
-  display:flex; align-items:center; justify-content:center;
-}
-.modal-box {
-  background:var(--panel-bg); border:1px solid var(--border);
-  border-radius:10px; padding:24px; min-width:420px; max-width:90vw; max-height:85vh; overflow-y:auto;
-}
-.modal-box h3 { margin-bottom:16px; font-size:16px; }
+/* ── MODAL ── */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:2000; display:flex; align-items:center; justify-content:center; }
+.modal-box { background:var(--panel-bg); border:1px solid var(--border); border-radius:10px; padding:22px; min-width:440px; max-width:92vw; max-height:86vh; overflow-y:auto; }
+.modal-box h3 { margin-bottom:14px; font-size:16px; }
 .modal-box label { font-size:12px; color:var(--text-secondary); display:block; margin-top:10px; margin-bottom:3px; }
-.modal-box input[type="number"] {
-  width:80px; padding:6px 10px; background:var(--bg); border:1px solid var(--border);
-  color:var(--text); border-radius:4px; font-size:13px; font-family:'Consolas',monospace;
-}
+.modal-box input[type="number"] { width:74px; padding:5px 8px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:4px; font-size:12px; font-family:'Consolas',monospace; }
 .modal-box input[type="number"]:focus { border-color:var(--yellow); outline:none; }
-.modal-box input[type="text"],.modal-box input[type="url"] {
-  width:100%; padding:7px 10px; background:var(--bg); border:1px solid var(--border);
-  color:var(--text); border-radius:4px; font-size:12px; font-family:'Consolas',monospace;
-}
+.modal-box input[type="text"],.modal-box input[type="url"] { width:100%; padding:7px 10px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:4px; font-size:12px; font-family:'Consolas',monospace; }
 .modal-box input[type="text"]:focus,.modal-box input[type="url"]:focus { border-color:var(--blue); outline:none; }
-.modal-box select {
-  padding:6px 10px; background:var(--bg); border:1px solid var(--border);
-  color:var(--text); border-radius:4px; font-size:12px;
-}
-.modal-box select:focus { border-color:var(--blue); outline:none; }
-.threshold-row { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
-.threshold-row span { width:40px; font-weight:600; font-size:12px; }
+.modal-box select { padding:6px 10px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:4px; font-size:12px; }
+.threshold-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.threshold-row span.tf { width:56px; font-weight:600; font-size:12px; color:var(--text); }
+.threshold-row label { margin:0; white-space:nowrap; }
 .dingtalk-section { border-top:1px solid var(--border); margin-top:16px; padding-top:14px; }
 .dingtalk-section h4 { font-size:14px; margin-bottom:8px; color:var(--blue); }
 .dingtalk-section .hint { font-size:10px; color:var(--text-secondary); margin-top:2px; }
-.dingtalk-status { display:inline-flex; align-items:center; gap:4px; font-size:11px; }
-.dingtalk-status .dt-dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
-.dingtalk-status .dt-dot.on { background:var(--green); box-shadow:0 0 4px rgba(14,203,129,0.4); }
-.dingtalk-status .dt-dot.off { background:var(--text-secondary); }
 
-/* ── PER-COIN ALERT POPUP ── */
-.coin-alert-popup {
-  position: fixed; z-index: 2500; background: var(--panel-bg);
-  border:1px solid var(--yellow); border-radius:8px; width:340px; max-height:80vh; overflow-y:auto;
-  box-shadow:0 6px 24px rgba(0,0,0,0.7); padding:14px; font-size:12px;
-}
+/* ── PER-COIN POPUP ── */
+.coin-alert-popup { position:fixed; z-index:2500; background:var(--panel-bg); border:1px solid var(--yellow); border-radius:8px; width:330px; max-height:80vh; overflow-y:auto; box-shadow:0 6px 24px rgba(0,0,0,0.7); padding:14px; font-size:12px; }
 .coin-alert-popup h4 { font-size:14px; color:var(--yellow); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
 .coin-alert-popup .tf-row { display:flex; align-items:center; gap:5px; margin-bottom:5px; }
-.coin-alert-popup .tf-row .tf-label { width:36px; font-weight:600; color:var(--text); font-size:11px; flex-shrink:0; }
-.coin-alert-popup .tf-row input { width:50px; padding:3px 4px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:3px; font-size:10px; font-family:'Consolas',monospace; text-align:center; }
+.coin-alert-popup .tf-row .tf-label { width:40px; font-weight:600; color:var(--text); font-size:11px; flex-shrink:0; }
+.coin-alert-popup .tf-row input { width:52px; padding:3px 4px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:3px; font-size:10px; font-family:'Consolas',monospace; text-align:center; }
 .coin-alert-popup .tf-row input:focus { border-color:var(--yellow); outline:none; }
 .coin-alert-popup .tf-row label { font-size:9px; color:var(--text-secondary); flex-shrink:0; }
 .coin-alert-popup .popup-actions { display:flex; gap:6px; margin-top:10px; }
 .coin-alert-popup .popup-actions button { flex:1; }
-.coin-alert-bell {
-  display:inline-block; cursor:pointer; padding:0 4px; font-size:13px; opacity:0.4; transition:all 0.15s;
-  vertical-align:middle; line-height:1;
-}
+.coin-alert-bell { display:inline-block; cursor:pointer; padding:0 3px; font-size:12px; opacity:0.35; transition:all 0.15s; vertical-align:middle; line-height:1; }
 .coin-alert-bell:hover { opacity:1; }
 .coin-alert-bell.active { opacity:1; color:var(--yellow); filter:drop-shadow(0 0 4px rgba(240,185,11,0.5)); }
 
 /* ── RESPONSIVE ── */
-@media (max-width:768px) {
-  #header { padding:8px 12px; }
+@media (max-width:1100px) {
+  #chartPanel {
+    position:fixed; right:0; top:0; bottom:0; z-index:480; width:min(412px, 94vw);
+    box-shadow:-6px 0 20px rgba(0,0,0,0.55);
+  }
+}
+@media (max-width:900px) {
   .header-center { order:3; width:100%; justify-content:center; }
   #alertPanel { width:100%; }
   #toastContainer { right:16px; }
-  table { min-width:750px; }
-  thead th { font-size:10px; padding:6px 3px; }
-  tbody td { font-size:11px; padding:5px 3px; }
-}
-@media (max-width:480px) {
-  #header { padding:6px 8px; }
-  .header-left h1 { font-size:15px; }
-  #clock { font-size:16px; min-width:130px; }
+  table { min-width:720px; }
+  thead th { font-size:10px; padding:6px 2px; }
+  tbody td { font-size:11px; padding:4px 2px; }
+  .lvl-btn { padding:6px 9px; font-size:12px; min-width:40px; }
 }
 </style>
 </head>
@@ -268,82 +230,107 @@ tbody tr.pattern-active-bearish { box-shadow:inset 3px 0 0 var(--red); }
   <!-- HEADER -->
   <header id="header">
     <div class="header-left">
-      <h1>📊 振幅监控</h1>
+      <h1>📈 单K涨幅榜</h1>
       <span id="clock">--</span>
     </div>
-    <div class="header-center">
-      <button class="btn" data-count="20" onclick="app.setSymbolCount(20)">20币</button>
-      <button class="btn active" data-count="30" onclick="app.setSymbolCount(30)">30币</button>
-      <button class="btn" data-count="50" onclick="app.setSymbolCount(50)">50币</button>
-      <button class="btn" data-count="200" onclick="app.setSymbolCount(200)">200币</button>
-      <span class="sep" style="color:var(--border);margin:0 2px;">│</span>
-      <select id="thresholdPreset" onchange="app.setThresholdPreset(this.value)">
-        <option value="crypto">🔴 加密货币 (默认)</option>
-        <option value="relaxed">🟡 宽松</option>
-        <option value="tight">🟢 严格</option>
-        <option value="custom">⚙️ 自定义</option>
-      </select>
-      <button class="btn" id="settingsBtn" onclick="app.toggleSettings()" title="自定义阈值">⚙️</button>
+
+    <!-- ★ 级别切换：直接放在标头，点一下即切换 -->
+    <div class="header-center" id="levelBar">
+      <span class="tf-hint">级别</span>
+      <!-- 级别按钮由 JS 渲染 -->
     </div>
+
     <div class="header-right">
       <span id="connectionDot" title="WebSocket"></span>
       <span id="pairCount" style="color:var(--text-secondary)">币种: 0</span>
+      <button class="btn" id="chartToggleBtn" onclick="app.toggleChart()" title="显示/隐藏右侧K线图">📈 图表</button>
       <button class="btn" id="muteBtn" onclick="app.toggleMute()" title="静音/取消静音">🔊</button>
       <button class="btn" id="alertListBtn" onclick="app.toggleAlertPanel()">🔔<span id="alertBadge" style="display:none;background:var(--red);color:#fff;border-radius:10px;padding:0 6px;margin-left:4px;font-size:10px;">0</span></button>
-      <button class="btn" onclick="app.manualRefresh()">🔄 刷新</button>
+      <button class="btn" onclick="app.manualRefresh()" title="重新拉取币种与行情">🔄 刷新</button>
     </div>
   </header>
 
   <!-- STATS BAR -->
   <div id="statsBar">
-    <div class="stat-item"><span class="stat-label">监控币种:</span><span class="stat-val" id="statMonitored">0</span></div>
-    <div class="stat-item"><span class="stat-label">WebSocket:</span><span class="stat-val" id="statWs">--</span></div>
-    <div class="stat-item"><span class="stat-label">极端振幅:</span><span class="stat-val" style="color:var(--red)" id="statExtreme">0</span></div>
-    <div class="stat-item"><span class="stat-label">高危振幅:</span><span class="stat-val" style="color:var(--orange)" id="statDanger">0</span></div>
-    <div class="stat-item"><span class="stat-label">今日告警:</span><span class="stat-val" style="color:var(--yellow)" id="statAlerts">0</span></div>
-    <div class="stat-item"><span class="stat-label">极端涨幅:</span><span class="stat-val" style="color:var(--red)" id="statGainExtreme">0</span></div>
-    <div class="stat-item"><span class="stat-label">高危涨幅:</span><span class="stat-val" style="color:var(--orange)" id="statGainDanger">0</span></div>
+    <div class="stat-item"><span class="stat-label">当前级别:</span><span class="stat-val" id="statLevel" style="color:var(--green)">--</span></div>
+    <div class="stat-item"><span class="stat-label">本K线开盘:</span><span class="stat-val" id="statKStart">--</span></div>
+    <div class="stat-item"><span class="stat-label">本K剩余:</span><span class="stat-val" id="statKLeft" style="color:var(--yellow)">--</span></div>
+    <div class="stat-item"><span class="stat-label">候选池:</span><span class="stat-val" id="statUniverse">0</span></div>
+    <div class="stat-item"><span class="stat-label">榜单显示:</span><span class="stat-val" id="statShown">0</span></div>
+    <div class="stat-item"><span class="stat-label">极端涨幅:</span><span class="stat-val" style="color:var(--red)" id="statExtreme">0</span></div>
+    <div class="stat-item"><span class="stat-label">高危涨幅:</span><span class="stat-val" style="color:var(--orange)" id="statDanger">0</span></div>
+    <div class="stat-item"><span class="stat-label">告警记录:</span><span class="stat-val" style="color:var(--yellow)" id="statAlerts">0</span></div>
+    <div class="stat-item"><span class="stat-label">数据源:</span><span class="stat-val" id="statWs">--</span></div>
     <div class="stat-item"><span class="stat-label">最近更新:</span><span class="stat-val" id="statUpdate">--</span></div>
   </div>
 
   <!-- TOOLBAR -->
   <div id="toolbar">
-    <span style="color:var(--text-secondary);font-size:12px;">振幅排序:</span>
-    <button class="btn active" data-sort="symbol" onclick="app.setSort('symbol')">字母</button>
-    <button class="btn" data-sort="change_asc" onclick="app.setSort('change_asc')">涨幅↑</button>
-    <button class="btn" data-sort="change_desc" onclick="app.setSort('change_desc')">跌幅↑</button>
-    <button class="btn" data-sort="amp_5m" onclick="app.setSort('amp_5m')">5m振幅</button>
-    <button class="btn" data-sort="amp_15m" onclick="app.setSort('amp_15m')">15m振幅</button>
-    <button class="btn" data-sort="amp_1h" onclick="app.setSort('amp_1h')">1h振幅</button>
-    <button class="btn" data-sort="amp_4h" onclick="app.setSort('amp_4h')">4h振幅</button>
-    <button class="btn" data-sort="amp_1d" onclick="app.setSort('amp_1d')">1d振幅</button>
-    <span class="sep" style="color:var(--border);">│</span>
-    <span style="color:var(--blue);font-size:12px;">单K涨幅排序:</span>
-    <button class="btn blue active" data-sort="gain_5m" onclick="app.setSort('gain_5m')">5m</button>
-    <button class="btn blue" data-sort="gain_10m" onclick="app.setSort('gain_10m')">10m</button>
-    <button class="btn blue" data-sort="gain_30m" onclick="app.setSort('gain_30m')">30m</button>
-    <button class="btn blue" data-sort="gain_1h" onclick="app.setSort('gain_1h')">1h</button>
-    <button class="btn blue" data-sort="gain_2h" onclick="app.setSort('gain_2h')">2h</button>
-    <button class="btn blue" data-sort="gain_1d" onclick="app.setSort('gain_1d')">1d</button>
-    <span class="sep" style="color:var(--border);">│</span>
-    <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;">
-      <input type="checkbox" id="filterExtreme" onchange="app.toggleFilter('extreme')"> 仅极端
-    </label>
-    <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;">
-      <input type="checkbox" id="filterAlerted" onchange="app.toggleFilter('alerted')"> 仅已告警
-    </label>
-    <span class="sep" style="color:var(--border);">│</span>
-    <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;">
-      <input type="checkbox" id="filterEngulfing" onchange="app.toggleFilter('engulfing')"> 仅穿线形态
-    </label>
+    <span class="grp-label">显示:</span>
+    <button class="btn" data-count="20" onclick="app.setDisplayCount(20)">20</button>
+    <button class="btn" data-count="50" onclick="app.setDisplayCount(50)">50</button>
+    <button class="btn" data-count="100" onclick="app.setDisplayCount(100)">100</button>
+    <button class="btn active" data-count="200" onclick="app.setDisplayCount(200)">200</button>
+    <span class="sep">│</span>
+
+    <span class="grp-label">榜单依据:</span>
+    <button class="btn green active" data-rankmode="level" onclick="app.setRankMode('level')">本级单K涨幅</button>
+    <button class="btn green" data-rankmode="24h" onclick="app.setRankMode('24h')">24h涨跌</button>
+    <span class="sep">│</span>
+
+    <span class="grp-label">方向:</span>
+    <button class="btn active" data-rankdir="up" onclick="app.setRankDir('up')">涨幅榜</button>
+    <button class="btn" data-rankdir="down" onclick="app.setRankDir('down')">跌幅榜</button>
+    <span class="sep">│</span>
+
+    <span class="grp-label">阈值:</span>
+    <select id="thresholdPreset" onchange="app.setThresholdPreset(this.value)">
+      <option value="crypto">默认</option>
+      <option value="relaxed">宽松</option>
+      <option value="tight">严格</option>
+      <option value="custom">自定义…</option>
+    </select>
+    <button class="btn" onclick="app.toggleSettings()" title="自定义每级别涨幅阈值">⚙️ 设置</button>
+    <span class="sep">│</span>
+
+    <label class="chk"><input type="checkbox" id="filterExtreme" onchange="app.toggleFilter('extreme')"> 仅极端/高危</label>
+    <label class="chk"><input type="checkbox" id="filterAlerted" onchange="app.toggleFilter('alerted')"> 仅已告警</label>
   </div>
 
-  <!-- MAIN TABLE -->
-  <div id="tableWrapper">
-    <table>
-      <thead id="tableHead"></thead>
-      <tbody id="tableBody"></tbody>
-    </table>
+  <!-- MAIN: 左侧榜单表格 + 右侧K线图 -->
+  <div id="main">
+    <div id="tableWrapper">
+      <table>
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <aside id="chartPanel">
+      <div id="chartHeader">
+        <span id="chartSym">--</span>
+        <span id="chartLevelTag">--</span>
+        <span id="chartGain">--</span>
+        <button class="btn" onclick="app.toggleChart()" title="收起图表 (也可以点顶部 📈 图表)">✕</button>
+      </div>
+      <div id="chartMeta">
+        <span>时间 <b id="cmTime">--</b></span>
+        <span>开 <b id="cmOpen">--</b></span>
+        <span>高 <b id="cmHigh">--</b></span>
+        <span>低 <b id="cmLow">--</b></span>
+        <span>收 <b id="cmClose">--</b></span>
+        <span>本K <b id="cmChg">--</b></span>
+        <span>量 <b id="cmVol">--</b></span>
+      </div>
+      <div id="chartCanvasWrap"><canvas id="chartCanvas"></canvas></div>
+      <div id="chartFooter">
+        <span id="chartStat">滚轮缩放 · 点左侧币种切换</span>
+        <span style="display:flex;gap:6px;">
+          <button class="btn" onclick="app.selectTopChart()" style="font-size:11px;" title="跳到榜一">榜一</button>
+          <button class="btn" onclick="app.openOnBinance()" style="font-size:11px;" title="在币安打开该合约">币安 →</button>
+        </span>
+      </div>
+    </aside>
   </div>
 </div>
 
@@ -362,36 +349,29 @@ tbody tr.pattern-active-bearish { box-shadow:inset 3px 0 0 var(--red); }
 <!-- SETTINGS MODAL -->
 <div id="settingsModal" class="modal-overlay" style="display:none">
   <div class="modal-box">
-    <h3>⚙️ 振幅阈值设置 (%)</h3>
+    <h3>⚙️ 单K涨幅阈值设置 (%)</h3>
+    <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;">
+      口径：本级别当前K线 <b>开盘价 → 现价</b> 的涨跌幅，涨跌双向触发。
+    </div>
     <div id="thresholdSettings"></div>
+
     <div style="margin-top:14px;">
       <label>告警冷却时间 (秒)</label>
-      <input type="number" id="alertCooldown" min="0" max="600" value="30" style="width:100px;">
+      <input type="number" id="alertCooldown" min="0" max="3600" value="30">
     </div>
-    <div style="margin-top:14px;">
-      <label>
-        <input type="checkbox" id="soundEnabled" checked> 启用声音告警
-      </label>
-      <label style="margin-left:16px;">
-        <input type="checkbox" id="notifyEnabled" checked> 启用浏览器通知
-      </label>
+    <div style="margin-top:12px;">
+      <label style="display:inline-block;"><input type="checkbox" id="soundEnabled" checked> 启用声音告警</label>
+      <label style="display:inline-block;margin-left:16px;"><input type="checkbox" id="notifyEnabled" checked> 启用浏览器通知</label>
     </div>
-    <!-- 单K涨幅阈值 -->
-    <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px;">
-      <h4 style="font-size:14px;color:var(--blue);margin-bottom:6px;">📈 单K涨幅阈值 (%)</h4>
-      <div id="gainThresholdSettings"></div>
-    </div>
-    <!-- 钉钉推送设置 -->
+
+    <!-- 钉钉推送 -->
     <div class="dingtalk-section">
       <h4>📨 钉钉机器人推送</h4>
       <div style="margin-bottom:8px;">
-        <label style="cursor:pointer;">
-          <input type="checkbox" id="dingtalkEnabled"> 启用钉钉推送
-        </label>
+        <label style="cursor:pointer;display:inline-block;"><input type="checkbox" id="dingtalkEnabled"> 启用钉钉推送</label>
       </div>
       <label>Webhook 地址</label>
       <input type="url" id="dingtalkWebhook" placeholder="https://oapi.dingtalk.com/robot/send?access_token=...">
-      <div class="hint">钉钉群机器人 Webhook URL，支持加签方式</div>
       <label style="margin-top:8px;">CORS 代理地址 <span style="color:var(--text-secondary);font-weight:400;">(浏览器跨域需要，留空使用公共代理)</span></label>
       <input type="text" id="dingtalkCorsProxy" placeholder="例如: http://localhost:8080/">
       <div class="hint">从浏览器直接调用钉钉 API 会被 CORS 策略阻止。页面内置了公共 CORS 代理链，若不稳定可自行部署一个 <a href="https://github.com/Rob--W/cors-anywhere" target="_blank" style="color:var(--blue);">cors-anywhere</a> 并填入此处</div>
@@ -401,16 +381,12 @@ tbody tr.pattern-active-bearish { box-shadow:inset 3px 0 0 var(--red); }
         <option value="danger">🔶 高危及以上</option>
         <option value="extreme">🔴 仅极端</option>
       </select>
-      <div style="margin-top:8px;">
-        <label style="cursor:pointer;">
-          <input type="checkbox" id="dingtalkPushPattern" checked> 同时推送穿线形态告警
-        </label>
-      </div>
-      <div style="margin-top:8px;">
+      <div style="margin-top:10px;">
         <button class="btn" onclick="app.testDingTalk()" style="font-size:11px;">🧪 测试推送</button>
         <span id="dtTestResult" style="font-size:11px;margin-left:8px;"></span>
       </div>
     </div>
+
     <div style="display:flex;gap:8px;margin-top:18px;">
       <button class="btn active" onclick="app.saveSettings()" style="flex:1">💾 保存</button>
       <button class="btn" onclick="app.resetThresholds()" style="flex:1">↩ 重置默认</button>
@@ -423,98 +399,109 @@ tbody tr.pattern-active-bearish { box-shadow:inset 3px 0 0 var(--red); }
 <div id="toastContainer"></div>
 
 <script>
-// ==================== CONFIGURATION ====================
+// ==================== CONFIG ====================
+// 注：币安合约没有 10m / 3h 原生周期 —— 10m 由 5m×2 合成，3h 由 1h×3 合成，其余为原生周期。
 const CONFIG = {
-  BINANCE_REST: 'https://fapi.binance.com/fapi/v1',
-  BINANCE_WS: 'wss://fstream.binance.com/stream',
-  MAX_WS_STREAMS: 600,
-  TIMEFRAMES: ['5m','15m','30m','1h','4h','1d'],
-  TF_LABELS: { '5m':'5分钟','15m':'15分钟','30m':'30分钟','1h':'1小时','4h':'4小时','1d':'日线' },
-  // 单根K线涨幅时间框架（与振幅共享5m/30m/1h/1d的K线数据，10m/2h需独立订阅）
-  GAIN_TIMEFRAMES: ['5m','10m','30m','1h','2h','1d'],
-  GAIN_TF_LABELS: { '5m':'5分钟','10m':'10分钟','30m':'30分钟','1h':'1小时','2h':'2小时','1d':'日线' },
-  // 需要额外订阅K线的涨幅时间框架（不与振幅重合的）
-  GAIN_EXTRA_TF: ['10m','2h'],
-  KLINE_LIMIT: 5, // Need 4+ candles for engulfing pattern detection
+  REST: 'https://fapi.binance.com/fapi/v1',
+  WS: 'wss://fstream.binance.com/stream',
+  WS_CHUNK: 200,          // 每条 WS 连接的 stream 数量
+  MIN_QUOTE_VOL: 1e6,     // 候选池门槛：24h 成交额 ≥ 100 万 USDT
+  UNIVERSE_CAP: 520,
+  LEVELS: ['10m','15m','30m','1h','2h','3h','4h','6h','12h','24h'],
+  LEVEL_INFO: {
+    '10m': { base:'5m',  ms:  600000, label:'10分钟', group:2 },
+    '15m': { base:'15m', ms:  900000, label:'15分钟', group:1 },
+    '30m': { base:'30m', ms: 1800000, label:'30分钟', group:1 },
+    '1h':  { base:'1h',  ms: 3600000, label:'1小时',  group:1 },
+    '2h':  { base:'2h',  ms: 7200000, label:'2小时',  group:1 },
+    '3h':  { base:'1h',  ms:10800000, label:'3小时',  group:3 },
+    '4h':  { base:'4h',  ms:14400000, label:'4小时',  group:1 },
+    '6h':  { base:'6h',  ms:21600000, label:'6小时',  group:1 },
+    '12h': { base:'12h', ms:43200000, label:'12小时', group:1 },
+    '24h': { base:'1d',  ms:86400000, label:'24小时', group:1 },
+  },
+  STABLE_BASES: ['USDC','FDUSD','TUSD','BUSD','DAI','USDP','EURI','AEUR','USD1','XUSD','BFUSD','USDE','PYUSD','BTCDOM'],
 };
 
-// ==================== DEFAULT THRESHOLDS ====================
-const DEFAULT_THRESHOLDS = {
-  crypto: {
-    '5m':  { warn:0.8,  danger:1.5, extreme:3.0 },
-    '15m': { warn:1.2,  danger:2.5, extreme:5.0 },
-    '30m': { warn:1.8,  danger:3.5, extreme:7.0 },
-    '1h':  { warn:2.5,  danger:5.0, extreme:10.0 },
-    '4h':  { warn:4.0,  danger:8.0, extreme:15.0 },
-    '1d':  { warn:6.0,  danger:12.0, extreme:20.0 },
-  },
-  relaxed: {
-    '5m':  { warn:1.5,  danger:3.0, extreme:6.0 },
-    '15m': { warn:2.0,  danger:5.0, extreme:10.0 },
-    '30m': { warn:3.0,  danger:7.0, extreme:14.0 },
-    '1h':  { warn:4.0,  danger:10.0, extreme:20.0 },
-    '4h':  { warn:6.0,  danger:15.0, extreme:25.0 },
-    '1d':  { warn:10.0, danger:20.0, extreme:35.0 },
-  },
-  tight: {
-    '5m':  { warn:0.4,  danger:0.8, extreme:1.5 },
-    '15m': { warn:0.6,  danger:1.2, extreme:2.5 },
-    '30m': { warn:0.8,  danger:1.8, extreme:3.5 },
-    '1h':  { warn:1.2,  danger:2.5, extreme:5.0 },
-    '4h':  { warn:2.0,  danger:4.0, extreme:8.0 },
-    '1d':  { warn:3.0,  danger:6.0, extreme:12.0 },
-  },
-  // 单根K线涨幅阈值（绝对值，涨跌都触发）
-  gain: {
-    '5m':  { warn:1.0,  danger:2.0, extreme:4.0 },
-    '10m': { warn:1.5,  danger:3.0, extreme:6.0 },
-    '30m': { warn:2.0,  danger:4.0, extreme:8.0 },
-    '1h':  { warn:3.0,  danger:6.0, extreme:12.0 },
-    '2h':  { warn:4.0,  danger:8.0, extreme:16.0 },
-    '1d':  { warn:6.0,  danger:12.0, extreme:24.0 },
-  },
+// ==================== THRESHOLDS ====================
+// 默认阈值：单K线「开盘→现价」涨跌幅绝对值（覆盖约 500 个币，阈值比只看 30 个币时更高，避免刷屏）
+const BASE_THRESHOLDS = {
+  '10m': { warn:1.2, danger:2.5, extreme:5.0 },
+  '15m': { warn:1.8, danger:3.5, extreme:7.0 },
+  '30m': { warn:2.0, danger:4.0, extreme:8.0 },
+  '1h':  { warn:3.0, danger:6.0, extreme:12.0 },
+  '2h':  { warn:4.0, danger:8.0, extreme:16.0 },
+  '3h':  { warn:4.5, danger:9.0, extreme:18.0 },
+  '4h':  { warn:5.0, danger:10.0, extreme:20.0 },
+  '6h':  { warn:5.5, danger:11.0, extreme:22.0 },
+  '12h': { warn:6.0, danger:12.0, extreme:24.0 },
+  '24h': { warn:8.0, danger:15.0, extreme:30.0 },
 };
+const PRESET_MUL = { crypto:1, relaxed:1.6, tight:0.6 };
+function presetThresholds(name) {
+  const mul = PRESET_MUL[name] || 1;
+  const out = {};
+  for (const lv of CONFIG.LEVELS) {
+    const b = BASE_THRESHOLDS[lv];
+    out[lv] = { warn:+(b.warn*mul).toFixed(2), danger:+(b.danger*mul).toFixed(2), extreme:+(b.extreme*mul).toFixed(2) };
+  }
+  return out;
+}
 
-// ==================== GLOBAL STATE ====================
+// ==================== STATE ====================
 const STATE = {
-  symbolCount: 30,
-  symbols: [],
-  timeframes: CONFIG.TIMEFRAMES,
-  thresholds: JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS.crypto)),
-  gainThresholds: JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS.gain)),
-  thresholdPreset: 'crypto',
-  klineCache: {},  // { 'BTCUSDT': { '5m': { open,high,low,close,amplitude,isClosed,time,prevAmp }, ... } }
-  gainCache: {},    // { 'BTCUSDT': { '5m': { changePct, direction, open, close, isClosed, time }, ... } }
-  gainKlineCache: {}, // K线缓存 for gain-specific timeframes (10m, 2h)
-  pairMeta: {},     // { 'BTCUSDT': { lastPrice, priceChangePercent, quoteVolume } }
-  alerts: [],       // [{ id,symbol,tf,amplitude,threshold,level,time }]
-  alertLog: [],     // persisted alerts
-  alertCooldown: {}, // { 'BTCUSDT_5m_extreme': timestamp }
-  gainAlerts: [],   // gain alert log
-  gainAlertCooldown: {}, // cooldown for gain alerts
-  alertCooldownSec: 30,
-  patternCache: {},     // { 'BTCUSDT_5m': { type:'bullish_engulf'|'bearish_engulf', time, isClosed } }
-  patternAlerts: [],    // pattern alert log
-  patternCooldown: {},  // cooldown for pattern alerts per symbol+tf
-  sortBy: 'symbol',
+  level: '10m',
+  displayCount: 200,
+  rankMode: 'level',       // 'level' | '24h'
+  rankDir: 'up',           // 'up' = 涨幅榜, 'down' = 跌幅榜
+  sortKey: 'rank',         // 'rank' | 'symbol' | 'price' | 'gain' | 'chg' | 'vol'
   sortAsc: true,
-  gainSortBy: 'gain_5m',  // separate sort for gain columns
-  gainSortAsc: false,     // default: highest gain first
-  filters: { extreme: false, alerted: false },
-  perCoinAlerts: {}, // { 'BTCUSDT': { enabled: true, thresholds: { '5m': {warn,danger,extreme}, ... } } }
-  perCoinPopupTarget: null, // symbol whose popup is currently open
+  universe: [],
+  universeSet: new Set(),
+  displayed: [],
+  boardRank: {},           // sym -> 榜位
+  meta: {},                // sym -> { lastPrice, priceChangePercent, quoteVolume }
+  buckets: {},             // sym -> { start, open, high, low, close, gain, amp, valid, lastUpdate }
+  thresholds: presetThresholds('crypto'),
+  thresholdPreset: 'crypto',
+  perCoinAlerts: {},       // sym -> { enabled, thresholds: { level: {warn,danger,extreme} } }
+  alertLog: [],
+  alertCooldown: {},
+  alertCooldownSec: 30,
+  filters: { extreme:false, alerted:false },
+  wsConnections: [],
+  wsOpen: 0,
+  wsStreams: 0,
+  wsMsgs: 0,
   wsConnected: false,
-  wsConnections: [], // [{ close() }] — connection handles; each manages its own reconnect timer
-  muted: localStorage.getItem('amp_monitor_muted') === 'true',
-  soundEnabled: localStorage.getItem('amp_monitor_sound') !== 'false',
-  notifyEnabled: localStorage.getItem('amp_monitor_notify') !== 'false',
-  dingtalkEnabled: localStorage.getItem('amp_monitor_dingtalk_enabled') === 'true',
-  dingtalkWebhook: localStorage.getItem('amp_monitor_dingtalk_webhook') || '',
-  dingtalkCorsProxy: localStorage.getItem('amp_monitor_dingtalk_cors_proxy') || '',
-  dingtalkPushLevel: localStorage.getItem('amp_monitor_dingtalk_level') || 'danger',
-  dingtalkPushPattern: localStorage.getItem('amp_monitor_dingtalk_pattern') !== 'false',
-  clockTimer: null,
+  lastWsMsg: 0,          // 最近一条 WS K线消息时间
+  restMode: false,       // WS 静默时自动切到 REST 轮询
+  polling: false,
+  scanToken: 0,
+  epoch: 0,              // 级别切换/刷新时 +1，作废所有在途请求
+  prefill: { active:false, done:0, total:0 },
+  alertsArmed: false,
+  armedOnce: false,
+  restFixQueue: new Set(),
+  restFixRunning: false,
+  muted: false,
+  soundEnabled: true,
+  notifyEnabled: true,
+  dingtalkEnabled: false,
+  dingtalkWebhook: '',
+  dingtalkCorsProxy: '',
+  dingtalkPushLevel: 'danger',
+  perCoinPopupTarget: null,
+  chartSymbol: null,        // 右侧图表当前币种
+  chartBase: [],            // 图表币种的基础周期K线
+  chartCandles: [],         // 合成后的级别K线
+  chartDirty: false,
+  chartVisible: 70,         // 显示多少根
+  chartHover: null,
+  chartPanelOpen: true,
+  chartLoading: false,
   initDone: false,
+  loadingUniverse: false,
 };
 
 // ==================== UTILITIES ====================
@@ -529,1275 +516,1051 @@ function fmtPct(p) {
   if (p == null || isNaN(p)) return '--';
   return (p >= 0 ? '+' : '') + p.toFixed(2);
 }
-function fmtAmp(p) {
-  if (p == null || isNaN(p)) return '--';
-  return p.toFixed(2) + '%';
+function fmtVol(v) {
+  if (v == null || isNaN(v)) return '--';
+  if (v >= 1e8) return (v/1e8).toFixed(2) + '亿';
+  if (v >= 1e4) return (v/1e4).toFixed(1) + '万';
+  return v.toFixed(0);
 }
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-function now() { return Math.floor(Date.now() / 1000); }
+function nowSec() { return Math.floor(Date.now()/1000); }
+function pad2(n) { return String(n).padStart(2,'0'); }
+function bjtClock(ms, withDate) {
+  const d = new Date(ms + 8*3600*1000);
+  const t = pad2(d.getUTCHours()) + ':' + pad2(d.getUTCMinutes()) + ':' + pad2(d.getUTCSeconds());
+  if (!withDate) return t;
+  return pad2(d.getUTCMonth()+1) + '-' + pad2(d.getUTCDate()) + ' ' + pad2(d.getUTCHours()) + ':' + pad2(d.getUTCMinutes());
+}
+function bjtFull(ms) {
+  const d = new Date(ms + 8*3600*1000);
+  return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth()+1) + '-' + pad2(d.getUTCDate()) + ' ' +
+    pad2(d.getUTCHours()) + ':' + pad2(d.getUTCMinutes()) + ':' + pad2(d.getUTCSeconds());
+}
+function fmtLeft(msLeft) {
+  if (msLeft < 0) msLeft = 0;
+  const s = Math.floor(msLeft/1000);
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), ss = s%60;
+  return h > 0 ? (h + ':' + pad2(m) + ':' + pad2(ss)) : (pad2(m) + ':' + pad2(ss));
+}
+function levelInfo() { return CONFIG.LEVEL_INFO[STATE.level]; }
+function bucketStartOf(ms, lv) { return Math.floor(ms / CONFIG.LEVEL_INFO[lv].ms) * CONFIG.LEVEL_INFO[lv].ms; }
 
-function showToast(msg) {
+function showToast(msg, isError) {
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
   toast.className = 'toast';
+  if (isError) toast.style.borderColor = 'var(--red)';
   toast.textContent = msg;
   container.appendChild(toast);
+  while (container.children.length > 6) container.removeChild(container.firstChild);   // 最多同时 6 条
   setTimeout(() => toast.remove(), 5000);
 }
 
-// ==================== SOUND MANAGER ====================
+// ==================== SOUND ====================
 const SoundManager = {
   _ctx: null,
-  _init() {
-    if (!this._ctx) {
-      try { this._ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
-    }
-  },
-  playBeep(freq, duration, type = 'square') {
+  _init() { if (!this._ctx) { try { this._ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} } },
+  playBeep(freq, duration, type) {
     if (STATE.muted || !STATE.soundEnabled) return;
     this._init();
     if (!this._ctx) return;
     try {
       const osc = this._ctx.createOscillator();
       const gain = this._ctx.createGain();
-      osc.type = type;
+      osc.type = type || 'square';
       osc.frequency.setValueAtTime(freq, this._ctx.currentTime);
-      gain.gain.setValueAtTime(0.15, this._ctx.currentTime);
+      gain.gain.setValueAtTime(0.14, this._ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, this._ctx.currentTime + duration);
-      osc.connect(gain);
-      gain.connect(this._ctx.destination);
-      osc.start();
-      osc.stop(this._ctx.currentTime + duration);
+      osc.connect(gain); gain.connect(this._ctx.destination);
+      osc.start(); osc.stop(this._ctx.currentTime + duration);
     } catch(e) {}
   },
-  alert() {
-    this.playBeep(880, 0.15, 'square');
-    setTimeout(() => this.playBeep(660, 0.2, 'square'), 150);
-    setTimeout(() => this.playBeep(880, 0.25, 'square'), 350);
-  },
-  extreme() {
-    this.playBeep(1200, 0.1, 'sawtooth');
-    setTimeout(() => this.playBeep(1400, 0.1, 'sawtooth'), 100);
-    setTimeout(() => this.playBeep(1600, 0.15, 'sawtooth'), 200);
-    setTimeout(() => this.playBeep(1400, 0.15, 'sawtooth'), 350);
-    setTimeout(() => this.playBeep(1200, 0.2, 'sawtooth'), 500);
-  },
-  patternBullish() {
-    this.playBeep(523, 0.12, 'sine');
-    setTimeout(() => this.playBeep(659, 0.12, 'sine'), 100);
-    setTimeout(() => this.playBeep(784, 0.18, 'sine'), 200);
-  },
-  patternBearish() {
-    this.playBeep(784, 0.12, 'sine');
-    setTimeout(() => this.playBeep(659, 0.12, 'sine'), 100);
-    setTimeout(() => this.playBeep(523, 0.18, 'sine'), 200);
+  up()    { this.playBeep(660,0.10,'sine'); setTimeout(()=>this.playBeep(880,0.12,'sine'),95); setTimeout(()=>this.playBeep(1180,0.18,'sine'),190); },
+  down()  { this.playBeep(760,0.10,'sine'); setTimeout(()=>this.playBeep(560,0.12,'sine'),95); setTimeout(()=>this.playBeep(380,0.18,'sine'),190); },
+  hot()   {
+    this.playBeep(1200,0.09,'sawtooth'); setTimeout(()=>this.playBeep(1400,0.09,'sawtooth'),90);
+    setTimeout(()=>this.playBeep(1600,0.12,'sawtooth'),180); setTimeout(()=>this.playBeep(1400,0.12,'sawtooth'),300);
+    setTimeout(()=>this.playBeep(1200,0.16,'sawtooth'),420);
   },
 };
 
-// ==================== BROWSER NOTIFICATIONS ====================
+// ==================== BROWSER NOTIFICATION ====================
 function sendBrowserNotification(title, body) {
   if (!STATE.notifyEnabled) return;
   if (!('Notification' in window)) return;
   if (Notification.permission === 'granted') {
-    try { new Notification(title, { body, icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="%23f6465d"/><text x="16" y="22" text-anchor="middle" fill="%23fff" font-size="16">!</text></svg>' }); } catch(e) {}
+    try { new Notification(title, { body: body }); } catch(e) {}
   } else if (Notification.permission === 'default') {
     Notification.requestPermission();
   }
 }
 
-// ==================== DINGTALK PUSH ====================
-// DingTalk webhook push via CORS proxy chain
-// Browsers block direct cross-origin requests to oapi.dingtalk.com,
-// so we try multiple CORS proxies in sequence until one succeeds.
-const DINGTALK_CORS_PROXIES = [
-  'https://corsproxy.io/?',
-  'https://api.allorigins.win/raw?url=',
-];
-
+// ==================== DINGTALK ====================
+const DINGTALK_CORS_PROXIES = ['https://corsproxy.io/?', 'https://api.allorigins.win/raw?url='];
 async function _fetchDingTalkViaProxy(proxyUrl, webhookUrl, body) {
-  // Detect proxy URL format:
-  // - Query-based (ends with ? or =): append &{encodedUrl}  e.g. corsproxy.io/?
-  // - Path-based (cors-anywhere style): append raw URL  e.g. localhost:8080/
   let targetUrl;
-  if (proxyUrl.includes('?') || proxyUrl.endsWith('=')) {
-    targetUrl = proxyUrl + encodeURIComponent(webhookUrl);
-  } else {
-    targetUrl = proxyUrl + webhookUrl;
-  }
-  const resp = await fetch(targetUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: body,
-  });
+  if (proxyUrl.includes('?') || proxyUrl.endsWith('=')) targetUrl = proxyUrl + encodeURIComponent(webhookUrl);
+  else targetUrl = proxyUrl + webhookUrl;
+  const resp = await fetch(targetUrl, { method:'POST', headers:{ 'Content-Type':'application/json','Accept':'application/json' }, body:body });
   if (!resp.ok) throw new Error('HTTP ' + resp.status);
   return resp.json();
 }
-
 async function sendDingTalkMessage(title, text) {
   if (!STATE.dingtalkEnabled || !STATE.dingtalkWebhook) return;
-  const payload = {
-    msgtype: 'markdown',
-    markdown: { title: title, text: text },
-  };
-  const body = JSON.stringify(payload);
-
-  // Strategy 1: direct fetch (some networks / newer DingTalk endpoints allow it)
+  const body = JSON.stringify({ msgtype:'markdown', markdown:{ title:title, text:text } });
   try {
-    const resp = await fetch(STATE.dingtalkWebhook, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: body,
-    });
+    const resp = await fetch(STATE.dingtalkWebhook, { method:'POST', headers:{ 'Content-Type':'application/json' }, body:body });
     const data = await resp.json();
     if (data.errcode === 0) return;
-    console.warn('[DingTalk] Direct push failed:', data.errmsg || data);
-  } catch(e) {
-    // Direct blocked by CORS, fall through to proxies
-  }
-
-  // Strategy 2: try custom CORS proxy first if configured
+    console.warn('[DingTalk] direct failed:', data.errmsg || data);
+  } catch(e) {}
   if (STATE.dingtalkCorsProxy) {
     try {
       const data = await _fetchDingTalkViaProxy(STATE.dingtalkCorsProxy, STATE.dingtalkWebhook, body);
       if (data.errcode === 0) return;
-      console.warn('[DingTalk] Custom proxy returned error:', data.errmsg || data);
-    } catch(e) {
-      console.warn('[DingTalk] Custom proxy failed, trying public proxies...');
-    }
+    } catch(e) {}
   }
-
-  // Strategy 3: try public CORS proxies
   for (const proxy of DINGTALK_CORS_PROXIES) {
     try {
       const data = await _fetchDingTalkViaProxy(proxy, STATE.dingtalkWebhook, body);
-      if (data.errcode === 0) {
-        console.log('[DingTalk] Push succeeded via proxy:', proxy);
-        return;
-      }
-      console.warn('[DingTalk] Proxy returned error:', data.errmsg || data);
-    } catch(e) {
-      // This proxy failed, try the next one
-      continue;
-    }
+      if (data.errcode === 0) return;
+    } catch(e) { continue; }
   }
-
-  console.warn('[DingTalk] All push strategies failed. Check webhook URL and network.');
+  console.warn('[DingTalk] all push strategies failed');
 }
-
-function shouldDingTalkPush(level) {
+function shouldDingTalkPush(severity) {
   if (!STATE.dingtalkEnabled || !STATE.dingtalkWebhook) return false;
-  const levels = ['warn', 'danger', 'extreme'];
-  const thresholdIdx = levels.indexOf(STATE.dingtalkPushLevel);
-  const currentIdx = levels.indexOf(level);
-  return currentIdx >= thresholdIdx;
+  const levels = ['warn','danger','extreme'];
+  return levels.indexOf(severity) >= levels.indexOf(STATE.dingtalkPushLevel);
 }
 
 // ==================== BINANCE API ====================
 const BinanceAPI = {
-  _rateLimitQueue: [],
-  _activeRequests: 0,
-  _maxConcurrency: 8,
-  _interReqDelay: 4,
-  _rateLimitedFetch(url) {
+  _queue: [], _active: 0, _maxConcurrency: 10, _gap: 4,
+  _win: [],                 // 最近 60s 内的请求时间戳
+  _maxPerMin: 1200,         // 每分钟请求预算（币安权重上限 2400/分钟，留一半余量）
+  _blockedUntil: 0,         // 被限流(418/429)后的暂停截止时间
+  _blockReason: '',
+  blockedRemaining() { return Math.max(0, this._blockedUntil - Date.now()); },
+  clearQueue(reason) {
+    const pend = this._queue.splice(0, this._queue.length);
+    for (const t of pend) { try { t.reject(new Error(reason || 'cancelled')); } catch(e) {} }
+  },
+  _fetch(url) {
     return new Promise((resolve, reject) => {
-      this._rateLimitQueue.push({ url, resolve, reject });
-      this._processRateQueue();
+      this._queue.push({ url:url, resolve:resolve, reject:reject });
+      this._pump();
     });
   },
-  _processRateQueue() {
-    var self = this;
-    while (self._activeRequests < self._maxConcurrency && self._rateLimitQueue.length > 0) {
-      var task = self._rateLimitQueue.shift();
-      self._activeRequests++;
+  _pump() {
+    const self = this;
+    if (!self._queue.length) return;
+    const now = Date.now();
+    if (now < self._blockedUntil) {                        // 限流暂停中
+      setTimeout(function() { self._pump(); }, Math.min(2000, self._blockedUntil - now));
+      return;
+    }
+    self._win = self._win.filter(function(t) { return now - t < 60000; });
+    while (self._active < self._maxConcurrency && self._queue.length) {
+      const nw = Date.now();
+      self._win = self._win.filter(function(t) { return nw - t < 60000; });
+      if (self._win.length >= self._maxPerMin) {            // 超出分钟预算，等下一个窗口
+        setTimeout(function() { self._pump(); }, 1200);
+        return;
+      }
+      const task = self._queue.shift();
+      self._active++;
+      self._win.push(nw);
       fetch(task.url)
-        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function(r) {
+          if (r.status === 418 || r.status === 429) {       // 币安限流：按 Retry-After 暂停全部请求
+            const ra = parseInt(r.headers.get('Retry-After') || '0', 10);
+            const wait = ra > 0 ? ra * 1000 : 60000;
+            self._blockedUntil = Date.now() + wait;
+            self._blockReason = 'HTTP ' + r.status;
+            console.warn('[rate] 币安限流 ' + r.status + '，暂停 ' + Math.round(wait/1000) + 's');
+            throw new Error('HTTP ' + r.status + ' (限流)');
+          }
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
         .then(task.resolve, task.reject)
         .finally(function() {
-          self._activeRequests--;
-          setTimeout(function() { self._processRateQueue(); }, self._interReqDelay);
+          self._active--;
+          setTimeout(function() { self._pump(); }, self._gap);
         });
     }
   },
-  fetchJSON(url) { return this._rateLimitedFetch(url); },
-  fetchKlinesBulk(symbol, interval, limit) {
-    limit = limit || 3;
-    return this._rateLimitedFetch(
-      CONFIG.BINANCE_REST + '/klines?symbol=' + symbol + '&interval=' + interval + '&limit=' + limit
-    ).then(function(data) {
-      return data.map(function(d) {
-        return {
-          time: Math.floor(d[0] / 1000),
-          open: parseFloat(d[1]),
-          high: parseFloat(d[2]),
-          low: parseFloat(d[3]),
-          close: parseFloat(d[4]),
-          volume: parseFloat(d[5]),
-          isClosed: true,
-        };
+  getJSON(url) { return this._fetch(url); },
+  getKlines(symbol, interval, limit) {
+    return this._fetch(CONFIG.REST + '/klines?symbol=' + symbol + '&interval=' + interval + '&limit=' + (limit || 2))
+      .then(function(data) {
+        return data.map(function(d) {
+          return {
+            time: Math.floor(d[0]/1000),
+            open: parseFloat(d[1]), high: parseFloat(d[2]),
+            low: parseFloat(d[3]), close: parseFloat(d[4]),
+            volume: parseFloat(d[7]) || 0,     // 成交额(USDT)，用于图表成交量
+          };
+        });
       });
-    });
   },
-
-  async getPriceMap() {
-    // Lightweight: /ticker/price returns only symbol+price, much smaller payload than /ticker/24hr
-    const data = await this._rateLimitedFetch(`${CONFIG.BINANCE_REST}/ticker/price`);
-    if (!Array.isArray(data)) return {};
-    const map = {};
-    for (var i = 0; i < data.length; i++) {
-      map[data[i].symbol] = parseFloat(data[i].price);
-    }
-    return map;
-  },
-
-  async getTopPairs(limit) {
-    const tickers = await this.fetchJSON(`${CONFIG.BINANCE_REST}/ticker/24hr`);
-    return tickers
-      .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('BUSD') && !t.symbol.includes('TUSD'))
-      .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
-      .slice(0, limit)
-      .map(t => ({
-        symbol: t.symbol,
-        lastPrice: parseFloat(t.lastPrice),
-        priceChangePercent: parseFloat(t.priceChangePercent),
-        quoteVolume: parseFloat(t.quoteVolume),
-      }));
-  },
-
-  async getKlines(symbol, interval, limit) {
-    limit = limit || 3;
-    return this.fetchKlinesBulk(symbol, interval, limit);
-  },
-
-  // Build combined WebSocket stream URL
   connectWebSocket(streams, onMessage) {
-    // Split into chunks of MAX_WS_STREAMS
-    const connections = [];
-    for (let i = 0; i < streams.length; i += CONFIG.MAX_WS_STREAMS) {
-      const chunk = streams.slice(i, i + CONFIG.MAX_WS_STREAMS);
-      const url = `${CONFIG.BINANCE_WS}?streams=${chunk.join('/')}`;
-      connections.push(this._createWS(url, onMessage));
+    const conns = [];
+    for (let i = 0; i < streams.length; i += CONFIG.WS_CHUNK) {
+      const chunk = streams.slice(i, i + CONFIG.WS_CHUNK);
+      conns.push(this._createWS(CONFIG.WS + '?streams=' + chunk.join('/'), onMessage));
     }
-    return connections;
+    return conns;
   },
-
   _createWS(url, onMessage) {
-    // Connection handle: each connection owns its own reconnect timer, and
-    // close() permanently stops the socket + its scheduled reconnects, so
-    // disconnectWS() can fully tear everything down (no leaked sockets).
-    let ws = null;
-    let stopped = false;
-    let reconnectTimer = null;
-
+    let ws = null, stopped = false, timer = null;
     const handle = {
-      _remove() {
-        const idx = STATE.wsConnections.indexOf(handle);
-        if (idx >= 0) STATE.wsConnections.splice(idx, 1);
-      },
+      _remove() { const i = STATE.wsConnections.indexOf(handle); if (i >= 0) STATE.wsConnections.splice(i, 1); },
       close() {
         stopped = true;
-        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+        if (timer) { clearTimeout(timer); timer = null; }
         try { if (ws) ws.close(); } catch(e) {}
         this._remove();
       }
     };
-
     const connect = () => {
       if (stopped) return;
       ws = new WebSocket(url);
-      ws.onopen = () => {
-        STATE.wsConnected = true;
-        updateConnectionUI();
-      };
+      ws.onopen = () => { STATE.wsOpen++; STATE.wsConnected = true; updateConnectionUI(); };
       ws.onmessage = (evt) => {
         try {
           const msg = JSON.parse(evt.data);
-          let klineData = null;
-          // Combined stream format: {"stream":"...","data":{...}}
-          if (msg.stream && msg.data && msg.data.e === 'kline') {
-            klineData = msg.data;
-          }
-          // Single stream format: {"e":"kline",...}
-          else if (msg.e === 'kline') {
-            klineData = msg;
-          }
-          if (klineData) onMessage(klineData);
+          // 组合流: {"stream":"...","data":{"e":"kline","s":"BTCUSDT","k":{...}}}
+          // 单流:   {"e":"kline","s":"BTCUSDT","k":{...}}
+          const ev = (msg.data && msg.data.e === 'kline') ? msg.data : (msg.e === 'kline' ? msg : null);
+          if (ev && ev.k) onMessage(ev.k);
         } catch(e) {}
       };
       ws.onclose = () => {
+        if (STATE.wsOpen > 0) STATE.wsOpen--;
         handle._remove();
         if (stopped) return;
-        STATE.wsConnected = false;
-        updateConnectionUI();
-        reconnectTimer = setTimeout(connect, 5000);
+        if (STATE.wsOpen === 0) { STATE.wsConnected = false; updateConnectionUI(); }
+        timer = setTimeout(connect, 5000);
       };
-      ws.onerror = () => {
-        STATE.wsConnected = false;
-        updateConnectionUI();
-      };
+      ws.onerror = () => { STATE.wsConnected = false; updateConnectionUI(); };
     };
-
     STATE.wsConnections.push(handle);
     connect();
     return handle;
   },
 };
 
-// ==================== MAIN APPLICATION ====================
-class AmplitudeMonitor {
+// ==================== MAIN APP ====================
+class GainBoard {
   constructor() {
-    this.tableBody = document.getElementById('tableBody');
-    this.tableHead = document.getElementById('tableHead');
-    this.cellRefs = {};  // { 'BTCUSDT_5m': <td> }
-    this.rowRefs = {};   // { 'BTCUSDT': <tr> }
-    this._savePending = false;
+    this.headEl = document.getElementById('tableHead');
+    this.bodyEl = document.getElementById('tableBody');
+    this.rowRefs = {};    // sym -> <tr>
+    this.cellRefs = {};   // sym -> { rank, price, gain, open, amp, chg, vol }
+    this.lastRank = {};   // sym -> rank for flash-on-entry
+    this._refreshing = false;
+    this._lastSoundAt = 0;    // 声音节流
+    this._lastNotifyAt = 0;   // 通知节流
   }
 
+  // ───────── INIT ─────────
   async init() {
     this.startClock();
     this.loadState();
-    this.renderThresholdSettings();
-    this.updateThresholdPresetUI();
+    this.renderLevelButtons();
+    this.updateLevelUI();
+    this.updateToolbarUI();
     this.updateMuteUI();
     this.buildTableHeader();
     this.updateAlertBadge();
+    this.renderAlertPanel();
+    this.bindChartEvents();
+    this.toggleChart(window.innerWidth > 1100);   // 宽屏默认展开图表，窄屏默认收起
+    this.updateChartHeader();
 
-    // Request notification permission early
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
+    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
 
-    await this.loadData();
-    // startWebSocket() already called inside loadData() for early data flow
-    this.startPeriodicRefresh();
-    this.startStatsUpdater();
+    await this.loadUniverse();
+    this.startLoops();
     STATE.initDone = true;
+    this.startPipeline();
   }
 
+  // 币种列表拿到后再接数据管道；被限流时自动等待重试
+  async startPipeline() {
+    let tries = 0;
+    while (!STATE.universe.length && tries < 20) {
+      tries++;
+      this.setStatus('接口不可用，30s 后重试 (' + tries + ')', 'var(--red)');
+      await new Promise(r => setTimeout(r, 30000));
+      await this.loadUniverse();
+    }
+    if (!STATE.universe.length) { this.setStatus('✗ 无法获取币种列表', 'var(--red)'); return; }
+    this.setStatus('✓ 就绪', 'var(--green)');
+    this.refreshBoard(true);
+    this.startWebSocket();
+    if (!STATE.prefill.active) this.prefillAll();
+    if (STATE.chartPanelOpen && !STATE.chartSymbol && STATE.displayed.length) this.selectSymbol(STATE.displayed[0]);
+    else if (STATE.chartSymbol) { this.highlightRow(STATE.chartSymbol); this.updateChartHeader(); }
+  }
+
+  startLoops() {
+    setInterval(() => this.repaint(), 500);                 // 单元格刷新
+    setInterval(() => { this.orderRows(); this.applyFilters(); }, 1500);  // 榜内排序
+    setInterval(() => this.refreshBoard(false), 5000);      // 榜单成员重算（前200）
+    setInterval(() => this.updateStats(), 2000);
+    setInterval(() => this.refreshTicker(), 60000);         // 24h 涨跌/成交额
+    setInterval(() => this.processRestFixQueue(), 4000);
+    setInterval(() => this.dataWatchdog(), 3000);           // WS 静默检测
+    setInterval(() => this.pollChart(), 4000);              // 图表实时刷新（WS 静默时用）
+    setInterval(() => this.pollRest(), 20000);              // WS 静默时的 REST 轮询
+    setInterval(() => { if (STATE.restMode && !STATE.prefill.active) this.prefillAll(); }, 120000); // 全池重扫
+  }
+
+  // WS 长时间没有 K 线推送 → 自动切换到 REST 轮询，保证榜单持续跳动
+  dataWatchdog() {
+    const silent = (Date.now() - STATE.lastWsMsg) > 15000;
+    const dead = STATE.wsStreams > 0 && silent;
+    if (dead && !STATE.restMode) {
+      STATE.restMode = true;
+      console.warn('[data] WebSocket 静默 >15s，切换 REST 轮询模式');
+    } else if (!dead && STATE.restMode) {
+      STATE.restMode = false;
+    }
+    const wsEl = document.getElementById('statWs');
+    if (wsEl) {
+      wsEl.textContent = STATE.wsStreams + '流 · ' + (STATE.restMode ? 'REST轮询' : '实时');
+      wsEl.style.color = STATE.restMode ? 'var(--yellow)' : 'var(--green)';
+    }
+  }
+
+  // REST 轮询：只刷榜单内显示的币（WS 正常时不执行）
+  async pollRest() {
+    if (!STATE.restMode || STATE.polling || STATE.prefill.active) return;
+    STATE.polling = true;
+    try {
+      const epoch = STATE.epoch;
+      const info = levelInfo();
+      const limit = Math.max(2, info.group + 1);
+      const list = STATE.displayed.slice(0, Math.max(50, STATE.displayCount));
+      let idx = 0;
+      const self = this;
+      const alive = function() { return epoch === STATE.epoch && STATE.restMode; };
+      const worker = async function() {
+        while (idx < list.length) {
+          if (!alive()) return;
+          const sym = list[idx++];
+          try {
+            const candles = await BinanceAPI.getKlines(sym, info.base, limit);
+            if (!alive()) return;
+            self.applyRestCandles(sym, candles, info, true);
+          } catch(e) {}
+        }
+      };
+      const workers = [];
+      for (let i = 0; i < 8; i++) workers.push(worker());
+      await Promise.all(workers);
+      if (epoch === STATE.epoch) this.refreshBoard(false);
+    } finally {
+      STATE.polling = false;
+    }
+  }
+
+  // ───────── STATE PERSISTENCE ─────────
   loadState() {
     try {
-      const saved = JSON.parse(localStorage.getItem('amp_monitor_state') || '{}');
-      if (saved.symbolCount) STATE.symbolCount = saved.symbolCount;
+      const saved = JSON.parse(localStorage.getItem('gain_board_state_v1') || '{}');
+      if (saved.level && CONFIG.LEVEL_INFO[saved.level]) STATE.level = saved.level;
+      if (saved.displayCount) STATE.displayCount = saved.displayCount;
+      if (saved.rankMode) STATE.rankMode = saved.rankMode;
+      if (saved.rankDir) STATE.rankDir = saved.rankDir;
       if (saved.thresholdPreset) STATE.thresholdPreset = saved.thresholdPreset;
       if (saved.thresholds) STATE.thresholds = saved.thresholds;
-      if (saved.alertLog) STATE.alertLog = saved.alertLog;
       if (saved.alertCooldownSec != null) STATE.alertCooldownSec = saved.alertCooldownSec;
       if (saved.perCoinAlerts) STATE.perCoinAlerts = saved.perCoinAlerts;
-      if (saved.gainThresholds) STATE.gainThresholds = saved.gainThresholds;
-      if (saved.gainAlerts) STATE.gainAlerts = saved.gainAlerts;
+      if (saved.alertLog) STATE.alertLog = saved.alertLog;
     } catch(e) {}
+    STATE.muted = localStorage.getItem('amp_monitor_muted') === 'true';
     STATE.soundEnabled = localStorage.getItem('amp_monitor_sound') !== 'false';
     STATE.notifyEnabled = localStorage.getItem('amp_monitor_notify') !== 'false';
-    STATE.muted = localStorage.getItem('amp_monitor_muted') === 'true';
     STATE.dingtalkEnabled = localStorage.getItem('amp_monitor_dingtalk_enabled') === 'true';
     STATE.dingtalkWebhook = localStorage.getItem('amp_monitor_dingtalk_webhook') || '';
     STATE.dingtalkCorsProxy = localStorage.getItem('amp_monitor_dingtalk_cors_proxy') || '';
     STATE.dingtalkPushLevel = localStorage.getItem('amp_monitor_dingtalk_level') || 'danger';
-    STATE.dingtalkPushPattern = localStorage.getItem('amp_monitor_dingtalk_pattern') !== 'false';
-    this.updateSymbolCountUI();
   }
-
   saveState() {
-    // Debounce: batch rapid saveState calls into one write per 500ms
     if (this._savePending) return;
     this._savePending = true;
-    var self = this;
-    setTimeout(function() {
-      self._savePending = false;
-      self._saveStateNow();
-    }, 500);
+    const self = this;
+    setTimeout(function() { self._savePending = false; self._saveStateNow(); }, 500);
   }
   _saveStateNow() {
     try {
-      localStorage.setItem('amp_monitor_state', JSON.stringify({
-        symbolCount: STATE.symbolCount,
+      localStorage.setItem('gain_board_state_v1', JSON.stringify({
+        level: STATE.level,
+        displayCount: STATE.displayCount,
+        rankMode: STATE.rankMode,
+        rankDir: STATE.rankDir,
         thresholdPreset: STATE.thresholdPreset,
         thresholds: STATE.thresholds,
-        gainThresholds: STATE.gainThresholds,
-        alertLog: STATE.alertLog.slice(-200),
         alertCooldownSec: STATE.alertCooldownSec,
         perCoinAlerts: STATE.perCoinAlerts,
-        gainAlerts: STATE.gainAlerts.slice(-200),
+        alertLog: STATE.alertLog.slice(-200),
       }));
       localStorage.setItem('amp_monitor_sound', STATE.soundEnabled);
       localStorage.setItem('amp_monitor_notify', STATE.notifyEnabled);
+      localStorage.setItem('amp_monitor_muted', STATE.muted);
       localStorage.setItem('amp_monitor_dingtalk_enabled', STATE.dingtalkEnabled);
       localStorage.setItem('amp_monitor_dingtalk_webhook', STATE.dingtalkWebhook);
       localStorage.setItem('amp_monitor_dingtalk_cors_proxy', STATE.dingtalkCorsProxy);
       localStorage.setItem('amp_monitor_dingtalk_level', STATE.dingtalkPushLevel);
-      localStorage.setItem('amp_monitor_dingtalk_pattern', STATE.dingtalkPushPattern);
     } catch(e) {}
   }
 
-  // ── DATA LOADING ──
-  async loadData() {
-    document.getElementById('statUpdate').textContent = '加载中...';
-    document.getElementById('statUpdate').style.color = 'var(--yellow)';
-
+  // ───────── UNIVERSE ─────────
+  async loadUniverse() {
+    if (STATE.loadingUniverse) return;
+    STATE.loadingUniverse = true;
+    this.setStatus('加载币种列表...', 'var(--yellow)');
     try {
-      // Fetch top pairs
-      const pairs = await BinanceAPI.getTopPairs(STATE.symbolCount);
-      STATE.symbols = pairs.map(p => p.symbol);
-      for (const p of pairs) {
-        STATE.pairMeta[p.symbol] = {
-          lastPrice: p.lastPrice,
-          priceChangePercent: p.priceChangePercent,
-          quoteVolume: p.quoteVolume,
-        };
+      let perpSyms = [];
+      try {
+        const info = await BinanceAPI.getJSON(CONFIG.REST + '/exchangeInfo');
+        perpSyms = (info.symbols || [])
+          .filter(s => s.contractType === 'PERPETUAL' && s.quoteAsset === 'USDT' && s.status === 'TRADING')
+          .map(s => s.symbol);
+      } catch(e) { console.warn('[universe] exchangeInfo failed, fallback to ticker', e); }
+
+      const tickers = await BinanceAPI.getJSON(CONFIG.REST + '/ticker/24hr');
+      const tmap = {};
+      for (const t of tickers) tmap[t.symbol] = t;
+
+      if (!perpSyms.length) {
+        perpSyms = Object.keys(tmap).filter(s => s.endsWith('USDT') && s.indexOf('_') < 0);
       }
+      const isStable = (s) => CONFIG.STABLE_BASES.some(b => s.indexOf(b) === 0);
 
-      // Build table rows IMMEDIATELY so user sees the UI with "--" placeholders
-      // Cells update in real-time as REST responses stream in
-      this.buildTableBody();
-      document.getElementById('pairCount').textContent = `币种: ${STATE.symbols.length}`;
-
-      // Start WebSocket RIGHT AWAY — real-time data flows in while REST loads
-      this.startWebSocket();
-
-      // Fire ALL kline requests concurrently (8 at a time via rate limiter)
-      // Each response updates its cell immediately — no batching, no waiting
-      var self = this;
-      var allTasks = [];
-      for (var s = 0; s < STATE.symbols.length; s++) {
-        var sym = STATE.symbols[s];
-        for (var tfIdx = 0; tfIdx < STATE.timeframes.length; tfIdx++) {
-          allTasks.push(self._fetchAndProcessKline(sym, STATE.timeframes[tfIdx], false));
-        }
-        for (var gIdx = 0; gIdx < CONFIG.GAIN_EXTRA_TF.length; gIdx++) {
-          allTasks.push(self._fetchAndProcessKline(sym, CONFIG.GAIN_EXTRA_TF[gIdx], true));
-        }
+      const list = [];
+      const meta = {};
+      for (const sym of perpSyms) {
+        const t = tmap[sym];
+        if (!t || isStable(sym)) continue;
+        const vol = parseFloat(t.quoteVolume) || 0;
+        const chg = parseFloat(t.priceChangePercent) || 0;
+        const price = parseFloat(t.lastPrice) || 0;
+        meta[sym] = { lastPrice:price, priceChangePercent:chg, quoteVolume:vol };
+        if (vol >= CONFIG.MIN_QUOTE_VOL) list.push(sym);
       }
+      list.sort((a,b) => meta[b].quoteVolume - meta[a].quoteVolume);
 
-      // Wait for all REST data to settle (cells already updated during the wait)
-      await Promise.allSettled(allTasks);
+      STATE.meta = meta;
+      STATE.universe = list.slice(0, CONFIG.UNIVERSE_CAP);
+      STATE.universeSet = new Set(STATE.universe);
 
-      this.updateStats();
-      document.getElementById('statUpdate').textContent = '✓ 就绪';
-      document.getElementById('statUpdate').style.color = 'var(--green)';
+      // 只保留候选池内的币，避免脏数据
+      for (const sym of Object.keys(STATE.buckets)) {
+        if (!STATE.universeSet.has(sym)) delete STATE.buckets[sym];
+      }
+      document.getElementById('pairCount').textContent = '币种: ' + STATE.universe.length;
+      document.getElementById('statUniverse').textContent = STATE.universe.length;
+      this.setStatus('✓ 就绪', 'var(--green)');
     } catch(e) {
-      console.error('[AmplitudeMonitor] loadData error:', e);
-      document.getElementById('statUpdate').textContent = '✗ 加载失败';
-      document.getElementById('statUpdate').style.color = 'var(--red)';
+      console.error('[loadUniverse]', e);
+      this.setStatus('✗ 加载失败', 'var(--red)');
+    } finally {
+      STATE.loadingUniverse = false;
     }
   }
 
-  async _fetchAndProcessKline(sym, tf, isGainExtra) {
+  async refreshTicker() {
     try {
-      var candles = await BinanceAPI.fetchKlinesBulk(sym, tf, CONFIG.KLINE_LIMIT);
-      if (isGainExtra) {
-        this.processInitialGainKlines(sym, tf, candles);
-      } else {
-        this.processInitialKlines(sym, tf, candles);
-        // Update amplitude cell immediately
-        this.updateCell(sym, tf);
-        // Update corresponding gain cell if this TF is shared
-        if (CONFIG.GAIN_TIMEFRAMES.indexOf(tf) >= 0) {
-          this.updateGainCell(sym, tf);
-        }
-        this.detectAndUpdatePattern(sym, tf);
+      const tickers = await BinanceAPI.getJSON(CONFIG.REST + '/ticker/24hr');
+      for (const t of tickers) {
+        const m = STATE.meta[t.symbol];
+        if (!m) continue;
+        m.lastPrice = parseFloat(t.lastPrice) || m.lastPrice;
+        m.priceChangePercent = parseFloat(t.priceChangePercent) || 0;
+        m.quoteVolume = parseFloat(t.quoteVolume) || m.quoteVolume;
       }
-    } catch(e) {
-      // Will be filled by WebSocket later
-    }
+    } catch(e) {}
   }
 
-  processInitialKlines(sym, tf, candles) {
-    if (!candles || candles.length < 2) return;
-    if (!STATE.klineCache[sym]) STATE.klineCache[sym] = {};
-
-    const current = candles[candles.length - 1];
-    const prev = candles[candles.length - 2];
-
-    const currentAmp = current.open > 0 ? ((current.high - current.low) / current.open) * 100 : 0;
-    const prevAmp = prev.open > 0 ? ((prev.high - prev.low) / prev.open) * 100 : 0;
-
-    // Store raw candles for pattern detection
-    const rawCandles = candles.map(c => ({
-      time: c.time, open: c.open, high: c.high, low: c.low, close: c.close, isClosed: true
-    }));
-
-    STATE.klineCache[sym][tf] = {
-      open: current.open,
-      high: current.high,
-      low: current.low,
-      close: current.close,
-      amplitude: currentAmp,
-      prevAmplitude: prevAmp,
-      time: current.time,
-      isClosed: true, // REST data is always closed candles
-      lastUpdate: now(),
-      candles: rawCandles,
-    };
-
-    // Compute initial gain for shared timeframes
-    if (CONFIG.GAIN_TIMEFRAMES.includes(tf)) {
-      const gainPct = current.open > 0 ? ((current.close - current.open) / current.open) * 100 : 0;
-      if (!STATE.gainCache[sym]) STATE.gainCache[sym] = {};
-      STATE.gainCache[sym][tf] = {
-        changePct: gainPct, direction: gainPct >= 0 ? 'up' : 'down',
-        open: current.open, close: current.close,
-        isClosed: true, time: current.time, lastUpdate: now(),
-      };
-    }
-
-    // Pattern detection is now called from _fetchAndProcessKline after cell updates
-  }
-
-  processInitialGainKlines(sym, tf, candles) {
-    if (!candles || candles.length < 1) return;
-    const current = candles[candles.length - 1];
-    if (current.open <= 0) return;
-    const changePct = ((current.close - current.open) / current.open) * 100;
-    if (!STATE.gainCache[sym]) STATE.gainCache[sym] = {};
-    STATE.gainCache[sym][tf] = {
-      changePct, direction: changePct >= 0 ? 'up' : 'down',
-      open: current.open, close: current.close,
-      isClosed: true, time: current.time, lastUpdate: now(),
-    };
-    // Also init gainKlineCache for gain-only TFs
-    if (CONFIG.GAIN_EXTRA_TF.includes(tf)) {
-      if (!STATE.gainKlineCache[sym]) STATE.gainKlineCache[sym] = {};
-      STATE.gainKlineCache[sym][tf] = {
-        open: current.open, high: current.high, low: current.low, close: current.close,
-        changePct, direction: changePct >= 0 ? 'up' : 'down',
-        amplitude: ((current.high - current.low) / current.open) * 100,
-        isClosed: true, time: current.time, lastUpdate: now(),
-      };
-    }
-    this.updateGainCell(sym, tf);
-  }
-
-  // ── WEBSOCKET ──
+  // ───────── WEBSOCKET ─────────
   startWebSocket() {
-    // Disconnect existing
     this.disconnectWS();
-
-    // Build stream list
-    const streams = [];
-    for (const sym of STATE.symbols) {
-      for (const tf of STATE.timeframes) {
-        streams.push(`${sym.toLowerCase()}@kline_${tf}`);
-      }
-      // Extra streams for gain-only timeframes (10m, 2h)
-      for (const tf of CONFIG.GAIN_EXTRA_TF) {
-        streams.push(`${sym.toLowerCase()}@kline_${tf}`);
-      }
-    }
-
-    // Start WebSocket connections
-    BinanceAPI.connectWebSocket(streams, (klineData) => {
-      this.handleWSKline(klineData);
-    });
-
-    document.getElementById('statWs').textContent = `${streams.length}流`;
-    document.getElementById('statWs').style.color = 'var(--green)';
+    const info = levelInfo();
+    const streams = STATE.universe.map(s => s.toLowerCase() + '@kline_' + info.base);
+    STATE.wsStreams = streams.length;
+    STATE.wsMsgs = 0;
+    if (!streams.length) return;
+    BinanceAPI.connectWebSocket(streams, k => this.handleKline(k));
+    document.getElementById('statWs').textContent = streams.length + '流 · 连接中';
+    document.getElementById('statWs').style.color = 'var(--yellow)';
     updateConnectionUI();
   }
 
   disconnectWS() {
-    // Iterate over a copy: close() splices STATE.wsConnections while iterating
-    for (const conn of [...STATE.wsConnections]) {
-      try { conn.close(); } catch(e) {}
-    }
+    for (const conn of [...STATE.wsConnections]) { try { conn.close(); } catch(e) {} }
     STATE.wsConnections = [];
+    STATE.wsOpen = 0;
     STATE.wsConnected = false;
     updateConnectionUI();
   }
 
-  handleWSKline(data) {
-    const k = data.k;
+  // 单K线涨幅核心：base 周期 K 线 → 聚合出当前级别的“当前K线”，涨幅 = (现价 - 本K开盘) / 本K开盘
+  handleKline(k) {
     const sym = k.s;
-    const tf = k.i;
-    const o = parseFloat(k.o);
-    const h = parseFloat(k.h);
-    const l = parseFloat(k.l);
-    const c = parseFloat(k.c);
-    const isClosed = k.x;
+    if (!STATE.universeSet.has(sym)) return;
+    const info = levelInfo();
+    if (k.i !== info.base) return;
 
-    if (o <= 0) return;
+    const o = parseFloat(k.o), h = parseFloat(k.h), l = parseFloat(k.l), c = parseFloat(k.c);
+    if (!(o > 0)) return;
+    const t = k.t;
+    const bStart = Math.floor(t / info.ms) * info.ms;
 
-    if (!STATE.klineCache[sym]) STATE.klineCache[sym] = {};
-
-    const prevData = STATE.klineCache[sym][tf];
-    let prevAmp = prevData ? prevData.amplitude : 0;
-
-    // If candle closed, the current amplitude becomes the previous
-    if (isClosed && prevData && !prevData.isClosed) {
-      prevAmp = prevData.amplitude;
-    }
-
-    const amplitude = ((h - l) / o) * 100;
-    const klineTime = Math.floor(k.t / 1000);
-
-    // Maintain candle array for pattern detection
-    let candleArr = (prevData && prevData.candles) ? [...prevData.candles] : [];
-    const existingIdx = candleArr.findIndex(c => c.time === klineTime);
-    const candleEntry = { time: klineTime, open: o, high: h, low: l, close: c, isClosed };
-
-    if (existingIdx >= 0) {
-      candleArr[existingIdx] = candleEntry;
+    let b = STATE.buckets[sym];
+    if (!b || b.start !== bStart) {
+      const first = (t === bStart);          // 该 base K 线是否正好是本级别 K 线的第一根
+      b = { start:bStart, open:o, high:h, low:l, close:c, valid:first, lastUpdate:Date.now() };
+      STATE.buckets[sym] = b;
+      if (!first) this.queueRestFix(sym);    // 中途挂上（如 10m/3h 合成周期）需用 REST 校正开盘价
     } else {
-      candleArr.push(candleEntry);
-      if (candleArr.length > 6) candleArr = candleArr.slice(-6);
+      if (h > b.high) b.high = h;
+      if (l < b.low) b.low = l;
+      b.close = c;
+      b.lastUpdate = Date.now();
+    }
+    b.gain = (b.close - b.open) / b.open * 100;
+    b.amp = (b.high - b.low) / b.open * 100;
+
+    const m = STATE.meta[sym];
+    if (m) m.lastPrice = c;
+
+    // 右侧图表：该币实时K线
+    if (sym === STATE.chartSymbol) {
+      this.updateChartBase({ time: Math.floor(t/1000), open: o, high: h, low: l, close: c, volume: parseFloat(k.q) || 0 });
     }
 
-    STATE.klineCache[sym][tf] = {
-      open: o, high: h, low: l, close: c,
-      amplitude, prevAmplitude: prevAmp,
-      time: klineTime,
-      isClosed,
-      lastUpdate: now(),
-      candles: candleArr,
+    STATE.wsMsgs++;
+    this.checkAlert(sym, b.gain);
+  }
+
+  // ───────── REST 校准 / 预填充 ─────────
+  queueRestFix(sym) { STATE.restFixQueue.add(sym); }
+
+  async processRestFixQueue() {
+    if (STATE.restFixRunning || !STATE.restFixQueue.size) return;
+    STATE.restFixRunning = true;
+    const epoch = STATE.epoch;
+    const syms = [...STATE.restFixQueue];
+    STATE.restFixQueue.clear();
+    const info = levelInfo();
+    for (const sym of syms) {
+      if (epoch !== STATE.epoch) break;
+      try {
+        const candles = await BinanceAPI.getKlines(sym, info.base, Math.max(2, info.group + 1));
+        if (epoch !== STATE.epoch) break;
+        this.applyRestCandles(sym, candles, info);
+      } catch(e) {}
+    }
+    STATE.restFixRunning = false;
+  }
+
+  applyRestCandles(sym, candles, info, force) {
+    if (!candles || !candles.length) return;
+    const bStart = bucketStartOf(Date.now(), STATE.level);
+    const inB = candles.filter(c => c.time * 1000 >= bStart);
+    const src = inB.length ? inB : [candles[candles.length - 1]];
+    const open = src[0].open;
+    if (!(open > 0)) return;
+    const b = STATE.buckets[sym];
+    if (!force && b && b.start === bStart && b.valid) return;   // WS 实时数据已正确，别覆盖
+    let high = src[0].high, low = src[0].low;
+    for (const c of src) { if (c.high > high) high = c.high; if (c.low < low) low = c.low; }
+    const close = src[src.length - 1].close;
+    const gain = (close - open) / open * 100;
+    STATE.buckets[sym] = {
+      start: bStart, open: open, high: high, low: low, close: close,
+      gain: gain,
+      amp: (high - low) / open * 100,
+      valid: true, lastUpdate: Date.now(), src: 'rest',
     };
+    const m = STATE.meta[sym];
+    if (m) m.lastPrice = close;
+    this.checkAlert(sym, gain);
+  }
 
-    // Update cell display
-    this.updateCell(sym, tf);
-
-    // Check thresholds and alert
-    this.checkAmplitudeAlert(sym, tf, amplitude);
-
-    // Compute gain for shared timeframes (5m, 30m, 1h, 1d)
-    if (CONFIG.GAIN_TIMEFRAMES.includes(tf)) {
-      this.computeAndUpdateGain(sym, tf, o, c, isClosed, klineTime);
-    }
-    // Also handle gain-only timeframes (10m, 2h)
-    if (CONFIG.GAIN_EXTRA_TF.includes(tf)) {
-      this.handleGainKline(sym, tf, o, h, l, c, isClosed, klineTime);
-    }
-
-    // Check engulfing pattern (amplitude TFs only — 10m/2h are gain-only and never shown)
-    if (STATE.timeframes.indexOf(tf) >= 0) {
-      this.detectAndUpdatePattern(sym, tf);
-    }
-
-    // Update pair meta price
-    if (STATE.pairMeta[sym]) {
-      const oldPrice = STATE.pairMeta[sym].lastPrice;
-      STATE.pairMeta[sym].lastPrice = c;
-      if (tf === STATE.timeframes[0]) {
-        // Update price column for the shortest timeframe
-        this.updatePriceCell(sym, c);
+  async prefillAll() {
+    const token = ++STATE.scanToken;
+    const epoch = STATE.epoch;
+    const info = levelInfo();
+    const limit = Math.max(2, info.group + 1);
+    const list = STATE.universe.slice();
+    STATE.prefill = { active: true, done: 0, total: list.length };
+    let idx = 0;
+    let done = 0;
+    const self = this;
+    const alive = function() { return token === STATE.scanToken && epoch === STATE.epoch; };
+    const worker = async function() {
+      while (idx < list.length) {
+        if (!alive()) return;
+        const sym = list[idx++];
+        try {
+          const candles = await BinanceAPI.getKlines(sym, info.base, limit);
+          if (!alive()) return;
+          self.applyRestCandles(sym, candles, info, STATE.restMode);
+        } catch(e) {}
+        done++;
+        STATE.prefill.done = Math.min(done, list.length);
       }
+    };
+    const workers = [];
+    for (let i = 0; i < 12; i++) workers.push(worker());
+    await Promise.all(workers);
+    if (!alive()) return;
+    STATE.prefill.active = false;
+    this.refreshBoard(true);
+    this.setStatus('✓ 就绪', 'var(--green)');
+    if (!STATE.armedOnce) {
+      STATE.armedOnce = true;
+      setTimeout(() => { STATE.alertsArmed = true; }, 3000);   // 首次全池校准完成后再开启告警，避免刷屏
     }
   }
 
-  // ── ALERT CHECKING ──
-  checkAmplitudeAlert(sym, tf, amplitude) {
-    // Use per-coin thresholds if enabled, fall back to global
-    let thresholds;
-    if (STATE.perCoinAlerts[sym] && STATE.perCoinAlerts[sym].enabled) {
-      thresholds = STATE.perCoinAlerts[sym].thresholds[tf];
+  // ───────── 榜单 ─────────
+  computeBoard() {
+    const mode = STATE.rankMode, dir = STATE.rankDir;
+    const arr = [];
+    for (const sym of STATE.universe) {
+      let key = null;
+      if (mode === 'level') {
+        const b = STATE.buckets[sym];
+        if (b && isFinite(b.gain)) key = b.gain;
+      } else {
+        const m = STATE.meta[sym];
+        if (m && isFinite(m.priceChangePercent)) key = m.priceChangePercent;
+      }
+      if (key === null) continue;
+      arr.push({ sym: sym, key: key });
     }
-    if (!thresholds || !thresholds.warn) {
-      thresholds = STATE.thresholds[tf];
+    arr.sort(function(a, b) { return dir === 'up' ? b.key - a.key : a.key - b.key; });
+    return arr;
+  }
+
+  refreshBoard(force) {
+    const board = this.computeBoard().slice(0, STATE.displayCount);
+    const newList = board.map(x => x.sym);
+    const newRank = {};
+    for (let i = 0; i < newList.length; i++) newRank[newList[i]] = i + 1;
+
+    const sameSet = newList.length === STATE.displayed.length &&
+      newList.every((s, i) => STATE.displayed[i] === s);
+
+    STATE.boardRank = newRank;
+    STATE.displayed = newList;
+    document.getElementById('statShown').textContent = newList.length;
+
+    if (force || !sameSet) {
+      this.syncRows(newList, !force);
     }
-    if (!thresholds) return;
+    this.orderRows();
+    this.applyFilters();
+    this.updateStats();
 
-    let level = null;
-    if (amplitude >= thresholds.extreme) level = 'extreme';
-    else if (amplitude >= thresholds.danger) level = 'danger';
-    else if (amplitude >= thresholds.warn) level = 'warn';
+    // 图表默认跟随榜一（仅在没有手动选币时）
+    if (STATE.chartPanelOpen && !STATE.chartSymbol && newList.length) {
+      this.selectSymbol(newList[0]);
+    }
+  }
 
-    if (!level) return;
+  // 增量同步 DOM 行：新增/移除，尽量复用已有节点
+  syncRows(list, flashNew) {
+    const want = new Set(list);
+    for (const sym of Object.keys(this.rowRefs)) {
+      if (!want.has(sym)) {
+        const tr = this.rowRefs[sym];
+        if (tr && tr.parentNode) tr.parentNode.removeChild(tr);
+        delete this.rowRefs[sym];
+        delete this.cellRefs[sym];
+      }
+    }
+    for (const sym of list) {
+      if (this.rowRefs[sym]) continue;
+      const tr = this.createRow(sym);
+      this.rowRefs[sym] = tr;
+      if (flashNew) {
+        tr.classList.add('flash-row');
+        setTimeout(() => tr.classList.remove('flash-row'), 700);
+      }
+    }
+    this.orderRows();
+  }
 
-    // Cooldown check
-    const cooldownKey = `${sym}_${tf}_${level}`;
-    const lastAlert = STATE.alertCooldown[cooldownKey];
-    if (lastAlert && (now() - lastAlert) < STATE.alertCooldownSec) return;
+  createRow(sym) {
+    const tr = document.createElement('tr');
+    tr.id = 'row-' + sym;
+    const coin = sym.replace('USDT','');
+    const hasAlert = STATE.perCoinAlerts[sym] && STATE.perCoinAlerts[sym].enabled;
 
-    STATE.alertCooldown[cooldownKey] = now();
+    const tdRank = document.createElement('td');
+    tdRank.className = 'rank-col';
+    tr.appendChild(tdRank);
 
-    // Create alert record
+    const tdSym = document.createElement('td');
+    tdSym.className = 'sym-col';
+    const bell = document.createElement('span');
+    bell.className = 'coin-alert-bell' + (hasAlert ? ' active' : '');
+    bell.id = 'bell-' + sym;
+    bell.textContent = hasAlert ? '🔔' : '🔕';
+    bell.title = hasAlert ? '已设自定义涨幅预警' : '点击设置该币自定义涨幅预警';
+    bell.addEventListener('click', (e) => { e.stopPropagation(); app.togglePerCoinPopup(sym); });
+    tdSym.appendChild(bell);
+    tdSym.appendChild(document.createTextNode(' ' + coin));
+    tr.appendChild(tdSym);
+
+    const tdPrice = document.createElement('td'); tdPrice.className = 'price-col'; tr.appendChild(tdPrice);
+    const tdGain  = document.createElement('td'); tdGain.className = 'gain-cell g-flat'; tr.appendChild(tdGain);
+    const tdOpen  = document.createElement('td'); tr.appendChild(tdOpen);
+    const tdAmp   = document.createElement('td'); tr.appendChild(tdAmp);
+    const tdChg   = document.createElement('td'); tr.appendChild(tdChg);
+    const tdVol   = document.createElement('td'); tdVol.style.color = 'var(--text-secondary)'; tr.appendChild(tdVol);
+
+    this.cellRefs[sym] = { rank:tdRank, price:tdPrice, gain:tdGain, open:tdOpen, amp:tdAmp, chg:tdChg, vol:tdVol };
+    tr.addEventListener('click', () => app.selectSymbol(sym));
+    if (STATE.chartSymbol === sym) tr.classList.add('selected-row');
+    this.bodyEl.appendChild(tr);
+    return tr;
+  }
+
+  orderRows() {
+    const list = this.getSortedDisplayed();
+    const frag = document.createDocumentFragment();
+    const rows = [];
+    for (const sym of list) {
+      const tr = this.rowRefs[sym];
+      if (tr) rows.push(tr);
+    }
+    // 用 appendChild 逐个移动（DOM 顺序即视觉顺序）
+    for (const tr of rows) this.bodyEl.appendChild(tr);
+  }
+
+  getSortedDisplayed() {
+    const list = [...STATE.displayed];
+    const key = STATE.sortKey;
+    const self = this;
+    list.sort(function(a, b) {
+      let va, vb;
+      if (key === 'symbol') {
+        const r = a.localeCompare(b);
+        return STATE.sortAsc ? r : -r;
+      }
+      if (key === 'rank') {
+        va = STATE.boardRank[a] || 9999; vb = STATE.boardRank[b] || 9999;
+      } else if (key === 'price') {
+        va = (STATE.meta[a] && STATE.meta[a].lastPrice) || 0;
+        vb = (STATE.meta[b] && STATE.meta[b].lastPrice) || 0;
+      } else if (key === 'gain') {
+        va = (STATE.buckets[a] && isFinite(STATE.buckets[a].gain)) ? STATE.buckets[a].gain : -999;
+        vb = (STATE.buckets[b] && isFinite(STATE.buckets[b].gain)) ? STATE.buckets[b].gain : -999;
+      } else if (key === 'chg') {
+        va = (STATE.meta[a] && STATE.meta[a].priceChangePercent) || 0;
+        vb = (STATE.meta[b] && STATE.meta[b].priceChangePercent) || 0;
+      } else if (key === 'vol') {
+        va = (STATE.meta[a] && STATE.meta[a].quoteVolume) || 0;
+        vb = (STATE.meta[b] && STATE.meta[b].quoteVolume) || 0;
+      } else {
+        va = 0; vb = 0;
+      }
+      return STATE.sortAsc ? va - vb : vb - va;
+    });
+    return list;
+  }
+
+  setSort(key) {
+    if (STATE.sortKey === key) STATE.sortAsc = !STATE.sortAsc;
+    else { STATE.sortKey = key; STATE.sortAsc = (key === 'rank' || key === 'symbol'); }
+    this.updateSortUI();
+    this.orderRows();
+  }
+
+  updateSortUI() {
+    document.querySelectorAll('#tableHead th[data-sort]').forEach(th => {
+      const on = th.dataset.sort === STATE.sortKey;
+      th.classList.toggle('sort-asc', on && STATE.sortAsc);
+      th.classList.toggle('sort-desc', on && !STATE.sortAsc);
+    });
+  }
+
+  // ───────── 单元格刷新 ─────────
+  repaint() {
+    const info = levelInfo();
+    const curStart = bucketStartOf(Date.now(), STATE.level);
+    if (STATE.chartDirty && STATE.chartSymbol) {
+      STATE.chartCandles = this.aggregateLevel(STATE.chartBase, STATE.level);
+      STATE.chartDirty = false;
+    }
+    for (const sym of STATE.displayed) {
+      const refs = this.cellRefs[sym];
+      if (!refs) continue;
+      const b = STATE.buckets[sym];
+      const m = STATE.meta[sym] || {};
+
+      // 排名
+      const rank = STATE.boardRank[sym] || '';
+      this.setText(refs.rank, 'rank', rank ? ('#' + rank) : '--');
+
+      // 现价
+      const price = (b && b.close > 0) ? b.close : (m.lastPrice || 0);
+      this.setText(refs.price, 'price', price ? fmtPrice(price) : '--');
+
+      // 本级单K涨幅
+      const th = this.thresholdsFor(sym);
+      if (b && isFinite(b.gain)) {
+        const gain = b.gain;
+        const abs = Math.abs(gain);
+        const stale = (b.start !== curStart) || (Date.now() - b.lastUpdate > Math.max(60000, info.ms));
+        let cls = 'gain-cell ';
+        if (stale) cls += 'dim';
+        else if (th && abs >= th.extreme) cls += gain >= 0 ? 'g-hot-up' : 'g-hot-down';
+        else if (th && abs >= th.danger) cls += gain >= 0 ? 'g-up' : 'g-down';
+        else if (th && abs >= th.warn) cls += 'g-warn';
+        else if (abs < 0.005) cls += 'g-flat';
+        else cls += gain >= 0 ? 'g-up' : 'g-down';
+        refs.gain.className = cls;
+        this.setText(refs.gain, 'gain', (gain >= 0 ? '+' : '') + gain.toFixed(2) + '%');
+        refs.gain.title = sym + ' ' + info.label + ' 单K涨幅（本K开盘→现价）: ' + (gain >= 0 ? '+' : '') + gain.toFixed(2) + '%\n' +
+          '本K开盘: ' + fmtPrice(b.open) + '  现价: ' + fmtPrice(b.close) + '\n' +
+          '本K开始: ' + bjtFull(b.start) + ' (BJT)' + (stale ? '\n⚠ 数据可能滞后' : '') +
+          (th ? '\n阈值: ' + th.warn + '% / ' + th.danger + '% / ' + th.extreme + '%' : '');
+      } else {
+        refs.gain.className = 'gain-cell dim';
+        this.setText(refs.gain, 'gain', '--');
+      }
+
+      // 开盘价 / 振幅
+      this.setText(refs.open, 'open', (b && b.open > 0) ? fmtPrice(b.open) : '--');
+      if (b && isFinite(b.amp)) {
+        this.setText(refs.amp, 'amp', b.amp.toFixed(2) + '%');
+      } else {
+        this.setText(refs.amp, 'amp', '--');
+      }
+
+      // 24h 涨跌 / 成交额
+      const chg = m.priceChangePercent;
+      refs.chg.style.color = (chg == null) ? 'var(--text-secondary)' : (chg >= 0 ? 'var(--green)' : 'var(--red)');
+      this.setText(refs.chg, 'chg', (chg == null ? '--' : fmtPct(chg) + '%'));
+      this.setText(refs.vol, 'vol', fmtVol(m.quoteVolume));
+
+      // 行样式：极端/高危
+      const tr = this.rowRefs[sym];
+      if (tr) {
+        const hit = (b && isFinite(b.gain) && th) ? Math.abs(b.gain) : 0;
+        const hot = th && hit >= th.extreme;
+        const dgr = th && !hot && hit >= th.danger;
+        tr.classList.toggle('hit-extreme', !!hot);
+        tr.classList.toggle('hit-danger', !!dgr);
+      }
+    }
+
+    // 右侧K线图
+    if (STATE.chartPanelOpen && STATE.chartSymbol) {
+      this.renderChart();
+      this.updateChartHeader();
+      this.updateChartMeta();
+    }
+  }
+
+  setText(el, key, text) {
+    if (!el) return;
+    if (el._last === text) return;
+    el._last = text;
+    el.textContent = text;
+  }
+
+  thresholdsFor(sym) {
+    const pc = STATE.perCoinAlerts[sym];
+    if (pc && pc.enabled && pc.thresholds && pc.thresholds[STATE.level] && pc.thresholds[STATE.level].warn) {
+      return pc.thresholds[STATE.level];
+    }
+    return STATE.thresholds[STATE.level];
+  }
+
+  applyFilters() {
+    const onlyHot = STATE.filters.extreme;
+    const onlyAlerted = STATE.filters.alerted;
+    const alerted = new Set(STATE.alertLog.map(a => a.sym));
+    for (const sym of STATE.displayed) {
+      const tr = this.rowRefs[sym];
+      if (!tr) continue;
+      let show = true;
+      if (onlyHot) {
+        const b = STATE.buckets[sym], th = this.thresholdsFor(sym);
+        show = !!(b && th && Math.abs(b.gain) >= th.danger);
+      }
+      if (show && onlyAlerted) show = alerted.has(sym);
+      tr.style.display = show ? '' : 'none';
+    }
+  }
+
+  // ───────── 告警 ─────────
+  checkAlert(sym, gain) {
+    const th = this.thresholdsFor(sym);
+    if (!th) return;
+    const abs = Math.abs(gain);
+    let severity = null;
+    if (abs >= th.extreme) severity = 'extreme';
+    else if (abs >= th.danger) severity = 'danger';
+    else if (abs >= th.warn) severity = 'warn';
+    if (!severity) return;
+
+    const key = sym + '_' + severity;
+    const last = STATE.alertCooldown[key];
+    if (last && (nowSec() - last) < STATE.alertCooldownSec) return;
+
+    // 初始化阶段只记录冷却，不刷屏
+    if (!STATE.alertsArmed) { STATE.alertCooldown[key] = nowSec(); return; }
+    STATE.alertCooldown[key] = nowSec();
+
+    const dir = gain >= 0 ? '拉升' : '砸盘';
     const alert = {
-      id: Date.now(),
-      sym, tf, amplitude, level, thresholds: thresholds[level],
-      time: now(),
+      id: Date.now() + Math.random(),
+      sym: sym, level: STATE.level, gain: gain, absGain: abs,
+      severity: severity, dir: dir, threshold: th[severity], time: nowSec(),
     };
-    STATE.alerts.push(alert);
-    if (STATE.alerts.length > 500) STATE.alerts = STATE.alerts.slice(-500);
     STATE.alertLog.push(alert);
     if (STATE.alertLog.length > 500) STATE.alertLog = STATE.alertLog.slice(-500);
 
-    // Visual feedback
     this.flashRow(sym);
     this.updateAlertBadge();
     this.renderAlertPanel();
 
-    // Sound
-    if (level === 'extreme') {
-      SoundManager.extreme();
-    } else {
-      SoundManager.alert();
+    const lvlLabel = { warn:'⚠️ 警告', danger:'🔶 高危', extreme:'🔴 极端' };
+    const emoji = gain >= 0 ? '🚀' : '📉';
+    showToast(emoji + ' ' + lvlLabel[severity] + ' ' + sym + ' ' + levelInfo().label + ' 单K' + dir + ' ' + (gain>=0?'+':'') + gain.toFixed(2) + '%');
+
+    const t = Date.now();
+    if (t - this._lastSoundAt > 1500) {           // 声音节流，避免刷屏式告警轰炸
+      this._lastSoundAt = t;
+      if (severity === 'extreme') {
+        if (gain >= 0) SoundManager.hot(); else SoundManager.down();
+      } else if (gain >= 0) SoundManager.up();
+      else SoundManager.down();
     }
 
-    // Toast
-    const levelLabel = { warn:'⚠️ 警告', danger:'🔶 高危', extreme:'🔴 极端' };
-    showToast(`${levelLabel[level]} ${sym} ${CONFIG.TF_LABELS[tf]} 振幅 ${fmtAmp(amplitude)}`);
-
-    // Browser notification for extreme/danger
-    if (level === 'extreme' || level === 'danger') {
+    if ((severity === 'extreme' || severity === 'danger') && t - this._lastNotifyAt > 3000) {
+      this._lastNotifyAt = t;
       sendBrowserNotification(
-        `${levelLabel[level]}振幅 - ${sym}`,
-        `${CONFIG.TF_LABELS[tf]} K线振幅达到 ${amplitude.toFixed(2)}% (阈值: ${thresholds[level]}%)`
+        emoji + ' ' + lvlLabel[severity] + ' - ' + sym,
+        levelInfo().label + ' 单K' + dir + ' ' + (gain>=0?'+':'') + gain.toFixed(2) + '% (阈值 ' + th[severity] + '%)'
       );
     }
 
-    // DingTalk push
-    if (shouldDingTalkPush(level)) {
-      const coinName = sym.replace('USDT', '');
-      const dtTitle = `${levelLabel[level]}振幅告警 - ${sym}`;
-      const dtText = `## ${levelLabel[level]} 振幅告警\n\n` +
-        `**币种**: ${sym} (${coinName})\n\n` +
-        `**时间周期**: ${CONFIG.TF_LABELS[tf]}\n\n` +
-        `**当前振幅**: <font color="${level === 'extreme' ? '#f6465d' : level === 'danger' ? '#ff9800' : '#f0b90b'}">${amplitude.toFixed(2)}%</font>\n\n` +
-        `**触发阈值**: ${thresholds[level]}%\n\n` +
-        `**告警时间**: ${new Date().toLocaleString('zh-CN', { hour12: false })}\n\n` +
-        `> 振幅监控系统自动推送`;
-      sendDingTalkMessage(dtTitle, dtText);
-    }
-
-    this.saveState();
-    this.updateStats();
-  }
-
-  // ── ENGULFING PATTERN DETECTION (一阳穿三阴 / 一阴穿三阳) ──
-  detectEngulfingPattern(sym, tf) {
-    const data = STATE.klineCache[sym] && STATE.klineCache[sym][tf];
-    if (!data || !data.candles || data.candles.length < 4) return null;
-
-    const candles = data.candles;
-    const c0 = candles[candles.length - 1]; // current
-    const c1 = candles[candles.length - 2]; // previous 1
-    const c2 = candles[candles.length - 3]; // previous 2
-    const c3 = candles[candles.length - 4]; // previous 3
-
-    const isBullish = (c) => c.close > c.open;
-    const isBearish = (c) => c.close < c.open;
-
-    // 一阳穿三阴: current bullish, prev 3 all bearish, current engulfs all 3
-    if (isBullish(c0) && isBearish(c1) && isBearish(c2) && isBearish(c3)) {
-      const prevHigh = Math.max(c1.high, c2.high, c3.high);
-      const prevLow = Math.min(c1.low, c2.low, c3.low);
-      if (c0.high >= prevHigh && c0.low <= prevLow) {
-        return { type: 'bullish_engulf', label: '一阳穿三阴', emoji: '🟢', shortLabel: '阳包阴' };
-      }
-    }
-
-    // 一阴穿三阳: current bearish, prev 3 all bullish, current engulfs all 3
-    if (isBearish(c0) && isBullish(c1) && isBullish(c2) && isBullish(c3)) {
-      const prevHigh = Math.max(c1.high, c2.high, c3.high);
-      const prevLow = Math.min(c1.low, c2.low, c3.low);
-      if (c0.high >= prevHigh && c0.low <= prevLow) {
-        return { type: 'bearish_engulf', label: '一阴穿三阳', emoji: '🔴', shortLabel: '阴包阳' };
-      }
-    }
-
-    return null;
-  }
-
-  detectAndUpdatePattern(sym, tf) {
-    const pattern = this.detectEngulfingPattern(sym, tf);
-    const patternKey = `${sym}_${tf}`;
-    const prevPattern = STATE.patternCache[patternKey];
-
-    if (pattern) {
-      const prevType = prevPattern ? prevPattern.type : null;
-      STATE.patternCache[patternKey] = {
-        type: pattern.type,
-        label: pattern.label,
-        emoji: pattern.emoji,
-        shortLabel: pattern.shortLabel,
-        time: now(),
-        isClosed: STATE.klineCache[sym][tf].isClosed,
-      };
-
-      // Alert only when pattern first appears or changes type, AND after init
-      if (STATE.initDone && (!prevPattern || prevType !== pattern.type)) {
-        this.triggerPatternAlert(sym, tf, pattern);
-      }
-    } else if (prevPattern) {
-      delete STATE.patternCache[patternKey];
-    }
-
-    // Update the pattern cell in table
-    this.updatePatternCell(sym, tf);
-    // Update row styling
-    this.updatePatternRowStyle(sym);
-  }
-
-  triggerPatternAlert(sym, tf, pattern) {
-    // Skip alerts during initial load
-    if (!STATE.initDone) return;
-
-    // Cooldown check
-    const cooldownKey = `${sym}_${tf}_pattern`;
-    const lastAlert = STATE.patternCooldown[cooldownKey];
-    if (lastAlert && (now() - lastAlert) < STATE.alertCooldownSec) return;
-    STATE.patternCooldown[cooldownKey] = now();
-
-    const isClosed = STATE.klineCache[sym][tf].isClosed;
-    const statusTag = isClosed ? ' [已确认]' : ' [形成中]';
-
-    // Log pattern alert
-    STATE.patternAlerts.push({
-      id: Date.now(),
-      sym, tf, type: pattern.type, label: pattern.label,
-      time: now(), isClosed,
-    });
-    if (STATE.patternAlerts.length > 200) STATE.patternAlerts = STATE.patternAlerts.slice(-200);
-
-    // Row flash
-    this.flashRow(sym);
-
-    // Sound - ascending for bullish, descending for bearish
-    if (pattern.type === 'bullish_engulf') {
-      SoundManager.patternBullish();
-    } else {
-      SoundManager.patternBearish();
-    }
-
-    // Toast
-    showToast(`${pattern.emoji} ${sym} ${CONFIG.TF_LABELS[tf]} ${pattern.label}${statusTag}`);
-
-    // Browser notification
-    sendBrowserNotification(
-      `${pattern.label} - ${sym}`,
-      `${CONFIG.TF_LABELS[tf]} K线 ${pattern.label} 形态${statusTag}`
-    );
-
-    // DingTalk push for pattern
-    if (STATE.dingtalkEnabled && STATE.dingtalkWebhook && STATE.dingtalkPushPattern) {
-      const coinName = sym.replace('USDT', '');
-      const dtTitle = `${pattern.emoji} ${pattern.label} - ${sym}`;
-      const dtText = `## ${pattern.emoji} ${pattern.label}\n\n` +
-        `**币种**: ${sym} (${coinName})\n\n` +
-        `**时间周期**: ${CONFIG.TF_LABELS[tf]}\n\n` +
-        `**形态状态**: ${statusTag}\n\n` +
-        `**检测时间**: ${new Date().toLocaleString('zh-CN', { hour12: false })}\n\n` +
-        `> 振幅监控系统自动推送`;
-      sendDingTalkMessage(dtTitle, dtText);
-    }
-
-    this.updateStats();
-    this.saveState();
-  }
-
-  updatePatternRowStyle(sym) {
-    const row = this.rowRefs[sym];
-    if (!row) return;
-
-    // Check if any timeframe has an active pattern
-    let activePattern = null;
-    for (const tf of STATE.timeframes) {
-      const key = `${sym}_${tf}`;
-      if (STATE.patternCache[key]) {
-        activePattern = STATE.patternCache[key];
-        break;
-      }
-    }
-
-    row.classList.remove('pattern-active-bullish', 'pattern-active-bearish');
-    if (activePattern) {
-      row.classList.add(activePattern.type === 'bullish_engulf' ? 'pattern-active-bullish' : 'pattern-active-bearish');
-    }
-  }
-
-  // ── GAIN (单K涨幅) METHODS ──
-  computeAndUpdateGain(sym, tf, o, c, isClosed, klineTime) {
-    if (o <= 0) return;
-    const changePct = ((c - o) / o) * 100;
-    if (!STATE.gainCache[sym]) STATE.gainCache[sym] = {};
-    STATE.gainCache[sym][tf] = {
-      changePct, direction: changePct >= 0 ? 'up' : 'down',
-      open: o, close: c, isClosed, time: klineTime, lastUpdate: now(),
-    };
-    this.updateGainCell(sym, tf);
-    this.checkGainAlert(sym, tf, changePct);
-  }
-
-  handleGainKline(sym, tf, o, h, l, c, isClosed, klineTime) {
-    // For gain-only timeframes (10m, 2h): store raw kline data and compute gain
-    if (o <= 0) return;
-    if (!STATE.gainKlineCache[sym]) STATE.gainKlineCache[sym] = {};
-    const changePct = ((c - o) / o) * 100;
-    STATE.gainKlineCache[sym][tf] = {
-      open: o, high: h, low: l, close: c,
-      changePct, direction: changePct >= 0 ? 'up' : 'down',
-      amplitude: ((h - l) / o) * 100,
-      isClosed, time: klineTime, lastUpdate: now(),
-    };
-    this.computeAndUpdateGain(sym, tf, o, c, isClosed, klineTime);
-  }
-
-  updateGainCell(sym, tf) {
-    const key = 'gain_' + sym + '_' + tf;
-    const cell = this.cellRefs[key];
-    if (!cell) return;
-
-    const data = STATE.gainCache[sym] && STATE.gainCache[sym][tf];
-    if (!data) return;
-
-    const chg = data.changePct;
-    const absChg = Math.abs(chg);
-    const th = STATE.gainThresholds[tf];
-
-    // Determine level
-    let cssClass = 'gain-flat';
-    if (th && absChg >= th.extreme) cssClass = chg >= 0 ? 'gain-extreme-up' : 'gain-extreme-down';
-    else if (th && absChg >= th.danger) cssClass = chg >= 0 ? 'gain-up' : 'gain-down';
-    else if (th && absChg >= th.warn) cssClass = chg >= 0 ? 'gain-up' : 'gain-down';
-    else if (Math.abs(chg) > 0.001) cssClass = chg >= 0 ? 'gain-up' : 'gain-down';
-
-    cell.className = 'gain-cell ' + cssClass;
-    const sign = chg >= 0 ? '+' : '';
-    cell.textContent = sign + chg.toFixed(2) + '%';
-    var levelLabel = absChg < 0.001 ? '平盘' : absChg >= (th ? th.extreme : 99) ? '极端' : absChg >= (th ? th.danger : 99) ? '高危' : absChg >= (th ? th.warn : 99) ? '警告' : '正常';
-    cell.title = sym + ' ' + CONFIG.GAIN_TF_LABELS[tf] + '\n涨幅: ' + sign + chg.toFixed(2) + '%\n开: ' + fmtPrice(data.open) + ' 收: ' + fmtPrice(data.close) + '\n状态: ' + levelLabel + (th ? '\n阈值: >' + th.warn + '%/>' + th.danger + '%/>' + th.extreme + '%' : '');
-  }
-
-  checkGainAlert(sym, tf, changePct) {
-    const absChg = Math.abs(changePct);
-    const th = STATE.gainThresholds[tf];
-    if (!th) return;
-
-    let level = null;
-    if (absChg >= th.extreme) level = 'extreme';
-    else if (absChg >= th.danger) level = 'danger';
-    else if (absChg >= th.warn) level = 'warn';
-    if (!level) return;
-
-    // Cooldown
-    const key = sym + '_' + tf + '_gain_' + level;
-    const last = STATE.gainAlertCooldown[key];
-    if (last && (now() - last) < STATE.alertCooldownSec) return;
-    STATE.gainAlertCooldown[key] = now();
-
-    const dir = changePct >= 0 ? '拉升' : '砸盘';
-    const emoji = changePct >= 0 ? '🚀' : '📉';
-    const alert = {
-      id: Date.now(), sym, tf, changePct, absChg, level, direction: dir,
-      thresholds: th[level], time: now(),
-    };
-    STATE.gainAlerts.push(alert);
-    if (STATE.gainAlerts.length > 500) STATE.gainAlerts = STATE.gainAlerts.slice(-500);
-
-    // Also add to general alert log
-    STATE.alertLog.push({
-      id: Date.now(), sym, tf, amplitude: absChg, level,
-      time: now(), _isGain: true, _direction: dir,
-    });
-
-    this.flashRow(sym);
-    this.updateAlertBadge();
-
-    // Sound
-    if (changePct >= 0) {
-      SoundManager.patternBullish();
-    } else {
-      SoundManager.patternBearish();
-    }
-
-    // Toast
-    const lvlLabel = { warn: '⚠️', danger: '🔶', extreme: '🔴' };
-    showToast(emoji + ' ' + lvlLabel[level] + ' ' + sym + ' ' + CONFIG.GAIN_TF_LABELS[tf] + ' ' + dir + ' ' + (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%');
-
-    // Browser notification
-    if (level === 'extreme' || level === 'danger') {
-      sendBrowserNotification(
-        (changePct >= 0 ? '🚀' : '📉') + ' ' + lvlLabel[level] + '涨幅 - ' + sym,
-        CONFIG.GAIN_TF_LABELS[tf] + ' 单K' + dir + ' ' + (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '% (阈值: ' + th[level] + '%)'
-      );
-    }
-
-    // DingTalk
-    if (shouldDingTalkPush(level)) {
-      const coinName = sym.replace('USDT', '');
-      const dtTitle = emoji + ' ' + lvlLabel[level] + '单K涨幅告警 - ' + sym;
-      const dtText = '## ' + emoji + ' ' + lvlLabel[level] + ' 单K涨幅告警\n\n' +
-        '**币种**: ' + sym + ' (' + coinName + ')\n\n' +
-        '**时间周期**: ' + CONFIG.GAIN_TF_LABELS[tf] + '\n\n' +
+    if (shouldDingTalkPush(severity)) {
+      const b = STATE.buckets[sym] || {};
+      const color = gain >= 0 ? '#0ecb81' : '#f6465d';
+      const dtTitle = emoji + ' ' + lvlLabel[severity] + '单K涨幅告警 - ' + sym;
+      const dtText = '## ' + emoji + ' ' + lvlLabel[severity] + ' 单K涨幅告警\n\n' +
+        '**币种**: ' + sym + ' (' + sym.replace('USDT','') + ')\n\n' +
+        '**级别**: ' + levelInfo().label + '\n\n' +
         '**方向**: ' + dir + '\n\n' +
-        '**涨跌幅**: ' + (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%\n\n' +
-        '**触发阈值**: ' + th[level] + '%\n\n' +
-        '**时间**: ' + new Date().toLocaleString('zh-CN', { hour12: false }) + '\n\n' +
-        '> 振幅监控系统自动推送';
+        '**单K涨幅(开盘→现价)**: <font color="' + color + '">' + (gain>=0?'+':'') + gain.toFixed(2) + '%</font>\n\n' +
+        '**本K开盘价**: ' + (b.open ? fmtPrice(b.open) : '--') + '\n\n' +
+        '**现价**: ' + (b.close ? fmtPrice(b.close) : '--') + '\n\n' +
+        '**本K开始**: ' + (b.start ? bjtFull(b.start) : '--') + ' (BJT)\n\n' +
+        '**触发阈值**: ' + th[severity] + '%\n\n' +
+        '**时间**: ' + bjtFull(Date.now()) + ' (BJT)\n\n' +
+        '> 单K涨幅监控系统自动推送';
       sendDingTalkMessage(dtTitle, dtText);
     }
 
     this.updateStats();
+    this.saveState();
   }
 
   flashRow(sym) {
-    const row = this.rowRefs[sym];
-    if (!row) return;
-    row.classList.remove('flash-row');
-    void row.offsetWidth;
-    row.classList.add('flash-row');
+    const tr = this.rowRefs[sym];
+    if (!tr) return;
+    if (tr.style.display === 'none') return;
+    tr.classList.remove('flash-row');
+    void tr.offsetWidth;
+    tr.classList.add('flash-row');
+    setTimeout(() => tr.classList.remove('flash-row'), 700);
   }
 
-  // ── UI UPDATES ──
-  buildTableHeader() {
-    let html = '<tr>';
-    html += '<th class="sym-col" data-sort="symbol" onclick="app.setSort(\'symbol\')">币种</th>';
-    html += '<th class="price-col" data-sort="price" onclick="app.setSort(\'price\')">价格</th>';
-    html += '<th class="chg-col" data-sort="change_desc" onclick="app.setSort(\'change_desc\')">24h涨跌</th>';
-    for (const tf of STATE.timeframes) {
-      html += `<th class="amp-col" data-sort="amp_${tf}" onclick="app.setSort('amp_${tf}')" title="${CONFIG.TF_LABELS[tf]}">${tf}</th>`;
+  // ───────── 级别 / 榜单设置 ─────────
+  renderLevelButtons() {
+    const bar = document.getElementById('levelBar');
+    let html = '<span class="tf-hint">级别</span>';
+    for (const lv of CONFIG.LEVELS) {
+      html += '<button class="lvl-btn" data-level="' + lv + '" onclick="app.setLevel(\'' + lv + '\')" ' +
+        'title="' + CONFIG.LEVEL_INFO[lv].label + '：本K线开盘→现价的实时涨幅' +
+        (CONFIG.LEVEL_INFO[lv].group > 1 ? '（由 ' + CONFIG.LEVEL_INFO[lv].base + ' × ' + CONFIG.LEVEL_INFO[lv].group + ' 合成）' : '') + '">' +
+        lv + '</button>';
     }
-    for (const tf of CONFIG.GAIN_TIMEFRAMES) {
-      html += `<th class="amp-col" data-sort="gain_${tf}" onclick="app.setSort('gain_${tf}')" title="${CONFIG.GAIN_TF_LABELS[tf]}单K涨幅" style="color:var(--blue);">涨${tf}</th>`;
-    }
-    html += '<th class="amp-col" style="width:72px;" title="一阳穿三阴 / 一阴穿三阳 形态">形态</th>';
-    html += '</tr>';
-    this.tableHead.innerHTML = html;
+    bar.innerHTML = html;
   }
 
-  buildTableBody() {
-    const sorted = this.getSortedSymbols();
-    this.tableBody.innerHTML = '';
-    this.cellRefs = {};
+  updateLevelUI() {
+    document.querySelectorAll('#levelBar .lvl-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.level === STATE.level);
+    });
+    document.getElementById('statLevel').textContent = levelInfo().label + ' (' + STATE.level + ')';
+    this.updateKlineClock();
+  }
+
+  setLevel(lv) {
+    if (!CONFIG.LEVEL_INFO[lv] || STATE.level === lv) return;
+    STATE.level = lv;
+    STATE.epoch++;
+    BinanceAPI.clearQueue('level switched');   // 作废上一级别还没发出的请求，避免白白消耗限流预算
+    STATE.buckets = {};
+    STATE.alertCooldown = {};
+    STATE.restFixQueue.clear();
     this.rowRefs = {};
-
-    const frag = document.createDocumentFragment();
-    for (const sym of sorted) {
-      const meta = STATE.pairMeta[sym] || {};
-      const tr = document.createElement('tr');
-      tr.id = `row-${sym}`;
-      this.rowRefs[sym] = tr;
-
-      // Symbol (with per-coin alert bell)
-      const tdSym = document.createElement('td');
-      tdSym.className = 'sym-col';
-      tdSym.style.whiteSpace = 'nowrap';
-      const coinName = sym.replace('USDT', '');
-      const hasCustomAlert = STATE.perCoinAlerts[sym] && STATE.perCoinAlerts[sym].enabled;
-      tdSym.innerHTML = `<span class="coin-alert-bell${hasCustomAlert ? ' active' : ''}" id="bell-${sym}" title="${hasCustomAlert ? '已设自定义振幅预警' : '点击设置该币自定义振幅预警'}">${hasCustomAlert ? '🔔' : '🔕'}</span> ${coinName}`;
-      tdSym.querySelector('.coin-alert-bell').addEventListener('click', (e) => {
-        e.stopPropagation();
-        app.togglePerCoinPopup(sym);
-      });
-      tr.appendChild(tdSym);
-
-      // Price
-      const tdPrice = document.createElement('td');
-      tdPrice.className = 'price-col';
-      tdPrice.id = `price-${sym}`;
-      tdPrice.textContent = fmtPrice(meta.lastPrice);
-      tr.appendChild(tdPrice);
-
-      // 24h Change
-      const tdChg = document.createElement('td');
-      tdChg.id = `chg-${sym}`;
-      tdChg.textContent = fmtPct(meta.priceChangePercent) + '%';
-      tdChg.style.color = (meta.priceChangePercent || 0) >= 0 ? 'var(--red)' : 'var(--green)';
-      tr.appendChild(tdChg);
-
-      // Amplitude cells for each timeframe
-      for (const tf of STATE.timeframes) {
-        const td = document.createElement('td');
-        td.className = 'amp-cell amp-stale';
-        td.id = `cell-${sym}-${tf}`;
-        td.textContent = '--';
-        td.title = `${sym} ${CONFIG.TF_LABELS[tf]}: 加载中...`;
-        this.cellRefs[`${sym}_${tf}`] = td;
-        tr.appendChild(td);
-      }
-
-      // Gain cells for each gain timeframe
-      for (const tf of CONFIG.GAIN_TIMEFRAMES) {
-        const tdGain = document.createElement('td');
-        tdGain.className = 'gain-cell gain-stale';
-        tdGain.id = `gain-${sym}-${tf}`;
-        tdGain.textContent = '--';
-        tdGain.title = `${sym} ${CONFIG.GAIN_TF_LABELS[tf]} 涨幅: 加载中...`;
-        this.cellRefs[`gain_${sym}_${tf}`] = tdGain;
-        tr.appendChild(tdGain);
-      }
-
-      // Pattern cell
-      const tdPattern = document.createElement('td');
-      tdPattern.className = 'pattern-cell pattern-none';
-      tdPattern.id = `pattern-${sym}`;
-      tdPattern.textContent = '\u2014';
-      tdPattern.title = `${sym} 穿线形态: 检测中...`;
-      this.cellRefs[`${sym}_pattern`] = tdPattern;
-      tr.appendChild(tdPattern);
-
-      frag.appendChild(tr);
+    this.cellRefs = {};
+    this.bodyEl.innerHTML = '';
+    STATE.displayed = [];
+    this.updateLevelUI();
+    this.buildTableHeader();
+    this.startWebSocket();
+    this.prefillAll();
+    this.refreshBoard(true);
+    if (STATE.chartSymbol) {                 // 级别变了，图表按新级别重取
+      STATE.chartBase = [];
+      STATE.chartCandles = [];
+      STATE.chartLoading = true;
+      this.fetchChartHistory(STATE.chartSymbol);
     }
-    this.tableBody.appendChild(frag);
-
-    // Populate gain + pattern cells from cache
-    for (const sym of sorted) {
-      for (const tf of CONFIG.GAIN_TIMEFRAMES) {
-        this.updateGainCell(sym, tf);
-      }
-      this.updatePatternCell(sym);
-      this.updatePatternRowStyle(sym);
-    }
-
-    // Apply filters
-    this.applyFilters();
-    this.updateStats();
+    this.updateChartHeader();
+    this.saveState();
   }
 
-  updateCell(sym, tf) {
-    const key = sym + '_' + tf;
-    const cell = this.cellRefs[key];
-    if (!cell) return;
-
-    const data = STATE.klineCache[sym] && STATE.klineCache[sym][tf];
-    if (!data) return;
-
-    const amp = data.amplitude;
-    const prevAmp = data.prevAmplitude;
-    const thresholds = STATE.thresholds[tf];
-
-    // Determine level
-    let level = 'normal';
-    if (thresholds) {
-      if (amp >= thresholds.extreme) level = 'extreme';
-      else if (amp >= thresholds.danger) level = 'danger';
-      else if (amp >= thresholds.warn) level = 'warn';
-    }
-
-    // Update cell — batch className via single set
-    cell.className = 'amp-cell amp-' + level;
-    // Use textContent for fast updates, innerHTML only when prevAmp differs
-    var ampText = amp.toFixed(2) + '%';
-    if (prevAmp > 0 && Math.abs(prevAmp - amp) > 0.005) {
-      cell.innerHTML = ampText + '<span class="amp-prev">(' + prevAmp.toFixed(1) + '%)</span>';
-    } else {
-      cell.textContent = ampText;
-    }
-
-    var levelLabel = level === 'normal' ? '正常' : level === 'warn' ? '警告' : level === 'danger' ? '高危' : '极端';
-    cell.title = sym + ' ' + CONFIG.TF_LABELS[tf] + '\n当前: ' + amp.toFixed(2) + '%\n前根: ' + prevAmp.toFixed(2) + '%\n状态: ' + levelLabel + (thresholds ? '\n阈值: >' + thresholds.warn + '%/>' + thresholds.danger + '%/>' + thresholds.extreme + '%' : '\n阈值: N/A');
-  }
-
-  updatePatternCell(sym, tf) {
-    // Show the best pattern across all timeframes for this symbol
-    const key = `${sym}_pattern`;
-    const cell = this.cellRefs[key];
-    if (!cell) return;
-
-    let bestPattern = null;
-    for (const t of STATE.timeframes) {
-      const pkey = `${sym}_${t}`;
-      const p = STATE.patternCache[pkey];
-      if (p) {
-        if (!bestPattern || (p.isClosed && !bestPattern.isClosed)) {
-          bestPattern = p;
-        }
-      }
-    }
-
-    cell.classList.remove('pattern-bullish', 'pattern-bearish', 'pattern-none');
-    if (bestPattern) {
-      cell.textContent = bestPattern.shortLabel;
-      cell.classList.add(bestPattern.type === 'bullish_engulf' ? 'pattern-bullish' : 'pattern-bearish');
-      const statusTag = bestPattern.isClosed ? '已确认' : '形成中';
-      cell.title = `${sym} ${bestPattern.label} [${statusTag}]`;
-    } else {
-      cell.textContent = '\u2014';
-      cell.classList.add('pattern-none');
-      cell.title = `${sym} 无穿线形态`;
-    }
-  }
-
-  updatePriceCell(sym, price) {
-    const cell = document.getElementById(`price-${sym}`);
-    if (cell) cell.textContent = fmtPrice(price);
-  }
-
-  // ── SORTING & FILTERING ──
-  setSort(mode) {
-    // Detect gain sort vs amplitude sort
-    const isGainSort = mode.startsWith('gain_');
-    if (isGainSort) {
-      if (STATE.sortBy === mode) {
-        STATE.sortAsc = !STATE.sortAsc;
-      } else {
-        STATE.sortBy = mode;
-        STATE.sortAsc = false; // gain defaults to descending (highest first)
-      }
-    } else {
-      if (STATE.sortBy === mode) {
-        STATE.sortAsc = !STATE.sortAsc;
-      } else {
-        STATE.sortBy = mode;
-        // 涨幅按钮默认降序(涨幅最高在前), 跌幅按钮默认升序(跌幅最大在前)
-        STATE.sortAsc = mode === 'symbol' || mode === 'change_desc';
-      }
-    }
+  setRankMode(mode) {
+    STATE.rankMode = mode;
+    STATE.sortKey = 'rank';
+    STATE.sortAsc = true;
+    this.updateToolbarUI();
     this.updateSortUI();
-    // Sort by reordering existing DOM rows (fast) instead of rebuilding (slow)
-    this.sortTableRows();
+    this.refreshBoard(true);
+    this.saveState();
   }
 
-  updateSortUI() {
-    // Toolbar buttons and table headers carry data-sort attributes
-    document.querySelectorAll('#toolbar .btn[data-sort]').forEach(b => {
-      const mode = b.dataset.sort;
-      b.classList.toggle('active', mode === STATE.sortBy);
-      b.classList.toggle('sort-asc', mode === STATE.sortBy && STATE.sortAsc);
-      b.classList.toggle('sort-desc', mode === STATE.sortBy && !STATE.sortAsc);
-    });
-    document.querySelectorAll('#tableHead th[data-sort]').forEach(th => {
-      const mode = th.dataset.sort;
-      th.classList.toggle('sort-asc', mode === STATE.sortBy && STATE.sortAsc);
-      th.classList.toggle('sort-desc', mode === STATE.sortBy && !STATE.sortAsc);
-    });
+  setRankDir(dir) {
+    STATE.rankDir = dir;
+    STATE.sortKey = 'rank';
+    STATE.sortAsc = true;
+    this.updateToolbarUI();
+    this.refreshBoard(true);
+    this.saveState();
   }
 
-  getSortedSymbols() {
-    let syms = [...STATE.symbols];
-    const sortKey = STATE.sortBy;
-
-    syms.sort((a, b) => {
-      let va, vb;
-      const metaA = STATE.pairMeta[a] || {};
-      const metaB = STATE.pairMeta[b] || {};
-
-      if (sortKey === 'symbol') {
-        va = a; vb = b; return STATE.sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
-      } else if (sortKey === 'price') {
-        va = metaA.lastPrice || 0; vb = metaB.lastPrice || 0;
-      } else if (sortKey === 'change_asc') {
-        va = metaA.priceChangePercent || 0; vb = metaB.priceChangePercent || 0;
-      } else if (sortKey === 'change_desc') {
-        va = metaA.priceChangePercent || 0; vb = metaB.priceChangePercent || 0;
-        return STATE.sortAsc ? va - vb : vb - va;
-      } else if (sortKey.startsWith('gain_')) {
-        const tf = sortKey.replace('gain_', '');
-        const cacheA = STATE.gainCache[a] && STATE.gainCache[a][tf];
-        const cacheB = STATE.gainCache[b] && STATE.gainCache[b][tf];
-        va = cacheA ? cacheA.changePct : -999;
-        vb = cacheB ? cacheB.changePct : -999;
-        return STATE.sortAsc ? va - vb : vb - va;
-      } else if (sortKey.startsWith('amp_')) {
-        const tf = sortKey.replace('amp_', '');
-        const cacheA = STATE.klineCache[a] && STATE.klineCache[a][tf];
-        const cacheB = STATE.klineCache[b] && STATE.klineCache[b][tf];
-        va = cacheA ? cacheA.amplitude : -1;
-        vb = cacheB ? cacheB.amplitude : -1;
-        return STATE.sortAsc ? va - vb : vb - va;
-      }
-      return STATE.sortAsc ? va - vb : vb - va;
-    });
-
-    return syms;
-  }
-
-  // DOM-based row reordering — avoids destroying/recreating all cells on sort
-  sortTableRows() {
-    const sorted = this.getSortedSymbols();
-    const tbody = this.tableBody;
-    // Detach and reattach in sorted order (appendChild moves existing nodes, no recreation)
-    for (let i = 0; i < sorted.length; i++) {
-      const row = this.rowRefs[sorted[i]];
-      if (row) tbody.appendChild(row);
-    }
-    this.applyFilters();
+  setDisplayCount(n) {
+    STATE.displayCount = n;
+    this.updateToolbarUI();
+    this.refreshBoard(true);
+    this.saveState();
   }
 
   toggleFilter(type) {
@@ -1805,411 +1568,585 @@ class AmplitudeMonitor {
     this.applyFilters();
   }
 
-  applyFilters() {
-    const showExtremeOnly = STATE.filters.extreme;
-    const showAlertedOnly = STATE.filters.alerted;
-    const showEngulfingOnly = STATE.filters.engulfing;
+  updateToolbarUI() {
+    document.querySelectorAll('#toolbar .btn[data-count]').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.count, 10) === STATE.displayCount);
+    });
+    document.querySelectorAll('#toolbar .btn[data-rankmode]').forEach(b => {
+      b.classList.toggle('active', b.dataset.rankmode === STATE.rankMode);
+    });
+    document.querySelectorAll('#toolbar .btn[data-rankdir]').forEach(b => {
+      b.classList.toggle('active', b.dataset.rankdir === STATE.rankDir);
+    });
+    const sel = document.getElementById('thresholdPreset');
+    if (sel) sel.value = STATE.thresholdPreset;
+    const fe = document.getElementById('filterExtreme');
+    if (fe) fe.checked = !!STATE.filters.extreme;
+    const fa = document.getElementById('filterAlerted');
+    if (fa) fa.checked = !!STATE.filters.alerted;
+  }
 
-    const alertedSyms = new Set(STATE.alertLog.map(a => a.sym));
-    const patternSyms = new Set();
-    for (const key of Object.keys(STATE.patternCache)) {
-      for (const tf of STATE.timeframes) {
-        if (key.endsWith('_' + tf)) {
-          patternSyms.add(key.slice(0, -tf.length - 1));
-          break;
-        }
-      }
-    }
+  buildTableHeader() {
+    const info = levelInfo();
+    let html = '<tr>';
+    html += '<th class="rank-col" data-sort="rank" onclick="app.setSort(\'rank\')" title="当前榜单排名">#</th>';
+    html += '<th class="sym-col" data-sort="symbol" onclick="app.setSort(\'symbol\')">币种</th>';
+    html += '<th class="price-col" data-sort="price" onclick="app.setSort(\'price\')">现价</th>';
+    html += '<th class="gain-col" data-sort="gain" onclick="app.setSort(\'gain\')" title="' + info.label +
+      ' 当前K线：开盘价 → 现价 的涨跌幅">本级涨幅<br>(' + STATE.level + ')</th>';
+    html += '<th class="open-col">本K开盘</th>';
+    html += '<th class="amp-col">本K振幅</th>';
+    html += '<th class="chg-col" data-sort="chg" onclick="app.setSort(\'chg\')" title="币安 24 小时滚动涨跌幅（与“本级涨幅”口径不同）">24h涨跌</th>';
+    html += '<th class="vol-col" data-sort="vol" onclick="app.setSort(\'vol\')">24h额</th>';
+    html += '</tr>';
+    this.headEl.innerHTML = html;
+    this.updateSortUI();
+  }
 
-    for (const sym of STATE.symbols) {
-      const row = this.rowRefs[sym];
-      if (!row) continue;
-      let visible = true;
-
-      if (showExtremeOnly) {
-        let hasExtreme = false;
-        for (const tf of STATE.timeframes) {
-          const data = STATE.klineCache[sym] && STATE.klineCache[sym][tf];
-          if (data && STATE.thresholds[tf] && data.amplitude >= STATE.thresholds[tf].extreme) {
-            hasExtreme = true; break;
-          }
-        }
-        if (!hasExtreme) visible = false;
-      }
-
-      if (showAlertedOnly && !alertedSyms.has(sym)) {
-        visible = false;
-      }
-
-      if (showEngulfingOnly && !patternSyms.has(sym)) {
-        visible = false;
-      }
-
-      row.style.display = visible ? '' : 'none';
+  // ───────── 右侧K线图 ─────────
+  toggleChart(force) {
+    const panel = document.getElementById('chartPanel');
+    if (!panel) return;
+    const show = (typeof force === 'boolean') ? force : panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !show);
+    STATE.chartPanelOpen = show;
+    const btn = document.getElementById('chartToggleBtn');
+    if (btn) btn.classList.toggle('active', show);
+    if (show) {
+      if (!STATE.chartSymbol && STATE.displayed.length) { this.selectSymbol(STATE.displayed[0]); return; }
+      this.updateChartHeader();
+      this.renderChart();
+      this.updateChartMeta();
     }
   }
 
-  // ── STATS ──
-  updateStats() {
-    let extremeCount = 0, dangerCount = 0;
+  selectTopChart() {
+    if (STATE.displayed.length) this.selectSymbol(STATE.displayed[0]);
+  }
 
-    for (const sym of STATE.symbols) {
-      for (const tf of STATE.timeframes) {
-        const data = STATE.klineCache[sym] && STATE.klineCache[sym][tf];
-        if (!data) continue;
-        const th = STATE.thresholds[tf];
-        if (!th) continue;
-        if (data.amplitude >= th.extreme) extremeCount++;
-        else if (data.amplitude >= th.danger) dangerCount++;
+  selectSymbol(sym) {
+    if (!sym) return;
+    const changed = (STATE.chartSymbol !== sym);
+    STATE.chartSymbol = sym;
+    STATE.chartHover = null;
+    if (changed) {
+      STATE.chartBase = [];
+      STATE.chartCandles = [];
+      STATE.chartLoading = true;
+      this.fetchChartHistory(sym);
+    }
+    if (!STATE.chartPanelOpen) this.toggleChart(true);
+    this.updateChartHeader();
+    this.highlightRow(sym);
+    this.renderChart();
+  }
+
+  highlightRow(sym) {
+    for (const s in this.rowRefs) {
+      this.rowRefs[s].classList.toggle('selected-row', s === sym);
+    }
+  }
+
+  async fetchChartHistory(sym) {
+    const info = levelInfo();
+    const need = Math.min(1000, STATE.chartVisible * info.group + 60);
+    try {
+      const candles = await BinanceAPI.getKlines(sym, info.base, need);
+      if (STATE.chartSymbol !== sym) return;
+      STATE.chartBase = candles;
+      STATE.chartCandles = this.aggregateLevel(candles, STATE.level);
+      STATE.chartLoading = false;
+      this.renderChart();
+      this.updateChartMeta();
+    } catch(e) {
+      if (STATE.chartSymbol !== sym) return;
+      STATE.chartLoading = false;
+      this.renderChart();
+    }
+  }
+
+  // 把基础周期K线按当前级别合成（10m = 5m×2，3h = 1h×3，其余为原生周期）
+  aggregateLevel(base, lv) {
+    const info = CONFIG.LEVEL_INFO[lv];
+    const out = [];
+    let cur = null;
+    for (const c of base) {
+      const st = Math.floor(c.time * 1000 / info.ms) * info.ms;
+      if (!cur || cur.time !== st) {
+        cur = { time: st, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume || 0, n: 1 };
+        out.push(cur);
+      } else {
+        if (c.high > cur.high) cur.high = c.high;
+        if (c.low < cur.low) cur.low = c.low;
+        cur.close = c.close;
+        cur.volume += (c.volume || 0);
+        cur.n++;
       }
     }
+    if (out.length > 1 && out[0].n < info.group) out.shift();   // 丢掉起始残桶
+    return out;
+  }
 
-    document.getElementById('statMonitored').textContent = STATE.symbols.length;
-    document.getElementById('statExtreme').textContent = extremeCount;
-    document.getElementById('statDanger').textContent = dangerCount;
-    document.getElementById('statAlerts').textContent = STATE.alertLog.length;
-
-    // Gain stats
-    let gainExtreme = 0, gainDanger = 0;
-    for (const sym of STATE.symbols) {
-      for (const tf of CONFIG.GAIN_TIMEFRAMES) {
-        const data = STATE.gainCache[sym] && STATE.gainCache[sym][tf];
-        if (!data) continue;
-        const th = STATE.gainThresholds[tf];
-        if (!th) continue;
-        const absChg = Math.abs(data.changePct);
-        if (absChg >= th.extreme) gainExtreme++;
-        else if (absChg >= th.danger) gainDanger++;
-      }
+  // 实时更新图表用的基础K线（来自 WS 或 REST）
+  updateChartBase(c) {
+    const buf = STATE.chartBase;
+    if (!buf.length) { STATE.chartBase = [c]; STATE.chartDirty = true; return; }
+    const last = buf[buf.length - 1];
+    if (c.time === last.time) buf[buf.length - 1] = c;
+    else if (c.time > last.time) {
+      buf.push(c);
+      if (buf.length > 1200) buf.splice(0, buf.length - 1200);
+    } else {
+      const i = buf.findIndex(x => x.time === c.time);
+      if (i < 0) return;
+      buf[i] = c;
     }
-    var geEl = document.getElementById('statGainExtreme');
-    var gdEl = document.getElementById('statGainDanger');
-    if (geEl) geEl.textContent = gainExtreme;
-    if (gdEl) gdEl.textContent = gainDanger;
-
-    if (!STATE.initDone) return;
-    const nowStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-    document.getElementById('statUpdate').textContent = nowStr;
+    STATE.chartDirty = true;
   }
 
-  startStatsUpdater() {
-    setInterval(() => this.updateStats(), 5000);
-  }
-
-  // ── ALERT PANEL ──
-  toggleAlertPanel() {
-    const panel = document.getElementById('alertPanel');
-    panel.classList.toggle('open');
-    if (panel.classList.contains('open')) {
-      this.renderAlertPanel();
+  updateChartHeader() {
+    const sym = STATE.chartSymbol;
+    const el = document.getElementById('chartSym');
+    if (!el) return;
+    el.textContent = sym ? sym.replace('USDT','') + '/USDT' : '--';
+    document.getElementById('chartLevelTag').textContent = levelInfo().label;
+    const g = document.getElementById('chartGain');
+    const b = sym ? STATE.buckets[sym] : null;
+    if (b && isFinite(b.gain)) {
+      g.textContent = (b.gain >= 0 ? '+' : '') + b.gain.toFixed(2) + '%';
+      g.style.color = b.gain >= 0 ? 'var(--green)' : 'var(--red)';
+    } else {
+      g.textContent = '--';
+      g.style.color = 'var(--text-secondary)';
     }
+    const st = document.getElementById('chartStat');
+    if (st) st.textContent = STATE.chartCandles.length + ' 根 · 滚轮缩放';
   }
 
-  renderAlertPanel() {
-    const list = document.getElementById('alertPanelList');
-    const recent = STATE.alertLog.slice(-100).reverse();
-    if (recent.length === 0) {
-      list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-secondary);">暂无告警记录</div>';
+  updateChartMeta() {
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    const data = STATE.chartCandles;
+    if (!data || !data.length) {
+      ['cmTime','cmOpen','cmHigh','cmLow','cmClose','cmVol'].forEach(i => set(i, '--'));
+      set('cmChg', '--');
       return;
     }
-    list.innerHTML = recent.map(a => {
-      const d = new Date(a.time * 1000);
-      const ts = d.toLocaleTimeString('zh-CN', { hour12: false });
-      const levelColor = { warn: 'var(--yellow)', danger: 'var(--orange)', extreme: 'var(--red)' };
-      const levelLabel = { warn: '⚠️', danger: '🔶', extreme: '🔴' };
-      return `<div class="alert-entry">
-        <span style="color:${levelColor[a.level]};margin-right:4px;">${levelLabel[a.level]}</span>
-        <span class="alert-sym">${a.sym}</span>
-        <span class="alert-amp" style="color:${levelColor[a.level]}">${a.amplitude.toFixed(2)}%</span>
-        <span style="color:var(--text-secondary)">${CONFIG.TF_LABELS[a.tf]}</span>
-        <span class="alert-time">${ts}</span>
-      </div>`;
-    }).join('');
+    let idx = data.length - 1;
+    if (STATE.chartHover != null) {
+      const vis = Math.min(STATE.chartVisible, data.length);
+      const i = (data.length - vis) + STATE.chartHover;
+      if (i >= 0 && i < data.length) idx = i;
+    }
+    const c = data[idx];
+    set('cmTime', bjtClock(c.time, levelInfo().ms >= 86400000));
+    set('cmOpen', fmtPrice(c.open));
+    set('cmHigh', fmtPrice(c.high));
+    set('cmLow', fmtPrice(c.low));
+    set('cmClose', fmtPrice(c.close));
+    set('cmVol', fmtVol(c.volume));
+    const chg = c.open > 0 ? (c.close - c.open) / c.open * 100 : 0;
+    const ce = document.getElementById('cmChg');
+    if (ce) {
+      ce.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+      ce.style.color = chg >= 0 ? 'var(--green)' : 'var(--red)';
+    }
+  }
+
+  chartHoverIndex(clientX) {
+    const cv = document.getElementById('chartCanvas');
+    const g = this._chartGeom;
+    if (!cv || !g) return null;
+    const x = clientX - cv.getBoundingClientRect().left;
+    const i = Math.floor((x - g.padL) / g.cw);
+    if (i < 0 || i >= g.vis) return null;
+    return i;
+  }
+
+  bindChartEvents() {
+    const cv = document.getElementById('chartCanvas');
+    if (!cv) return;
+    const self = this;
+    cv.addEventListener('mousemove', function(e) {
+      const i = self.chartHoverIndex(e.clientX);
+      if (i !== STATE.chartHover) { STATE.chartHover = i; self.renderChart(); self.updateChartMeta(); }
+    });
+    cv.addEventListener('mouseleave', function() {
+      if (STATE.chartHover !== null) { STATE.chartHover = null; self.renderChart(); self.updateChartMeta(); }
+    });
+    cv.addEventListener('wheel', function(e) {
+      e.preventDefault();
+      const step = e.deltaY > 0 ? 8 : -8;
+      STATE.chartVisible = Math.max(20, Math.min(200, STATE.chartVisible + step));
+      self.renderChart(); self.updateChartMeta(); self.updateChartHeader();
+    }, { passive: false });
+    const wrap = cv.parentElement;
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(function() { self.renderChart(); });
+      ro.observe(wrap);
+    } else {
+      window.addEventListener('resize', function() { self.renderChart(); });
+    }
+  }
+
+  renderChart() {
+    const cv = document.getElementById('chartCanvas');
+    if (!cv || !STATE.chartPanelOpen) return;
+    const wrap = cv.parentElement;
+    const w = Math.max(80, wrap.clientWidth), h = Math.max(100, wrap.clientHeight);
+    const dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(w*dpr) || cv.height !== Math.round(h*dpr)) {
+      cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); this._chartGeom = null;
+    }
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const data = STATE.chartCandles;
+    if (!data || data.length < 2) {
+      ctx.fillStyle = '#848e9c';
+      ctx.font = '12px -apple-system,Segoe UI,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(STATE.chartSymbol ? (STATE.chartLoading ? 'K线加载中…' : '暂无K线数据') : '点击左侧币种查看K线', w/2, h/2);
+      return;
+    }
+
+    const padL = 6, padR = 58, padT = 8, padB = 18, gap = 6;
+    const volH = Math.round((h - padT - padB) * 0.17);
+    const priceTop = padT, priceBot = h - padB - volH - gap;
+    const volTop = priceBot + gap, volBot = h - padB;
+    const plotW = Math.max(40, w - padL - padR);
+    const vis = Math.max(10, Math.min(STATE.chartVisible, data.length));
+    const start = data.length - vis;
+    const slice = data.slice(start);
+    this._chartGeom = { padL: padL, cw: plotW / vis, vis: vis };
+
+    let max = -Infinity, min = Infinity, vMax = 0;
+    for (const c of slice) {
+      if (c.high > max) max = c.high;
+      if (c.low < min) min = c.low;
+      if (c.volume > vMax) vMax = c.volume;
+    }
+    if (!(max > min)) { max = max + (Math.abs(max) * 0.01 || 1); min = min - (Math.abs(min) * 0.01 || 1); }
+    const padv = (max - min) * 0.08;
+    max += padv; min -= padv;
+    const yOf = p => priceBot - (p - min) / (max - min) * (priceBot - priceTop);
+    const cw = plotW / vis;
+
+    ctx.font = '10px Consolas,monospace';
+    ctx.textBaseline = 'middle';
+
+    // 网格 + 价格刻度
+    ctx.strokeStyle = 'rgba(255,255,255,0.055)';
+    ctx.fillStyle = '#848e9c';
+    ctx.textAlign = 'left';
+    for (let i = 0; i <= 4; i++) {
+      const p = min + (max - min) * i / 4;
+      const y = Math.round(yOf(p)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
+      ctx.fillText(fmtPrice(p), padL + plotW + 5, y);
+    }
+
+    // 成交量
+    if (vMax > 0) {
+      for (let i = 0; i < slice.length; i++) {
+        const c = slice[i];
+        const bh = (c.volume / vMax) * (volBot - volTop);
+        const x = padL + i*cw + Math.max(0.5, cw*0.15);
+        const bw = Math.max(1, cw*0.7);
+        ctx.fillStyle = c.close >= c.open ? 'rgba(14,203,129,0.45)' : 'rgba(246,70,93,0.45)';
+        ctx.fillRect(x, volBot - bh, bw, bh);
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.055)';
+      ctx.beginPath(); ctx.moveTo(padL, volBot + 0.5); ctx.lineTo(padL + plotW, volBot + 0.5); ctx.stroke();
+    }
+
+    // K线
+    const bodyW = Math.max(1, Math.min(cw*0.7, 16));
+    for (let i = 0; i < slice.length; i++) {
+      const c = slice[i];
+      const up = c.close >= c.open;
+      const col = up ? '#0ecb81' : '#f6465d';
+      const x = padL + i*cw + cw/2;
+      ctx.strokeStyle = col;
+      ctx.fillStyle = col;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(x) + 0.5, yOf(c.high));
+      ctx.lineTo(Math.round(x) + 0.5, yOf(c.low));
+      ctx.stroke();
+      const yo = yOf(c.open), yc = yOf(c.close);
+      const top = Math.min(yo, yc), bh = Math.max(1, Math.abs(yc - yo));
+      ctx.fillRect(Math.round(x - bodyW/2), Math.round(top), Math.round(bodyW), Math.round(bh));
+    }
+
+    // 本K开盘价（策略基准线）+ 现价线
+    const live = slice[slice.length - 1];
+    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(240,185,11,0.75)';
+    const yOpen = Math.round(yOf(live.open)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(padL, yOpen); ctx.lineTo(padL + plotW, yOpen); ctx.stroke();
+    ctx.fillStyle = 'rgba(240,185,11,0.95)';
+    ctx.textAlign = 'left';
+    ctx.font = '10px Consolas,monospace';
+    ctx.fillText('开 ' + fmtPrice(live.open), padL + 2, yOpen - 7);
+
+    const upNow = live.close >= live.open;
+    ctx.strokeStyle = upNow ? 'rgba(14,203,129,0.8)' : 'rgba(246,70,93,0.8)';
+    const yNow = Math.round(yOf(live.close)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(padL, yNow); ctx.lineTo(padL + plotW, yNow); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = upNow ? '#0ecb81' : '#f6465d';
+    ctx.fillRect(padL + plotW, yNow - 8, padR - 2, 16);
+    ctx.fillStyle = '#0b0e11';
+    ctx.font = 'bold 10px Consolas,monospace';
+    ctx.fillText(fmtPrice(live.close), padL + plotW + 4, yNow);
+
+    // 时间轴
+    ctx.fillStyle = '#848e9c';
+    ctx.font = '10px Consolas,monospace';
+    ctx.textAlign = 'center';
+    const stepT = Math.max(1, Math.ceil(vis / 5));
+    for (let i = 0; i < slice.length; i += stepT) {
+      const c = slice[i];
+      const x = padL + i*cw + cw/2;
+      ctx.fillText(bjtClock(c.time, levelInfo().ms >= 86400000), x, h - 9);
+    }
+
+    // 十字光标
+    if (STATE.chartHover != null && STATE.chartHover >= 0 && STATE.chartHover < vis) {
+      const c = slice[STATE.chartHover];
+      const x = Math.round(padL + STATE.chartHover*cw + cw/2) + 0.5;
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = 'rgba(234,236,239,0.45)';
+      ctx.beginPath(); ctx.moveTo(x, priceTop); ctx.lineTo(x, volBot); ctx.stroke();
+      const yh = Math.round(yOf(c.close)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(padL, yh); ctx.lineTo(padL + plotW, yh); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  async pollChart() {
+    if (!STATE.chartSymbol || !STATE.restMode || STATE.chartLoading || !STATE.chartPanelOpen) return;
+    const sym = STATE.chartSymbol;
+    const info = levelInfo();
+    try {
+      const candles = await BinanceAPI.getKlines(sym, info.base, Math.max(3, info.group + 1));
+      if (STATE.chartSymbol !== sym) return;
+      for (const c of candles) this.updateChartBase(c);
+    } catch(e) {}
+  }
+
+  openOnBinance() {
+    if (!STATE.chartSymbol) return;
+    window.open('https://www.binance.com/zh-CN/futures/' + STATE.chartSymbol, '_blank');
+  }
+
+  // ───────── 统计 / 状态 ─────────
+  updateStats() {
+    let extreme = 0, danger = 0;
+    for (const sym of STATE.displayed) {
+      const b = STATE.buckets[sym];
+      if (!b || !isFinite(b.gain)) continue;
+      const th = this.thresholdsFor(sym);
+      if (!th) continue;
+      const abs = Math.abs(b.gain);
+      if (abs >= th.extreme) extreme++;
+      else if (abs >= th.danger) danger++;
+    }
+    document.getElementById('statExtreme').textContent = extreme;
+    document.getElementById('statDanger').textContent = danger;
+    document.getElementById('statAlerts').textContent = STATE.alertLog.length;
+    document.getElementById('statUniverse').textContent = STATE.universe.length;
+    document.getElementById('statShown').textContent = STATE.displayed.length;
+  }
+
+  updateKlineClock() {
+    const info = levelInfo();
+    const st = bucketStartOf(Date.now(), STATE.level);
+    const el1 = document.getElementById('statKStart');
+    const el2 = document.getElementById('statKLeft');
+    if (el1) el1.textContent = bjtClock(st, info.ms >= 86400000);
+    if (el2) el2.textContent = fmtLeft(st + info.ms - Date.now());
+  }
+
+  setStatus(text, color) {
+    const el = document.getElementById('statUpdate');
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = color || 'var(--text-secondary)';
   }
 
   updateAlertBadge() {
     const badge = document.getElementById('alertBadge');
-    const count = STATE.alertLog.length;
-    if (count > 0) {
-      badge.style.display = 'inline';
-      badge.textContent = count > 99 ? '99+' : count;
-    } else {
-      badge.style.display = 'none';
+    const n = STATE.alertLog.length;
+    if (n > 0) { badge.style.display = 'inline'; badge.textContent = n > 99 ? '99+' : n; }
+    else badge.style.display = 'none';
+  }
+
+  toggleAlertPanel() {
+    const panel = document.getElementById('alertPanel');
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open')) this.renderAlertPanel();
+  }
+
+  renderAlertPanel() {
+    const list = document.getElementById('alertPanelList');
+    if (!list) return;
+    const recent = STATE.alertLog.slice(-100).reverse();
+    if (!recent.length) {
+      list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-secondary);">暂无告警记录</div>';
+      return;
     }
+    const color = { warn:'var(--yellow)', danger:'var(--orange)', extreme:'var(--red)' };
+    const icon = { warn:'⚠️', danger:'🔶', extreme:'🔴' };
+    list.innerHTML = recent.map(a => {
+      const ts = bjtClock(a.time * 1000, false);
+      const g = (a.gain >= 0 ? '+' : '') + a.gain.toFixed(2) + '%';
+      const lv = (CONFIG.LEVEL_INFO[a.level] || {}).label || a.level;
+      return '<div class="alert-entry">' +
+        '<span style="color:' + color[a.severity] + ';margin-right:4px;">' + icon[a.severity] + '</span>' +
+        '<span class="alert-sym">' + a.sym.replace('USDT','') + '</span> ' +
+        '<span style="color:' + (a.gain >= 0 ? 'var(--green)' : 'var(--red)') + ';font-weight:700;">' + g + '</span> ' +
+        '<span style="color:var(--text-secondary)">' + lv + ' 单K' + a.dir + '</span> ' +
+        '<span class="alert-time">' + ts + '</span>' +
+        '</div>';
+    }).join('');
   }
 
   clearAlerts() {
     STATE.alertLog = [];
-    STATE.alerts = [];
     this.renderAlertPanel();
     this.updateAlertBadge();
-    this.saveState();
     this.updateStats();
-  }
-
-  // ── SETTINGS ──
-  setSymbolCount(count) {
-    if (STATE.symbolCount === count) return;
-    STATE.symbolCount = count;
-    this.updateSymbolCountUI();
     this.saveState();
-    this.reload();
   }
 
-  updateSymbolCountUI() {
-    const btns = document.querySelectorAll('#header .btn[data-count]');
-    btns.forEach(b => {
-      b.classList.toggle('active', parseInt(b.dataset.count) === STATE.symbolCount);
-    });
-  }
-
-  // ── PER-COIN ALERT POPUP ──
+  // ───────── 每币自定义阈值 ─────────
   togglePerCoinPopup(sym) {
-    const existing = document.querySelector('.coin-alert-popup');
-    if (existing && STATE.perCoinPopupTarget === sym) {
-      this.closePerCoinPopup();
-      return;
-    }
+    const existing = document.getElementById('perCoinPopup');
+    if (existing && STATE.perCoinPopupTarget === sym) { this.closePerCoinPopup(); return; }
     this.closePerCoinPopup();
     STATE.perCoinPopupTarget = sym;
 
-    const bell = document.getElementById(`bell-${sym}`);
-    const rect = bell ? bell.getBoundingClientRect() : { left: 200, top: 200 };
+    const bell = document.getElementById('bell-' + sym);
+    const rect = bell ? bell.getBoundingClientRect() : { left:200, top:200, right:210 };
 
     const popup = document.createElement('div');
     popup.className = 'coin-alert-popup';
     popup.id = 'perCoinPopup';
 
-    // Use symbol without USDT for display
-    const coinName = sym.replace('USDT', '');
-    const saved = STATE.perCoinAlerts[sym] || { enabled: false, thresholds: {} };
+    const coin = sym.replace('USDT','');
+    const saved = STATE.perCoinAlerts[sym] || { enabled:false, thresholds:{} };
 
-    let html = `<h4>🎯 ${coinName} 自定义振幅预警
-      <span style="cursor:pointer;color:var(--text-secondary)" onclick="app.closePerCoinPopup()">✕</span></h4>`;
-    html += `<div style="margin-bottom:8px;font-size:11px;color:var(--text-secondary);">
-      <label style="cursor:pointer;">
-        <input type="checkbox" id="pcEnable_${sym}" ${saved.enabled ? 'checked' : ''}>
-        启用自定义阈值（不勾选则使用全局阈值）
-      </label>
-    </div>`;
-    html += `<div style="color:var(--text-secondary);font-size:10px;margin-bottom:4px;">警告 ≥  |  高危 ≥  |  极端 ≥</div>`;
-
-    for (const tf of STATE.timeframes) {
-      const globalTh = STATE.thresholds[tf] || { warn: 1, danger: 3, extreme: 6 };
-      const customTh = saved.thresholds[tf] || {};
-      // Show global default as placeholder when custom value is empty
-      const ph = (v, d) => (v != null && !isNaN(v)) ? v : d;
-      html += `<div class="tf-row">
-        <span class="tf-label">${tf}</span>
-        <input type="number" id="pcWarn_${sym}_${tf}" value="${ph(customTh.warn, globalTh.warn)}" step="0.1" min="0.1" placeholder="${globalTh.warn}" title="警告阈值 %">%
-        <input type="number" id="pcDanger_${sym}_${tf}" value="${ph(customTh.danger, globalTh.danger)}" step="0.1" min="0.2" placeholder="${globalTh.danger}" title="高危阈值 %">%
-        <input type="number" id="pcExtreme_${sym}_${tf}" value="${ph(customTh.extreme, globalTh.extreme)}" step="0.1" min="0.5" placeholder="${globalTh.extreme}" title="极端阈值 %">%
-      </div>`;
+    let html = '<h4>🎯 ' + coin + ' 自定义涨幅预警' +
+      '<span style="cursor:pointer;color:var(--text-secondary)" onclick="app.closePerCoinPopup()">✕</span></h4>';
+    html += '<div style="margin-bottom:8px;font-size:11px;color:var(--text-secondary);">' +
+      '<label style="cursor:pointer;"><input type="checkbox" id="pcEnable_' + sym + '"' + (saved.enabled ? ' checked' : '') + '> ' +
+      '启用自定义阈值（不勾选则用全局阈值）</label></div>';
+    html += '<div style="color:var(--text-secondary);font-size:10px;margin-bottom:4px;">警告 ≥ | 高危 ≥ | 极端 ≥ (单K涨幅绝对值)</div>';
+    for (const lv of CONFIG.LEVELS) {
+      const g = STATE.thresholds[lv] || { warn:1, danger:2, extreme:4 };
+      const c = (saved.thresholds && saved.thresholds[lv]) || {};
+      const v = (x, d) => (x != null && !isNaN(x)) ? x : d;
+      html += '<div class="tf-row">' +
+        '<span class="tf-label">' + lv + '</span>' +
+        '<input type="number" id="pcWarn_' + sym + '_' + lv + '" value="' + v(c.warn, g.warn) + '" step="0.1" min="0.1" title="警告阈值 %">%' +
+        '<input type="number" id="pcDanger_' + sym + '_' + lv + '" value="' + v(c.danger, g.danger) + '" step="0.1" min="0.2" title="高危阈值 %">%' +
+        '<input type="number" id="pcExtreme_' + sym + '_' + lv + '" value="' + v(c.extreme, g.extreme) + '" step="0.1" min="0.5" title="极端阈值 %">%' +
+        '</div>';
     }
-
-    html += `<div class="popup-actions">
-      <button class="btn active" onclick="app.savePerCoinAlert('${sym}')">💾 保存</button>
-      <button class="btn" onclick="app.copyGlobalToPerCoin('${sym}')">📋 从全局复制</button>
-      <button class="btn danger" onclick="app.removePerCoinAlert('${sym}')">🗑 删除</button>
-    </div>`;
+    html += '<div class="popup-actions">' +
+      '<button class="btn active" onclick="app.savePerCoinAlert(\'' + sym + '\')">💾 保存</button>' +
+      '<button class="btn" onclick="app.copyGlobalToPerCoin(\'' + sym + '\')">📋 从全局复制</button>' +
+      '<button class="btn danger" onclick="app.removePerCoinAlert(\'' + sym + '\')">🗑 删除</button>' +
+      '</div>';
 
     popup.innerHTML = html;
     document.body.appendChild(popup);
 
-    // Position popup near the bell icon
-    const popupW = 340;
-    const popupH = Math.min(popup.offsetHeight || 500, window.innerHeight * 0.8);
+    const w = 330;
+    const h = Math.min(popup.offsetHeight || 520, window.innerHeight * 0.8);
     let left = rect.right + 10;
     let top = rect.top - 10;
-    if (left + popupW > window.innerWidth - 10) left = rect.left - popupW - 10;
-    if (top + popupH > window.innerHeight - 10) top = window.innerHeight - popupH - 10;
-    if (top < 10) top = 10;
+    if (left + w > window.innerWidth - 10) left = Math.max(10, rect.left - w - 10);
+    if (top + h > window.innerHeight - 10) top = Math.max(10, window.innerHeight - h - 10);
     popup.style.left = left + 'px';
     popup.style.top = top + 'px';
 
-    // Close when clicking outside
-    setTimeout(() => {
-      document.addEventListener('click', this._closePerCoinOnOutside, { once: true });
-    }, 50);
+    setTimeout(() => { document.addEventListener('click', this._closePerCoinOnOutside, { once:true }); }, 50);
   }
 
   _closePerCoinOnOutside(e) {
     const popup = document.getElementById('perCoinPopup');
     if (!popup) return;
-    if (!popup.contains(e.target)) {
-      app.closePerCoinPopup();
-    } else {
-      document.addEventListener('click', app._closePerCoinOnOutside, { once: true });
-    }
+    if (!popup.contains(e.target)) app.closePerCoinPopup();
+    else document.addEventListener('click', app._closePerCoinOnOutside, { once:true });
   }
 
   closePerCoinPopup() {
     STATE.perCoinPopupTarget = null;
-    const popup = document.getElementById('perCoinPopup');
-    if (popup) popup.remove();
+    const p = document.getElementById('perCoinPopup');
+    if (p) p.remove();
   }
 
   copyGlobalToPerCoin(sym) {
-    for (const tf of STATE.timeframes) {
-      const global = STATE.thresholds[tf] || { warn: 1, danger: 3, extreme: 6 };
-      const elW = document.getElementById(`pcWarn_${sym}_${tf}`);
-      const elD = document.getElementById(`pcDanger_${sym}_${tf}`);
-      const elE = document.getElementById(`pcExtreme_${sym}_${tf}`);
-      if (elW) elW.value = global.warn;
-      if (elD) elD.value = global.danger;
-      if (elE) elE.value = global.extreme;
+    for (const lv of CONFIG.LEVELS) {
+      const g = STATE.thresholds[lv] || { warn:1, danger:2, extreme:4 };
+      const a = document.getElementById('pcWarn_' + sym + '_' + lv);
+      const b = document.getElementById('pcDanger_' + sym + '_' + lv);
+      const c = document.getElementById('pcExtreme_' + sym + '_' + lv);
+      if (a) a.value = g.warn;
+      if (b) b.value = g.danger;
+      if (c) c.value = g.extreme;
     }
-    document.getElementById(`pcEnable_${sym}`).checked = true;
+    const en = document.getElementById('pcEnable_' + sym);
+    if (en) en.checked = true;
   }
 
   savePerCoinAlert(sym) {
-    const enabled = document.getElementById(`pcEnable_${sym}`).checked;
+    const en = document.getElementById('pcEnable_' + sym);
+    const enabled = en ? en.checked : false;
     const thresholds = {};
-    for (const tf of STATE.timeframes) {
-      const w = parseFloat(document.getElementById(`pcWarn_${sym}_${tf}`).value);
-      const d = parseFloat(document.getElementById(`pcDanger_${sym}_${tf}`).value);
-      const e = parseFloat(document.getElementById(`pcExtreme_${sym}_${tf}`).value);
-      if (!isNaN(w) && !isNaN(d) && !isNaN(e)) {
-        thresholds[tf] = { warn: w, danger: d, extreme: e };
-      } else {
-        thresholds[tf] = { ...STATE.thresholds[tf] };
-      }
+    for (const lv of CONFIG.LEVELS) {
+      const w = parseFloat((document.getElementById('pcWarn_' + sym + '_' + lv) || {}).value);
+      const d = parseFloat((document.getElementById('pcDanger_' + sym + '_' + lv) || {}).value);
+      const e = parseFloat((document.getElementById('pcExtreme_' + sym + '_' + lv) || {}).value);
+      if (!isNaN(w) && !isNaN(d) && !isNaN(e)) thresholds[lv] = { warn:w, danger:d, extreme:e };
+      else thresholds[lv] = Object.assign({}, STATE.thresholds[lv]);
     }
-    STATE.perCoinAlerts[sym] = { enabled, thresholds };
+    STATE.perCoinAlerts[sym] = { enabled:enabled, thresholds:thresholds };
     this.closePerCoinPopup();
     this.updateBellIcon(sym);
-    this.refreshAllCells();
+    this.repaint();
     this.saveState();
-    showToast(`${enabled ? '✅' : '📋'} ${sym.replace('USDT','')} ${enabled ? '已启用自定义振幅预警' : '已设为使用全局阈值'}`, false);
+    showToast((enabled ? '✅ ' : '📋 ') + sym.replace('USDT','') + (enabled ? ' 已启用自定义涨幅预警' : ' 已改为使用全局阈值'));
   }
 
   removePerCoinAlert(sym) {
     delete STATE.perCoinAlerts[sym];
     this.closePerCoinPopup();
     this.updateBellIcon(sym);
-    this.refreshAllCells();
+    this.repaint();
     this.saveState();
-    showToast(`🗑 已删除 ${sym.replace('USDT','')} 的自定义预警`, false);
+    showToast('🗑 已删除 ' + sym.replace('USDT','') + ' 的自定义预警');
   }
 
   updateBellIcon(sym) {
-    const bell = document.getElementById(`bell-${sym}`);
+    const bell = document.getElementById('bell-' + sym);
     if (!bell) return;
-    const hasAlert = STATE.perCoinAlerts[sym] && STATE.perCoinAlerts[sym].enabled;
-    bell.classList.toggle('active', hasAlert);
-    bell.textContent = hasAlert ? '🔔' : '🔕';
-    bell.title = hasAlert ? '已设自定义振幅预警' : '点击设置该币自定义振幅预警';
+    const on = STATE.perCoinAlerts[sym] && STATE.perCoinAlerts[sym].enabled;
+    bell.classList.toggle('active', !!on);
+    bell.textContent = on ? '🔔' : '🔕';
   }
 
+  // ───────── 设置 ─────────
   setThresholdPreset(preset) {
-    if (preset === 'custom') {
-      STATE.thresholdPreset = 'custom';
-      this.toggleSettings();
-      return;
-    }
+    if (preset === 'custom') { STATE.thresholdPreset = 'custom'; this.toggleSettings(); return; }
     STATE.thresholdPreset = preset;
-    STATE.thresholds = JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS[preset]));
-    this.updateThresholdPresetUI();
+    STATE.thresholds = presetThresholds(preset);
     this.renderThresholdSettings();
-    this.saveState();
-    this.refreshAllCells();
-  }
-
-  updateThresholdPresetUI() {
-    const sel = document.getElementById('thresholdPreset');
-    sel.value = STATE.thresholdPreset;
-  }
-
-  renderThresholdSettings() {
-    const container = document.getElementById('thresholdSettings');
-    let html = '';
-    for (const tf of STATE.timeframes) {
-      const th = STATE.thresholds[tf] || { warn: 2, danger: 5, extreme: 10 };
-      html += `<div class="threshold-row">
-        <span>${CONFIG.TF_LABELS[tf]}</span>
-        <label style="margin:0;">警告 ≥</label>
-        <input type="number" id="thresh_${tf}_warn" value="${th.warn}" step="0.1" min="0.1">%
-        <label style="margin:0;">高危 ≥</label>
-        <input type="number" id="thresh_${tf}_danger" value="${th.danger}" step="0.1" min="0.2">%
-        <label style="margin:0;">极端 ≥</label>
-        <input type="number" id="thresh_${tf}_extreme" value="${th.extreme}" step="0.1" min="0.5">%
-      </div>`;
-    }
-    container.innerHTML = html;
-
-    // Render gain thresholds
-    var gainContainer = document.getElementById('gainThresholdSettings');
-    if (gainContainer) {
-      var gainHtml = '';
-      for (var _i = 0; _i < CONFIG.GAIN_TIMEFRAMES.length; _i++) {
-        var gtf = CONFIG.GAIN_TIMEFRAMES[_i];
-        var gth = STATE.gainThresholds[gtf] || { warn: 2, danger: 5, extreme: 10 };
-        gainHtml += '<div class="threshold-row">' +
-          '<span>' + CONFIG.GAIN_TF_LABELS[gtf] + '</span>' +
-          '<label style="margin:0;">警告 ≥</label>' +
-          '<input type="number" id="gainthresh_' + gtf + '_warn" value="' + gth.warn + '" step="0.1" min="0.1">%' +
-          '<label style="margin:0;">高危 ≥</label>' +
-          '<input type="number" id="gainthresh_' + gtf + '_danger" value="' + gth.danger + '" step="0.1" min="0.2">%' +
-          '<label style="margin:0;">极端 ≥</label>' +
-          '<input type="number" id="gainthresh_' + gtf + '_extreme" value="' + gth.extreme + '" step="0.1" min="0.5">%' +
-          '</div>';
-      }
-      gainContainer.innerHTML = gainHtml;
-    }
-
-    document.getElementById('alertCooldown').value = STATE.alertCooldownSec;
-    document.getElementById('soundEnabled').checked = STATE.soundEnabled;
-    document.getElementById('notifyEnabled').checked = STATE.notifyEnabled;
-    document.getElementById('dingtalkEnabled').checked = STATE.dingtalkEnabled;
-    document.getElementById('dingtalkWebhook').value = STATE.dingtalkWebhook;
-    document.getElementById('dingtalkCorsProxy').value = STATE.dingtalkCorsProxy || '';
-    document.getElementById('dingtalkPushLevel').value = STATE.dingtalkPushLevel;
-    document.getElementById('dingtalkPushPattern').checked = STATE.dingtalkPushPattern;
-  }
-
-  saveSettings() {
-    for (const tf of STATE.timeframes) {
-      STATE.thresholds[tf] = {
-        warn: parseFloat(document.getElementById(`thresh_${tf}_warn`).value) || 1,
-        danger: parseFloat(document.getElementById(`thresh_${tf}_danger`).value) || 3,
-        extreme: parseFloat(document.getElementById(`thresh_${tf}_extreme`).value) || 6,
-      };
-    }
-    // Save gain thresholds
-    for (const tf of CONFIG.GAIN_TIMEFRAMES) {
-      var gwEl = document.getElementById('gainthresh_' + tf + '_warn');
-      var gdEl = document.getElementById('gainthresh_' + tf + '_danger');
-      var geEl = document.getElementById('gainthresh_' + tf + '_extreme');
-      if (gwEl && gdEl && geEl) {
-        STATE.gainThresholds[tf] = {
-          warn: parseFloat(gwEl.value) || 2,
-          danger: parseFloat(gdEl.value) || 5,
-          extreme: parseFloat(geEl.value) || 10,
-        };
-      }
-    }
-    STATE.alertCooldownSec = parseInt(document.getElementById('alertCooldown').value) || 30;
-    STATE.soundEnabled = document.getElementById('soundEnabled').checked;
-    STATE.notifyEnabled = document.getElementById('notifyEnabled').checked;
-    STATE.dingtalkEnabled = document.getElementById('dingtalkEnabled').checked;
-    STATE.dingtalkWebhook = document.getElementById('dingtalkWebhook').value.trim();
-    STATE.dingtalkCorsProxy = document.getElementById('dingtalkCorsProxy').value.trim();
-    STATE.dingtalkPushLevel = document.getElementById('dingtalkPushLevel').value;
-    STATE.dingtalkPushPattern = document.getElementById('dingtalkPushPattern').checked;
-    STATE.thresholdPreset = 'custom';
-    this.updateThresholdPresetUI();
-    this.refreshAllCells();
-    this.saveState();
-    document.getElementById('settingsModal').style.display = 'none';
-  }
-
-  resetThresholds() {
-    STATE.thresholdPreset = 'crypto';
-    STATE.thresholds = JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS.crypto));
-    STATE.gainThresholds = JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS.gain));
-    this.updateThresholdPresetUI();
-    this.renderThresholdSettings();
-    this.refreshAllCells();
+    this.repaint();
     this.saveState();
   }
 
@@ -2223,238 +2160,180 @@ class AmplitudeMonitor {
     }
   }
 
-  refreshAllCells() {
-    for (const sym of STATE.symbols) {
-      for (const tf of STATE.timeframes) {
-        this.updateCell(sym, tf);
-      }
-      for (const tf of CONFIG.GAIN_TIMEFRAMES) {
-        this.updateGainCell(sym, tf);
-      }
-      this.updatePatternCell(sym);
-      this.updatePatternRowStyle(sym);
+  renderThresholdSettings() {
+    const box = document.getElementById('thresholdSettings');
+    let html = '';
+    for (const lv of CONFIG.LEVELS) {
+      const th = STATE.thresholds[lv] || { warn:1, danger:2, extreme:4 };
+      html += '<div class="threshold-row">' +
+        '<span class="tf">' + CONFIG.LEVEL_INFO[lv].label + '</span>' +
+        '<label>警告 ≥</label><input type="number" id="th_warn_' + lv + '" value="' + th.warn + '" step="0.1" min="0.1">%' +
+        '<label>高危 ≥</label><input type="number" id="th_danger_' + lv + '" value="' + th.danger + '" step="0.1" min="0.2">%' +
+        '<label>极端 ≥</label><input type="number" id="th_extreme_' + lv + '" value="' + th.extreme + '" step="0.1" min="0.5">%' +
+        '</div>';
     }
-    this.applyFilters();
-    this.updateStats();
+    box.innerHTML = html;
+    document.getElementById('alertCooldown').value = STATE.alertCooldownSec;
+    document.getElementById('soundEnabled').checked = STATE.soundEnabled;
+    document.getElementById('notifyEnabled').checked = STATE.notifyEnabled;
+    document.getElementById('dingtalkEnabled').checked = STATE.dingtalkEnabled;
+    document.getElementById('dingtalkWebhook').value = STATE.dingtalkWebhook;
+    document.getElementById('dingtalkCorsProxy').value = STATE.dingtalkCorsProxy;
+    document.getElementById('dingtalkPushLevel').value = STATE.dingtalkPushLevel;
+    const sel = document.getElementById('thresholdPreset');
+    if (sel) sel.value = STATE.thresholdPreset;
   }
 
-  // ── MUTE ──
+  saveSettings() {
+    for (const lv of CONFIG.LEVELS) {
+      const w = parseFloat((document.getElementById('th_warn_' + lv) || {}).value);
+      const d = parseFloat((document.getElementById('th_danger_' + lv) || {}).value);
+      const e = parseFloat((document.getElementById('th_extreme_' + lv) || {}).value);
+      STATE.thresholds[lv] = {
+        warn: isNaN(w) ? 1 : w,
+        danger: isNaN(d) ? 2 : d,
+        extreme: isNaN(e) ? 4 : e,
+      };
+    }
+    STATE.alertCooldownSec = parseInt(document.getElementById('alertCooldown').value, 10) || 30;
+    STATE.soundEnabled = document.getElementById('soundEnabled').checked;
+    STATE.notifyEnabled = document.getElementById('notifyEnabled').checked;
+    STATE.dingtalkEnabled = document.getElementById('dingtalkEnabled').checked;
+    STATE.dingtalkWebhook = document.getElementById('dingtalkWebhook').value.trim();
+    STATE.dingtalkCorsProxy = document.getElementById('dingtalkCorsProxy').value.trim();
+    STATE.dingtalkPushLevel = document.getElementById('dingtalkPushLevel').value;
+    STATE.thresholdPreset = 'custom';
+    const sel = document.getElementById('thresholdPreset');
+    if (sel) sel.value = 'custom';
+    this.repaint();
+    this.saveState();
+    document.getElementById('settingsModal').style.display = 'none';
+    showToast('💾 设置已保存');
+  }
+
+  resetThresholds() {
+    STATE.thresholdPreset = 'crypto';
+    STATE.thresholds = presetThresholds('crypto');
+    this.renderThresholdSettings();
+    this.updateToolbarUI();
+    this.repaint();
+    this.saveState();
+  }
+
+  // 钉钉推送测试（直连 → 自定义代理 → 公共代理链）
+  async testDingTalk() {
+    const webhook = document.getElementById('dingtalkWebhook').value.trim();
+    const resultEl = document.getElementById('dtTestResult');
+    if (!webhook) { resultEl.textContent = '❌ 请先填写 Webhook 地址'; resultEl.style.color = 'var(--red)'; return; }
+
+    const text = '## 📈 单K涨幅监控系统\n\n' +
+      '**测试消息**：钉钉推送功能已成功配置！\n\n' +
+      '**当前级别**: ' + levelInfo().label + '\n\n' +
+      '**候选池**: ' + STATE.universe.length + ' 个币种\n\n' +
+      '**榜单依据**: ' + (STATE.rankMode === 'level' ? '本级单K涨幅' : '24h涨跌') +
+      ' / ' + (STATE.rankDir === 'up' ? '涨幅榜' : '跌幅榜') + '\n\n' +
+      '**推送级别**: ' + (STATE.dingtalkPushLevel === 'warn' ? '⚠️ 警告及以上' : STATE.dingtalkPushLevel === 'danger' ? '🔶 高危及以上' : '🔴 仅极端') + '\n\n' +
+      '**配置时间**: ' + bjtFull(Date.now()) + ' (BJT)\n\n' +
+      '> 单K涨幅监控系统自动推送';
+    const payload = { msgtype:'markdown', markdown:{ title:'单K涨幅监控 - 测试消息', text:text } };
+    const body = JSON.stringify(payload);
+
+    resultEl.textContent = '⏳ 测试中 (直连)...';
+    resultEl.style.color = 'var(--yellow)';
+    try {
+      const resp = await fetch(webhook, { method:'POST', headers:{ 'Content-Type':'application/json' }, body:body });
+      const data = await resp.json();
+      if (data.errcode === 0) { resultEl.textContent = '✅ 推送成功！请检查钉钉群消息'; resultEl.style.color = 'var(--green)'; return; }
+      resultEl.textContent = '❌ 钉钉返回错误: ' + (data.errmsg || JSON.stringify(data));
+      resultEl.style.color = 'var(--red)';
+      return;
+    } catch(e) { /* CORS 或网络问题，继续走代理 */ }
+
+    const customProxy = document.getElementById('dingtalkCorsProxy').value.trim();
+    if (customProxy) {
+      resultEl.textContent = '⏳ 测试中 (自定义代理)...';
+      try {
+        const data = await _fetchDingTalkViaProxy(customProxy, webhook, body);
+        if (data.errcode === 0) { resultEl.textContent = '✅ 推送成功！请检查钉钉群消息'; resultEl.style.color = 'var(--green)'; return; }
+        resultEl.textContent = '❌ 钉钉返回错误: ' + (data.errmsg || JSON.stringify(data));
+        resultEl.style.color = 'var(--red)';
+        return;
+      } catch(e) {}
+    }
+
+    for (let i = 0; i < DINGTALK_CORS_PROXIES.length; i++) {
+      resultEl.textContent = '⏳ 测试中 (公共代理' + (i+1) + '/' + DINGTALK_CORS_PROXIES.length + ')...';
+      try {
+        const data = await _fetchDingTalkViaProxy(DINGTALK_CORS_PROXIES[i], webhook, body);
+        if (data.errcode === 0) { resultEl.textContent = '✅ 推送成功！请检查钉钉群消息'; resultEl.style.color = 'var(--green)'; return; }
+        resultEl.textContent = '❌ 钉钉返回错误: ' + (data.errmsg || JSON.stringify(data));
+        resultEl.style.color = 'var(--red)';
+        return;
+      } catch(e) { continue; }
+    }
+    resultEl.textContent = '❌ 所有推送方式均失败：① Webhook 是否正确 ② 网络能否访问外网 ③ 代理/VPN 是否正常';
+    resultEl.style.color = 'var(--red)';
+  }
+
+  // ───────── 静音 / 刷新 ─────────
   toggleMute() {
     STATE.muted = !STATE.muted;
-    localStorage.setItem('amp_monitor_muted', STATE.muted);
     this.updateMuteUI();
+    this.saveState();
   }
-
   updateMuteUI() {
     const btn = document.getElementById('muteBtn');
     btn.textContent = STATE.muted ? '🔇' : '🔊';
     btn.classList.toggle('muted', STATE.muted);
   }
 
-  // ── DINGTALK TEST ──
-  async testDingTalk() {
-    const webhook = document.getElementById('dingtalkWebhook').value.trim();
-    const resultEl = document.getElementById('dtTestResult');
-    if (!webhook) {
-      resultEl.textContent = '❌ 请先填写 Webhook 地址';
-      resultEl.style.color = 'var(--red)';
-      return;
-    }
-    resultEl.textContent = '⏳ 测试中 (直连)...';
-    resultEl.style.color = 'var(--yellow)';
-
-    const payload = {
-      msgtype: 'markdown',
-      markdown: {
-        title: '振幅监控 - 测试消息',
-        text: '## 📊 振幅监控系统\n\n**测试消息**：钉钉推送功能已成功配置！\n\n' +
-          `**推送级别**: ${STATE.dingtalkPushLevel === 'warn' ? '⚠️ 警告及以上' : STATE.dingtalkPushLevel === 'danger' ? '🔶 高危及以上' : '🔴 仅极端'}\n\n` +
-          `**配置时间**: ${new Date().toLocaleString('zh-CN', { hour12: false })}\n\n` +
-          '> 振幅监控系统自动推送',
-      },
-    };
-    const body = JSON.stringify(payload);
-
-    // Strategy 1: direct
-    let directOk = false;
-    try {
-      const resp = await fetch(webhook, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: body,
-      });
-      const data = await resp.json();
-      if (data.errcode === 0) {
-        resultEl.textContent = '✅ 推送成功！请检查钉钉群消息';
-        resultEl.style.color = 'var(--green)';
-        return;
-      }
-      directOk = true;
-      resultEl.textContent = '❌ 钉钉返回错误: ' + (data.errmsg || JSON.stringify(data));
-      resultEl.style.color = 'var(--red)';
-      return;
-    } catch(e) {
-      // CORS or network error, try proxies
-    }
-
-    // Strategy 2: try custom CORS proxy first
-    const customProxy = document.getElementById('dingtalkCorsProxy').value.trim();
-    if (customProxy) {
-      resultEl.textContent = '⏳ 测试中 (自定义代理)...';
-      try {
-        const data = await _fetchDingTalkViaProxy(customProxy, webhook, body);
-        if (data.errcode === 0) {
-          resultEl.textContent = '✅ 推送成功！请检查钉钉群消息';
-          resultEl.style.color = 'var(--green)';
-          return;
-        }
-        resultEl.textContent = '❌ 钉钉返回错误: ' + (data.errmsg || JSON.stringify(data));
-        resultEl.style.color = 'var(--red)';
-        return;
-      } catch(e) {
-        // custom proxy failed, try public
-      }
-    }
-
-    // Strategy 3: try public CORS proxies
-    const proxies = DINGTALK_CORS_PROXIES;
-    for (let i = 0; i < proxies.length; i++) {
-      resultEl.textContent = `⏳ 测试中 (代理${i + 1}/${proxies.length})...`;
-      try {
-        const data = await _fetchDingTalkViaProxy(proxies[i], webhook, body);
-        if (data.errcode === 0) {
-          resultEl.textContent = '✅ 推送成功！请检查钉钉群消息';
-          resultEl.style.color = 'var(--green)';
-          return;
-        }
-        resultEl.textContent = '❌ 钉钉返回错误: ' + (data.errmsg || JSON.stringify(data));
-        resultEl.style.color = 'var(--red)';
-        return;
-      } catch(e) {
-        continue;
-      }
-    }
-
-    resultEl.textContent = '❌ 所有推送方式均失败，请检查:\n① Webhook 地址是否正确\n② 网络是否能访问外网\n③ 代理/VPN 是否正常';
-    resultEl.style.color = 'var(--red)';
-  }
-
-  // ── REFRESH ──
   async manualRefresh() {
-    // Guard against overlapping refreshes (keyboard 'r' spam / double clicks)
     if (this._refreshing) return;
     this._refreshing = true;
-    document.getElementById('statUpdate').textContent = '刷新中...';
-    document.getElementById('statUpdate').style.color = 'var(--yellow)';
-
+    this.setStatus('刷新中...', 'var(--yellow)');
     try {
-      const pairs = await BinanceAPI.getTopPairs(STATE.symbolCount);
-      STATE.symbols = pairs.map(p => p.symbol);
-      for (const p of pairs) {
-        STATE.pairMeta[p.symbol] = {
-          lastPrice: p.lastPrice,
-          priceChangePercent: p.priceChangePercent,
-          quoteVolume: p.quoteVolume,
-        };
-      }
-
-      // Build table immediately, then stream in kline data concurrently
-      this.buildTableBody();
+      STATE.epoch++;
+      BinanceAPI.clearQueue('refresh');
+      STATE.buckets = {};
+      STATE.alertCooldown = {};
+      STATE.restFixQueue.clear();
+      this.rowRefs = {};
+      this.cellRefs = {};
+      this.bodyEl.innerHTML = '';
+      STATE.displayed = [];
+      await this.loadUniverse();
       this.startWebSocket();
-
-      var self = this;
-      var allTasks = [];
-      for (var s = 0; s < STATE.symbols.length; s++) {
-        var sym = STATE.symbols[s];
-        for (var tfIdx = 0; tfIdx < STATE.timeframes.length; tfIdx++) {
-          allTasks.push(self._fetchAndProcessKline(sym, STATE.timeframes[tfIdx], false));
-        }
-        for (var gIdx = 0; gIdx < CONFIG.GAIN_EXTRA_TF.length; gIdx++) {
-          allTasks.push(self._fetchAndProcessKline(sym, CONFIG.GAIN_EXTRA_TF[gIdx], true));
-        }
-      }
-      await Promise.allSettled(allTasks);
-
-      this.updateStats();
-      document.getElementById('pairCount').textContent = `币种: ${STATE.symbols.length}`;
-      document.getElementById('statUpdate').textContent = '✓ 刷新完成';
-      document.getElementById('statUpdate').style.color = 'var(--green)';
+      await this.prefillAll();
+      this.setStatus('✓ 刷新完成', 'var(--green)');
     } catch(e) {
-      console.error('[AmplitudeMonitor] refresh error:', e);
-      document.getElementById('statUpdate').textContent = '✗ 刷新失败';
-      document.getElementById('statUpdate').style.color = 'var(--red)';
+      console.error('[manualRefresh]', e);
+      this.setStatus('✗ 刷新失败', 'var(--red)');
     } finally {
       this._refreshing = false;
     }
   }
 
-  startPeriodicRefresh() {
-    // Lightweight price update every 90s using /ticker/price (WebSocket handles real-time)
-    // Full 24hr ticker refresh every 5 minutes for volume/change data
-    var self = this;
-    var refreshCount = 0;
-    setInterval(async function() {
-      try {
-        refreshCount++;
-        if (refreshCount % 3 === 0) {
-          // Every ~4.5 min: full ticker refresh for 24h change + volume ranking
-          var pairs = await BinanceAPI.getTopPairs(STATE.symbolCount);
-          for (var i = 0; i < pairs.length; i++) {
-            var p = pairs[i];
-            if (STATE.pairMeta[p.symbol]) {
-              STATE.pairMeta[p.symbol].lastPrice = p.lastPrice;
-              STATE.pairMeta[p.symbol].priceChangePercent = p.priceChangePercent;
-              STATE.pairMeta[p.symbol].quoteVolume = p.quoteVolume;
-            }
-          }
-        } else {
-          // Lightweight: only price updates via /ticker/price
-          var priceMap = await BinanceAPI.getPriceMap();
-          for (var s = 0; s < STATE.symbols.length; s++) {
-            var sym = STATE.symbols[s];
-            if (priceMap[sym] != null && STATE.pairMeta[sym]) {
-              STATE.pairMeta[sym].lastPrice = priceMap[sym];
-            }
-          }
-        }
-        // Update price cells
-        for (var j = 0; j < STATE.symbols.length; j++) {
-          var meta = STATE.pairMeta[STATE.symbols[j]];
-          if (meta) self.updatePriceCell(STATE.symbols[j], meta.lastPrice);
-        }
-        document.getElementById('statUpdate').textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-      } catch(e) {}
-    }, 90000);
-  }
-
-  async reload() {
-    this.disconnectWS();
-    STATE.klineCache = {};
-    STATE.gainCache = {};
-    STATE.gainKlineCache = {};
-    STATE.pairMeta = {};
-    STATE.patternCache = {};
-    // loadData() 内部已调用 startWebSocket()
-    await this.loadData();
-  }
-
-  // ── CLOCK ──
+  // ───────── 时钟 ─────────
   startClock() {
-    const updateClock = () => {
-      const now = new Date();
-      const bjTime = new Date(now.getTime() + (8 * 60 * 60 * 1000) + now.getTimezoneOffset() * 60 * 1000);
+    const tick = () => {
+      const d = new Date();
       const days = ['日','一','二','三','四','五','六'];
-      const str = bjTime.getUTCFullYear() + '-' +
-        String(bjTime.getUTCMonth() + 1).padStart(2,'0') + '-' +
-        String(bjTime.getUTCDate()).padStart(2,'0') + ' ' +
-        '周' + days[bjTime.getUTCDay()] + ' ' +
-        String(bjTime.getUTCHours()).padStart(2,'0') + ':' +
-        String(bjTime.getUTCMinutes()).padStart(2,'0') + ':' +
-        String(bjTime.getUTCSeconds()).padStart(2,'0') + ' BJT';
-      document.getElementById('clock').textContent = str;
+      const b = new Date(d.getTime() + 8*3600*1000);
+      document.getElementById('clock').textContent =
+        b.getUTCFullYear() + '-' + pad2(b.getUTCMonth()+1) + '-' + pad2(b.getUTCDate()) + ' 周' + days[b.getUTCDay()] +
+        ' ' + pad2(b.getUTCHours()) + ':' + pad2(b.getUTCMinutes()) + ':' + pad2(b.getUTCSeconds()) + ' BJT';
+      this.updateKlineClock();
+      const blocked = BinanceAPI.blockedRemaining();
+      if (blocked > 0) {
+        this.setStatus('⏸ 币安限流，暂停 ' + Math.ceil(blocked/1000) + 's', 'var(--red)');
+      } else if (STATE.prefill.active) {
+        this.setStatus('校准 ' + STATE.prefill.done + '/' + STATE.prefill.total, 'var(--yellow)');
+      } else if (STATE.initDone) {
+        this.setStatus(bjtClock(Date.now(), false), 'var(--text-secondary)');
+      }
     };
-    updateClock();
-    STATE.clockTimer = setInterval(updateClock, 1000);
+    tick();
+    STATE.clockTimer = setInterval(tick, 1000);
   }
 }
 
@@ -2464,7 +2343,7 @@ function updateConnectionUI() {
   if (STATE.wsConnected) {
     dot.className = '';
     dot.style.background = 'var(--green)';
-    dot.title = 'WebSocket 已连接';
+    dot.title = 'WebSocket 已连接 (' + STATE.wsStreams + ' 条流)';
   } else {
     dot.className = 'disconnected';
     dot.style.background = 'var(--red)';
@@ -2473,24 +2352,24 @@ function updateConnectionUI() {
 }
 
 // ==================== BOOTSTRAP ====================
-const app = new AmplitudeMonitor();
+const app = new GainBoard();
 
-document.addEventListener('DOMContentLoaded', () => {
-  app.init();
-});
+document.addEventListener('DOMContentLoaded', () => { app.init(); });
 
-// Close settings modal on outside click
 document.addEventListener('click', (e) => {
   const modal = document.getElementById('settingsModal');
-  if (modal && e.target === modal) {
-    modal.style.display = 'none';
-  }
+  if (modal && e.target === modal) modal.style.display = 'none';
 });
 
-// Keyboard shortcuts
+// 快捷键：1..9/0 切换级别，m 静音，r 刷新，s 设置，a 告警面板，Esc 关闭弹窗
 document.addEventListener('keydown', (e) => {
-  if (e.ctrlKey || e.metaKey) return;
-  switch(e.key.toLowerCase()) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  const k = e.key;
+  if (k >= '1' && k <= '9') { app.setLevel(CONFIG.LEVELS[parseInt(k, 10) - 1]); return; }
+  if (k === '0') { app.setLevel(CONFIG.LEVELS[9]); return; }
+  switch (k.toLowerCase()) {
     case 'm': app.toggleMute(); break;
     case 'r': app.manualRefresh(); break;
     case 's': app.toggleSettings(); break;
